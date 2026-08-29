@@ -1,0 +1,29 @@
+{
+  "name": "cheatcodes",
+  "version": "0.2.0",
+  "description": "Standalone coding-agent knowledge harvester and curator CLI.",
+  "type": "module",
+  "bin": { "cheatcodes": "dist/cli.js" },
+  "exports": {
+    ".": "./dist/cli.js",
+    "./cli": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "start": "tsx src/cli.ts"
+  },
+  "engines": { "node": ">=22.19.0" },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.4",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
