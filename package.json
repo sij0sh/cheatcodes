@@ -3,6 +3,10 @@
   "version": "0.2.0",
   "description": "Standalone coding-agent knowledge harvester and curator CLI.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sij0sh/cheatcodes.git"
+  },
   "type": "module",
   "bin": {
     "cheatcodes": "dist/cli.js"
