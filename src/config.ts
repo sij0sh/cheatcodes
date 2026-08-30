@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -18,6 +18,7 @@ export interface GlobalConfig {
   inputs: string[];
   workerTimeoutMinutes: number;
   knowledgeFile?: string;
+  contextPointer?: boolean;
   projectAliases: Record<string, string[]>;
 }
 
@@ -46,7 +47,7 @@ const VERSION_2_EXAMPLE = `{"version":2,"model":"<model>","inputs":[],"workerTim
 export function validateGlobalConfig(value: unknown, source = "config"): GlobalConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${source} must be an object`);
   const raw = value as Record<string, unknown>;
-  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "projectAliases"]);
+  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "projectAliases"]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) throw new Error(`${source}.${key} is not a recognized field`);
   }
@@ -66,6 +67,11 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
       throw new Error(`${source}.knowledgeFile must be a repository-relative path`);
     }
   }
+  let contextPointer: boolean | undefined;
+  if (raw.contextPointer !== undefined) {
+    if (typeof raw.contextPointer !== "boolean") throw new Error(`${source}.contextPointer must be a boolean`);
+    contextPointer = raw.contextPointer;
+  }
   const aliasesRaw = raw.projectAliases;
   if (!aliasesRaw || typeof aliasesRaw !== "object" || Array.isArray(aliasesRaw)) throw new Error(`${source}.projectAliases must be an object`);
   const projectAliases: Record<string, string[]> = {};
@@ -76,6 +82,7 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     inputs: stringList(raw.inputs, `${source}.inputs`),
     workerTimeoutMinutes: timeout,
     knowledgeFile,
+    contextPointer,
     projectAliases,
   };
 }
@@ -117,6 +124,24 @@ function expandHome(value: string): string {
 export function resolveGlobalInputs(config: GlobalConfig, env: NodeJS.ProcessEnv = process.env): string[] {
   const base = path.dirname(globalConfigPath(env));
   return [...new Set(config.inputs.map((value) => path.resolve(base, expandHome(value))))];
+}
+
+export async function discoverDefaultInputs(env: NodeJS.ProcessEnv = process.env): Promise<string[]> {
+  const piAgentDir = env.PI_CODING_AGENT_DIR?.trim() || path.join(homedir(), ".pi", "agent");
+  const claudeConfigDir = env.CLAUDE_CONFIG_DIR?.trim() || path.join(homedir(), ".claude");
+  const candidates = [
+    path.join(path.resolve(expandHome(piAgentDir)), "sessions"),
+    path.join(path.resolve(expandHome(claudeConfigDir)), "projects"),
+  ];
+  const discovered: string[] = [];
+  for (const candidate of candidates) {
+    try {
+      if ((await stat(candidate)).isDirectory()) discovered.push(candidate);
+    } catch {
+      // Missing or inaccessible harness directories are not configured.
+    }
+  }
+  return discovered;
 }
 
 export function resolveProjectRoots(config: GlobalConfig, root: string, projectKey: string): string[] {
@@ -188,9 +213,9 @@ async function updateContextPointer(root: string, knowledgeFile: string): Promis
   return target;
 }
 
-export interface KnowledgeOutput { knowledgeFile: string; contextFile: string }
+export interface KnowledgeOutput { knowledgeFile: string; contextFile?: string }
 
-export async function ensureKnowledgeOutput(root: string, knowledgeFile = DEFAULT_KNOWLEDGE_FILE): Promise<KnowledgeOutput> {
+export async function ensureKnowledgeOutput(root: string, knowledgeFile = DEFAULT_KNOWLEDGE_FILE, contextPointer = true): Promise<KnowledgeOutput> {
   const knowledgePath = knowledgeFilePath(root, knowledgeFile);
   try {
     await readFile(knowledgePath);
@@ -199,6 +224,7 @@ export async function ensureKnowledgeOutput(root: string, knowledgeFile = DEFAUL
     await mkdir(path.dirname(knowledgePath), { recursive: true });
     await atomicWrite(knowledgePath, renderKnowledgeMarkdown([]));
   }
+  if (!contextPointer) return { knowledgeFile: knowledgePath };
   const contextFile = await updateContextPointer(root, knowledgeFile);
   return { knowledgeFile: knowledgePath, contextFile };
 }

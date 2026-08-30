@@ -4,6 +4,7 @@ import { rmSync } from "node:fs";
 import path from "node:path";
 import {
   deriveProjectKey,
+  discoverDefaultInputs,
   discoverGitRoot,
   emptyGlobalConfig,
   ensureKnowledgeOutput,
@@ -135,7 +136,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
   let deadlineExceeded = false;
   try {
     if (lock.staleRecovered) warn("Recovered a stale project mutation lock");
-    await ensureKnowledgeOutput(root, global.knowledgeFile);
+    await ensureKnowledgeOutput(root, global.knowledgeFile, global.contextPointer !== false);
     let entries: KnowledgeEntry[] = parseKnowledgeMarkdown(await readFile(knowledgeFile, "utf8"));
     const globalState = await loadGlobalState(env);
     const projectState: ProjectState = globalState.projects[projectKey] ?? { files: {} };
@@ -297,12 +298,20 @@ export async function runWorker(options: RunOptions = {}): Promise<WorkerResult>
   if (!root) return { outcome: "skipped", invocationId, reason: "outside a Git repository", warnings: [] };
   const hints = readLauncherHints(env);
   let global = await loadGlobalConfig(env);
+  let configChanged = false;
   if (!global) {
     const model = hintModel(hints);
     if (!model) return { outcome: "skipped", invocationId, reason: `no global config at ${globalConfigPath(env)}`, warnings: [] };
     global = emptyGlobalConfig(model);
-    await saveGlobalConfig(global, env);
+    configChanged = true;
   }
+  const configuredInputs = new Set(resolveGlobalInputs(global, env));
+  const discoveredInputs = (await discoverDefaultInputs(env)).filter((input) => !configuredInputs.has(input));
+  if (discoveredInputs.length > 0) {
+    global = { ...global, inputs: [...global.inputs, ...discoveredInputs] };
+    configChanged = true;
+  }
+  if (configChanged) await saveGlobalConfig(global, env);
   const projectKey = await deriveProjectKey(root);
   const lock = await acquireProjectLock(env, projectKey, { coalesce: true });
   if (lock.coalesced) {

@@ -8,6 +8,7 @@ Breaking simplification: one repo artifact, global config and state.
 
 - `CHEATCODES.md` at the repository root is now the only repository artifact. It holds all curated entries in a self-describing markdown format; `.cheatcodes/` is no longer created or read. Back up and delete any existing `.cheatcodes/` tree after migrating anything you want to keep.
 - The knowledge file location defaults to `CHEATCODES.md` in the repository root and is configurable with the optional global `knowledgeFile` field (a repository-relative path, e.g. `".pi-files/CHEATCODES.md"`). The AGENTS.md pointer and `status` output follow the configured path.
+- The AGENTS.md knowledge pointer defaults to on and is configurable with the optional global `contextPointer` boolean (default `true`). When `false`, runs never create or modify `AGENTS.md`.
 - Global config is now version 2: `{ "version": 2, "model", "inputs", "workerTimeoutMinutes", "projectAliases" }`. The `automation` block was removed and version 1 files are rejected with a migration hint.
 - Run state (file cursors and the last-run record) moved to the global state file at `$XDG_STATE_HOME/cheatcodes/state.json` (`~/.local/state/cheatcodes/state.json` by default). Override with `CHEATCODES_STATE`.
 - Project identity is derived from the Git `origin` remote (or the repository path) as a project key; no `project.json` is written.

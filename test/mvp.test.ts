@@ -171,6 +171,21 @@ test("the knowledge pointer is appended once and replaces the legacy pointer", a
     assert.equal((await readFile(path.join(root, "AGENTS.md"), "utf8")), agents);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+test("an existing AGENTS.md keeps its content and gains the pointer exactly once", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    await writeFile(path.join(root, "AGENTS.md"), "# My project\n\nBe nice to the code.\n");
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.equal(agents.startsWith("# My project\n\nBe nice to the code.\n"), true);
+    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    assert.equal(await readFile(path.join(root, "AGENTS.md"), "utf8"), agents);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test("secret redaction covers common credential shapes", () => {
   const redacted = redactSecrets([
@@ -208,6 +223,22 @@ test("partial final JSONL lines are not committed until complete", () => {
   const reparsed = parseJsonlBytes(Buffer.from(complete), { file: "f.jsonl" });
   assert.equal(reparsed.completeOffset, parsed.completeOffset);
   assert.equal(reparsed.completeSha256, parsed.completeSha256);
+});
+
+test("Claude Code JSONL is normalized at the session boundary", () => {
+  const metadata = { sessionId: "claude-session", cwd: "/repo", version: "1.0.58" };
+  const parsed = parseJsonlBytes(Buffer.from([
+    line({ ...metadata, type: "user", uuid: "u1", parentUuid: null, timestamp: "2026-01-01T00:00:00Z", message: { role: "user", content: "Please run the repository tests before finishing." } }),
+    line({ ...metadata, type: "assistant", uuid: "a1", parentUuid: "u1", timestamp: "2026-01-01T00:00:01Z", message: { role: "assistant", stop_reason: "tool_use", content: [{ type: "tool_use", id: "tool-1", name: "Bash", input: { command: "npm test" } }] } }),
+    line({ ...metadata, type: "user", uuid: "t1", parentUuid: "a1", timestamp: "2026-01-01T00:00:02Z", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "tool-1", content: "all tests passed" }] } }),
+    line({ ...metadata, type: "assistant", uuid: "a2", parentUuid: "t1", timestamp: "2026-01-01T00:00:03Z", message: { role: "assistant", stop_reason: "end_turn", content: [{ type: "text", text: "The repository tests pass." }] } }),
+  ].join("")), { file: "claude.jsonl" });
+
+  assert.equal(parsed.sessionId, "claude-session");
+  assert.deepEqual(parsed.records.map((record) => record.id), ["u1", "t1", "a2"]);
+  assert.deepEqual(parsed.branches[0]!.map((record) => record.id), ["u1", "t1", "a2"]);
+  assert.equal(parsed.records[1]!.receipt!.tool, "Bash");
+  assert.equal(parsed.records[1]!.receipt!.command, "npm test");
 });
 
 test("branch reconstruction follows parent chains across versions", () => {

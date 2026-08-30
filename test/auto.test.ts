@@ -29,6 +29,14 @@ function fixture(root: string, sessionId = "session-1"): string {
   ].map(line).join("");
 }
 
+function claudeFixture(root: string, sessionId = "claude-session-1"): string {
+  const metadata = { sessionId, cwd: root, version: "1.0.58" };
+  return [
+    { ...metadata, type: "user", uuid: "cu1", parentUuid: null, timestamp: "2026-01-01T00:00:01Z", message: { role: "user", content: "No, that is wrong. We must use the repository adapter instead." } },
+    { ...metadata, type: "assistant", uuid: "ca1", parentUuid: "cu1", timestamp: "2026-01-01T00:00:02Z", message: { role: "assistant", stop_reason: "end_turn", content: [{ type: "text", text: "Understood. The repository adapter is required." }] } },
+  ].map(line).join("");
+}
+
 function fakeCurator(calls: { count: number }): Curator {
   return { async curate(packet) {
     calls.count++;
@@ -74,6 +82,8 @@ test("global config validation enforces the version 2 shape", () => {
   assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: "../escape.md" }), /repository-relative/);
   const configured = validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: ".pi-files/CHEATCODES.md" });
   assert.equal(configured.knowledgeFile, ".pi-files/CHEATCODES.md");
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), contextPointer: "yes" }), /contextPointer must be a boolean/);
+  assert.equal(validateGlobalConfig({ ...emptyGlobalConfig("m"), contextPointer: false }).contextPointer, false);
   const valid = validateGlobalConfig(emptyGlobalConfig("m"));
   assert.equal(valid.version, 2);
 });
@@ -134,6 +144,8 @@ test("a model hint creates a missing version 2 config and never overwrites an ex
       CHEATCODES_STATE: path.join(configDir, "state.json"),
       CHEATCODES_PI_MODEL: "prov/m1",
       CHEATCODES_PI_THINKING: "high",
+      PI_CODING_AGENT_DIR: path.join(configDir, "absent-pi"),
+      CLAUDE_CONFIG_DIR: path.join(configDir, "absent-claude"),
     };
     const result = await runWorker({ root, env, curator: fakeCurator({ count: 0 }) });
     assert.equal(result.outcome, "success");
@@ -171,6 +183,31 @@ test("run creates the knowledge file and global state but no repository-local ru
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("contextPointer false creates the knowledge file without touching AGENTS.md", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
+    const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
+    assert.equal(result.outcome, "success");
+    await stat(path.join(root, "CHEATCODES.md"));
+    await assert.rejects(stat(path.join(root, "AGENTS.md")), /ENOENT/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("contextPointer false leaves an existing AGENTS.md untouched", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    await writeFile(path.join(root, "AGENTS.md"), "# Existing agents notes\n");
+    const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
+    const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
+    assert.equal(result.outcome, "success");
+    assert.equal(await readFile(path.join(root, "AGENTS.md"), "utf8"), "# Existing agents notes\n");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 test("knowledgeFile config moves the knowledge file and the AGENTS pointer", async () => {
   const root = await temporary();
   try {
@@ -202,6 +239,33 @@ test("direct session-file hints are scanned as extra inputs", async () => {
     assert.equal(result.run!.changedFiles, 1);
     assert.equal(calls.count, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("startup adds existing Pi and Claude session roots to global inputs", async () => {
+  const root = await temporary();
+  const harnesses = await temporary("cheatcodes-harnesses-");
+  try {
+    await gitInit(root);
+    const piAgentDir = path.join(harnesses, "pi-agent");
+    const claudeConfigDir = path.join(harnesses, "claude");
+    const piSessions = path.join(piAgentDir, "sessions");
+    const claudeProjects = path.join(claudeConfigDir, "projects");
+    await mkdir(piSessions, { recursive: true });
+    await mkdir(claudeProjects, { recursive: true });
+    await writeFile(path.join(piSessions, "pi.jsonl"), fixture(root, "pi-session"));
+    await writeFile(path.join(claudeProjects, "claude.jsonl"), claudeFixture(root));
+    const { env } = await writeGlobalConfig({ inputs: [] });
+    const harnessEnv = { ...env, PI_CODING_AGENT_DIR: piAgentDir, CLAUDE_CONFIG_DIR: claudeConfigDir };
+
+    const result = await runWorker(withCurator({ root, env: harnessEnv }, fakeCurator({ count: 0 })));
+
+    assert.equal(result.outcome, "success");
+    assert.equal(result.run!.changedFiles, 2);
+    assert.deepEqual((await loadGlobalConfig(harnessEnv))!.inputs, [piSessions, claudeProjects]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(harnesses, { recursive: true, force: true });
+  }
 });
 
 test("a second run coalesces under the project lock and records the outcome", async () => {

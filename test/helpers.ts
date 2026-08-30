@@ -12,6 +12,7 @@ export interface GlobalConfigOptions {
   inputs?: string[];
   workerTimeoutMinutes?: number;
   knowledgeFile?: string;
+  contextPointer?: boolean;
   projectAliases?: Record<string, string[]>;
 }
 
@@ -22,6 +23,7 @@ export function globalConfigObject(options: GlobalConfigOptions = {}): Record<st
     inputs: options.inputs ?? [],
     workerTimeoutMinutes: options.workerTimeoutMinutes ?? 10,
     ...(options.knowledgeFile !== undefined ? { knowledgeFile: options.knowledgeFile } : {}),
+    ...(options.contextPointer !== undefined ? { contextPointer: options.contextPointer } : {}),
     projectAliases: options.projectAliases ?? {},
   };
 }
