@@ -1,474 +1,283 @@
-import { randomBytes } from "node:crypto";
-import { parse, stringify } from "yaml";
+import { createHash } from "node:crypto";
 
-export const CONCEPT_TYPES = ["Decision", "Gotcha", "Runbook"] as const;
-export type ConceptType = (typeof CONCEPT_TYPES)[number];
-
-export const CONCEPT_STATUSES = ["draft", "stable", "deprecated"] as const;
-export type ConceptStatus = (typeof CONCEPT_STATUSES)[number];
-
-export interface GeneratedMetadata {
-  by: string;
-  at?: string;
-  [key: string]: unknown;
-}
-
-export interface Verification {
-  by: string;
-  at: string;
-  [key: string]: unknown;
-}
-
-export interface ConceptSource {
+export interface KnowledgeEntry {
   id: string;
-  resource: string;
-  title?: string;
-  [key: string]: unknown;
-}
-
-
-export interface ConceptFrontmatter {
-  cheatcodes_id: string;
-  type: ConceptType;
   title: string;
-  description: string;
-  tags?: string[];
-  status: ConceptStatus;
-  generated: GeneratedMetadata;
-  sources: ConceptSource[];
-  verified?: Verification[];
-  stale_after?: string;
-  [key: string]: unknown;
-}
-
-export interface ConceptDocument {
-  frontmatter: ConceptFrontmatter;
-  
+  summary: string;
   body: string;
+  date?: string;
+  tags?: string[];
+  sources?: string[];
 }
 
-export type DecisionContent = {
-  answer: string;
-  rationale: string;
-  rejectedAlternative?: string;
-};
-
-export type GotchaContent = {
-  symptom: string;
-  cause: string;
-  fix: string;
-  validation?: string;
-};
-
-export type RunbookContent = {
-  purpose: string;
-  steps: string[];
-  validation?: string;
-};
-
-export type ConceptContent = DecisionContent | GotchaContent | RunbookContent;
-
-export interface ConceptEvidence {
-  id: string;
-  excerpt: string;
-  title?: string;
-}
-
-export interface CreateConceptInput {
-  
-  id?: string;
-  type: ConceptType;
+export interface CuratedEntryInput {
+  action: "create" | "update";
+  targetEntryId?: string;
   title: string;
-  description: string;
+  summary: string;
+  body: string;
+  date?: string;
   tags?: string[];
-  content: ConceptContent;
-  sources: ConceptSource[];
-  evidence?: ConceptEvidence[];
-  generatedBy: string;
-  generatedAt: string;
-  
-  extraFrontmatter?: Record<string, unknown>;
+  sources?: string[];
 }
 
-export interface AdditiveConceptUpdate {
-  type: ConceptType;
-  content: ConceptContent;
-  tags?: string[];
-  sources: ConceptSource[];
-  evidence?: ConceptEvidence[];
-  generatedAt: string;
-  
-  generatedBy?: string;
-}
-
-export interface AdditiveUpdateResult {
-  concept: ConceptDocument;
-  changed: boolean;
-  contentAdded: boolean;
-  provenanceAdded: boolean;
-}
-
-export class ConceptValidationError extends Error {
+export class KnowledgeValidationError extends Error {
   readonly issues: string[];
 
   constructor(issues: string[]) {
-    super(`Invalid concept:\n- ${issues.join("\n- ")}`);
-    this.name = "ConceptValidationError";
+    super(`Invalid knowledge entry:\n- ${issues.join("\n- ")}`);
+    this.name = "KnowledgeValidationError";
     this.issues = issues;
   }
 }
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const DATETIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const OPEN_MARKER = "<!-- cheatcodes-entry ";
+const CLOSE_MARKER = "<!-- /cheatcodes-entry -->";
+const DOCUMENT_HEADING = "# CHEATCODES";
+const RESERVED_TEXT = [OPEN_MARKER, CLOSE_MARKER, "-->"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function requiredString(value: unknown, path: string, issues: string[]): string {
+function requiredString(value: unknown, field: string, issues: string[]): string {
   if (typeof value !== "string" || value.trim() === "") {
-    issues.push(`${path} must be a non-empty string`);
+    issues.push(`${field} must be a non-empty string`);
     return "";
   }
   return value.trim();
 }
 
-function validateDatetime(value: unknown, path: string, issues: string[]): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "string" || !DATETIME_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
-    issues.push(`${path} must be an ISO 8601 datetime with a UTC offset`);
-    return undefined;
+function rejectReserved(value: string, field: string, issues: string[]): void {
+  for (const marker of RESERVED_TEXT) {
+    if (value.includes(marker)) {
+      issues.push(`${field} must not contain reserved text: ${marker.trim()}`);
+      return;
+    }
   }
-  return value;
 }
 
-function validateResource(value: unknown, path: string, issues: string[]): string {
-  const resource = requiredString(value, path, issues);
-  if (resource !== "" && /[\u0000-\u001f\u007f]/u.test(resource)) {
-    issues.push(`${path} must not contain control characters`);
-  }
-  return resource;
+function normalizeMultiline(value: string): string {
+  return value.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").trim();
 }
 
-function normalizeStringList(value: unknown, path: string, issues: string[]): string[] | undefined {
-  if (value === undefined) return undefined;
+function normalizeList(value: unknown, field: string, issues: string[]): string[] {
+  if (value === undefined) return [];
   if (!Array.isArray(value)) {
-    issues.push(`${path} must be a list of non-empty strings`);
-    return undefined;
+    issues.push(`${field} must be a list of non-empty strings`);
+    return [];
   }
   const result: string[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const item = requiredString(value[index], `${path}[${index}]`, issues);
-    if (item && !result.includes(item)) result.push(item);
-  }
-  return result;
+  value.forEach((item, index) => {
+    const itemText = requiredString(item, `${field}[${index}]`, issues);
+    if (itemText && !result.includes(itemText)) result.push(itemText);
+  });
+  return result.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
+function optionalDate(value: unknown, issues: string[]): string | undefined {
+  if (value === undefined || value === "") return undefined;
+  if (typeof value !== "string") {
+    issues.push("date must be an ISO 8601 datetime string");
+    return undefined;
+  }
+  const parsed = new Date(value.trim());
+  if (Number.isNaN(parsed.getTime())) {
+    issues.push("date must be an ISO 8601 datetime string");
+    return undefined;
+  }
+  return parsed.toISOString();
+}
 
-export function validateConceptFrontmatter(value: unknown): ConceptFrontmatter {
+export function validateEntry(value: unknown): KnowledgeEntry {
   const issues: string[] = [];
-  if (!isRecord(value)) throw new ConceptValidationError(["frontmatter must be a mapping"]);
+  if (!isRecord(value)) throw new KnowledgeValidationError(["entry must be a mapping"]);
 
-  const id = requiredString(value.cheatcodes_id, "cheatcodes_id", issues);
+  const id = requiredString(value.id, "id", issues);
   if (id && !ID_PATTERN.test(id)) {
-    issues.push("cheatcodes_id may contain only letters, digits, dots, underscores, and hyphens");
+    issues.push("id may contain only letters, digits, dots, underscores, and hyphens");
   }
-
-  const rawType = requiredString(value.type, "type", issues);
-  if (!CONCEPT_TYPES.includes(rawType as ConceptType)) {
-    issues.push(`type must be one of ${CONCEPT_TYPES.join(", ")}`);
-  }
-
-  const rawStatus = requiredString(value.status, "status", issues);
-  if (!CONCEPT_STATUSES.includes(rawStatus as ConceptStatus)) {
-    issues.push(`status must be one of ${CONCEPT_STATUSES.join(", ")}`);
-  }
-
   const title = requiredString(value.title, "title", issues);
-  const description = requiredString(value.description, "description", issues);
-  const tags = normalizeStringList(value.tags, "tags", issues);
+  const summary = requiredString(value.summary, "summary", issues);
+  const body = requiredString(value.body, "body", issues);
+  const date = optionalDate(value.date, issues);
+  const tags = normalizeList(value.tags, "tags", issues);
+  const sources = normalizeList(value.sources, "sources", issues);
 
-  let generated: GeneratedMetadata = { by: "" };
-  if (!isRecord(value.generated)) {
-    issues.push("generated must be a mapping");
-  } else {
-    generated = {
-      ...value.generated,
-      by: requiredString(value.generated.by, "generated.by", issues),
-    } as GeneratedMetadata;
-    const at = validateDatetime(value.generated.at, "generated.at", issues);
-    if (at !== undefined) generated.at = at;
-    else if (value.generated.at !== undefined) delete generated.at;
+  for (const [field, text] of [["id", id], ["title", title], ["summary", summary], ["body", body]] as const) {
+    if (text) rejectReserved(text, field, issues);
   }
+  tags.forEach((tag, index) => rejectReserved(tag, `tags[${index}]`, issues));
+  sources.forEach((source, index) => rejectReserved(source, `sources[${index}]`, issues));
 
-  const sources: ConceptSource[] = [];
-  if (!Array.isArray(value.sources) || value.sources.length === 0) {
-    issues.push("sources must be a non-empty list");
-  } else {
-    value.sources.forEach((source, index) => {
-      if (!isRecord(source)) {
-        issues.push(`sources[${index}] must be a mapping`);
-        return;
-      }
-      const normalized: ConceptSource = {
-        ...source,
-        id: requiredString(source.id, `sources[${index}].id`, issues),
-        resource: validateResource(source.resource, `sources[${index}].resource`, issues),
-      } as ConceptSource;
-      if (source.title !== undefined) {
-        normalized.title = requiredString(source.title, `sources[${index}].title`, issues);
-      }
-      sources.push(normalized);
-    });
-  }
-  const sourceIds = new Set<string>();
-  for (const source of sources) {
-    if (sourceIds.has(source.id)) issues.push(`duplicate source id: ${source.id}`);
-    sourceIds.add(source.id);
-  }
-
-  let verified: Verification[] | undefined;
-  if (value.verified !== undefined) {
-    const events = Array.isArray(value.verified) ? value.verified : [value.verified];
-    verified = [];
-    events.forEach((event, index) => {
-      if (!isRecord(event)) {
-        issues.push(`verified[${index}] must be a mapping`);
-        return;
-      }
-      verified!.push({
-        ...event,
-        by: requiredString(event.by, `verified[${index}].by`, issues),
-        at: validateDatetime(event.at, `verified[${index}].at`, issues) ?? "",
-      } as Verification);
-    });
-    if (verified.length === 0) issues.push("verified must contain at least one event");
-  }
-
-  const staleAfter = validateDatetime(value.stale_after, "stale_after", issues);
-  if (issues.length > 0) throw new ConceptValidationError(issues);
-
-  const normalized: Record<string, unknown> = { ...value };
-  normalized.cheatcodes_id = id;
-  normalized.type = rawType;
-  normalized.title = title;
-  normalized.description = description;
-  normalized.status = rawStatus;
-  normalized.generated = generated;
-  normalized.sources = sources;
-  if (tags !== undefined) normalized.tags = tags;
-  if (verified !== undefined) normalized.verified = verified;
-  if (staleAfter !== undefined) normalized.stale_after = staleAfter;
-  return normalized as ConceptFrontmatter;
+  if (issues.length > 0) throw new KnowledgeValidationError(issues);
+  const entry: KnowledgeEntry = { id, title, summary, body: normalizeMultiline(body) };
+  if (date) entry.date = date;
+  if (tags.length > 0) entry.tags = tags;
+  if (sources.length > 0) entry.sources = sources;
+  return entry;
 }
 
+interface EntryMetadata {
+  id: string;
+  title: string;
+  summary: string;
+  date?: string;
+  tags?: string[];
+  sources?: string[];
+}
 
-export function parseConceptMarkdown(markdown: string): ConceptDocument {
+function metadataFor(entry: KnowledgeEntry): EntryMetadata {
+  const metadata: EntryMetadata = { id: entry.id, title: entry.title, summary: entry.summary };
+  if (entry.date) metadata.date = entry.date;
+  if (entry.tags && entry.tags.length > 0) metadata.tags = entry.tags;
+  if (entry.sources && entry.sources.length > 0) metadata.sources = entry.sources;
+  return metadata;
+}
+
+function renderBlock(entry: KnowledgeEntry): string {
+  const valid = validateEntry(entry);
+  const metadata = JSON.stringify(metadataFor(valid));
+  return [
+    `${OPEN_MARKER}${metadata}-->`,
+    `## ${valid.title}`,
+    "",
+    valid.summary,
+    "",
+    valid.body,
+    "",
+    CLOSE_MARKER,
+    "",
+  ].join("\n");
+}
+
+function normalizeTitleKey(title: string): string {
+  return title.normalize("NFKC").toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function entryOrder(entry: KnowledgeEntry): string {
+  return `${normalizeTitleKey(entry.title)}\u0000${entry.id}`;
+}
+
+export function renderKnowledgeMarkdown(entries: readonly KnowledgeEntry[]): string {
+  const valid = entries.map((entry) => validateEntry(entry));
+  valid.sort((a, b) => (entryOrder(a) < entryOrder(b) ? -1 : entryOrder(a) > entryOrder(b) ? 1 : 0));
+  const blocks = valid.map((entry) => renderBlock(entry));
+  return blocks.length > 0 ? `${DOCUMENT_HEADING}\n\n${blocks.join("")}` : `${DOCUMENT_HEADING}\n`;
+}
+
+function renderedPrefix(entry: KnowledgeEntry): string {
+  return `## ${entry.title}\n\n${entry.summary}\n\n`;
+}
+
+export function parseKnowledgeMarkdown(markdown: string): KnowledgeEntry[] {
   const normalized = markdown.replace(/\r\n?/g, "\n");
-  if (!normalized.startsWith("---\n")) {
-    throw new ConceptValidationError(["document must start with YAML frontmatter"]);
+  const entries: KnowledgeEntry[] = [];
+  const ids = new Set<string>();
+  let cursor = 0;
+  for (;;) {
+    const open = normalized.indexOf(OPEN_MARKER, cursor);
+    if (open < 0) break;
+    const metadataStart = open + OPEN_MARKER.length;
+    const metadataEnd = normalized.indexOf("-->", metadataStart);
+    if (metadataEnd < 0) throw new KnowledgeValidationError(["entry metadata must be closed with -->"]);
+    let raw: unknown;
+    const metadataText = normalized.slice(metadataStart, metadataEnd);
+    try {
+      raw = JSON.parse(metadataText);
+    } catch {
+      throw new KnowledgeValidationError([`entry metadata must be valid JSON: ${metadataText.slice(0, 80)}`]);
+    }
+    if (!isRecord(raw)) throw new KnowledgeValidationError(["entry metadata must be a JSON object"]);
+    const blockStart = metadataEnd + 3;
+    const blockEnd = normalized.indexOf(CLOSE_MARKER, blockStart);
+    if (blockEnd < 0) throw new KnowledgeValidationError(["entry must be closed with a closing comment"]);
+    const rendered = normalized.slice(blockStart, blockEnd).replace(/^\n/, "");
+    const partial = validateEntry({ ...raw, body: "structural-placeholder" });
+    const prefix = renderedPrefix(partial);
+    if (!rendered.startsWith(prefix)) {
+      throw new KnowledgeValidationError([`entry ${partial.id} must render its title and summary after the metadata`]);
+    }
+    const entry = validateEntry({ ...raw, body: rendered.slice(prefix.length) });
+    if (ids.has(entry.id)) throw new KnowledgeValidationError([`duplicate entry id: ${entry.id}`]);
+    ids.add(entry.id);
+    entries.push(entry);
+    cursor = blockEnd + CLOSE_MARKER.length;
   }
-  const closing = normalized.indexOf("\n---\n", 4);
-  if (closing < 0) throw new ConceptValidationError(["frontmatter must end with ---"]);
-
-  const yamlText = normalized.slice(4, closing);
-  let raw: unknown;
-  try {
-    raw = parse(yamlText);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new ConceptValidationError([`invalid YAML: ${message}`]);
-  }
-  const frontmatter = validateConceptFrontmatter(raw);
-  const body = normalized.slice(closing + 5).trim();
-  if (body === "") throw new ConceptValidationError(["body must be non-empty"]);
-  return { frontmatter, body };
+  return entries;
 }
 
-
-export function renderConceptMarkdown(concept: ConceptDocument): string {
-  const frontmatter = validateConceptFrontmatter(concept.frontmatter);
-  const body = concept.body.replace(/\r\n?/g, "\n").trim();
-  if (!body) throw new ConceptValidationError(["body must be non-empty"]);
-  const yaml = stringify(frontmatter, { lineWidth: 0 }).trimEnd();
-  return `---\n${yaml}\n---\n\n${body}\n`;
+export function deriveEntryId(projectKey: string, title: string): string {
+  const digest = createHash("sha256").update(`${projectKey}\u0000${normalizeTitleKey(title)}`).digest("hex");
+  return `cc-${digest.slice(0, 24)}`;
 }
 
-export function generateConceptId(): string {
-  return randomBytes(5).toString("hex");
+function mergedValues(existing: string[] | undefined, incoming: string[] | undefined): string[] {
+  return [...new Set([...(existing ?? []), ...(incoming ?? [])])].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
-function assertContent(type: ConceptType, content: ConceptContent): void {
+function sameEntry(a: KnowledgeEntry, b: KnowledgeEntry): boolean {
+  return renderBlock(a) === renderBlock(b);
+}
+
+export function applyCuratedEntry(
+  entries: readonly KnowledgeEntry[],
+  input: CuratedEntryInput,
+  projectKey: string,
+): { entries: KnowledgeEntry[]; changed: boolean; id: string } {
   const issues: string[] = [];
-  if (!isRecord(content)) throw new ConceptValidationError(["content must be a mapping"]);
-  if (type === "Decision") {
-    const decision = content as DecisionContent;
-    requiredString(decision.answer, "content.answer", issues);
-    requiredString(decision.rationale, "content.rationale", issues);
-    if (decision.rejectedAlternative !== undefined) requiredString(decision.rejectedAlternative, "content.rejectedAlternative", issues);
-  } else if (type === "Gotcha") {
-    const gotcha = content as GotchaContent;
-    requiredString(gotcha.symptom, "content.symptom", issues);
-    requiredString(gotcha.cause, "content.cause", issues);
-    requiredString(gotcha.fix, "content.fix", issues);
-    if (gotcha.validation !== undefined) requiredString(gotcha.validation, "content.validation", issues);
-  } else {
-    const runbook = content as RunbookContent;
-    requiredString(runbook.purpose, "content.purpose", issues);
-    if (!Array.isArray(runbook.steps) || runbook.steps.length === 0) issues.push("content.steps must be a non-empty list");
-    else runbook.steps.forEach((step, index) => requiredString(step, `content.steps[${index}]`, issues));
-    if (runbook.validation !== undefined) requiredString(runbook.validation, "content.validation", issues);
-  }
-  if (issues.length) throw new ConceptValidationError(issues);
-}
+  if (input.action !== "create" && input.action !== "update") issues.push("action must be create or update");
+  if (issues.length > 0) throw new KnowledgeValidationError(issues);
 
-function section(level: number, title: string, text: string): string {
-  return `${"#".repeat(level)} ${title}\n\n${text.trim()}`;
-}
-
-
-export function renderConceptBody(type: ConceptType, content: ConceptContent, evidence: ConceptEvidence[] = [], level = 1): string {
-  assertContent(type, content);
-  const sections: string[] = [];
-  if (type === "Decision") {
-    const decision = content as DecisionContent;
-    sections.push(section(level, "Answer", decision.answer), section(level, "Why", decision.rationale));
-    if (decision.rejectedAlternative) sections.push(section(level, "Rejected alternative", decision.rejectedAlternative));
-  } else if (type === "Gotcha") {
-    const gotcha = content as GotchaContent;
-    sections.push(section(level, "Symptom", gotcha.symptom), section(level, "Cause", gotcha.cause), section(level, "Fix", gotcha.fix));
-    if (gotcha.validation) sections.push(section(level, "Validation", gotcha.validation));
-  } else {
-    const runbook = content as RunbookContent;
-    const steps = runbook.steps.map((step, index) => `${index + 1}. ${step.trim()}`).join("\n");
-    sections.push(section(level, "Purpose", runbook.purpose), section(level, "Steps", steps));
-    if (runbook.validation) sections.push(section(level, "Validation", runbook.validation));
-  }
-
-  if (evidence.length > 0) {
-    const seen = new Set<string>();
-    const lines = evidence.map((item, index) => {
-      const id = requiredEvidence(item, index, seen);
-      return `- [${id}] ${item.excerpt.trim()}`;
+  if (input.action === "update") {
+    if (!input.targetEntryId) throw new KnowledgeValidationError(["update requires targetEntryId"]);
+    const index = entries.findIndex((entry) => entry.id === input.targetEntryId);
+    if (index < 0) throw new KnowledgeValidationError([`update target not found: ${input.targetEntryId}`]);
+    const existing = entries[index]!;
+    const next = validateEntry({
+      id: existing.id,
+      title: input.title,
+      summary: input.summary,
+      body: input.body,
+      date: input.date ?? existing.date,
+      tags: mergedValues(existing.tags, input.tags),
+      sources: mergedValues(existing.sources, input.sources),
     });
-    sections.push(section(level, "Evidence", lines.join("\n")));
+    const changed = !sameEntry(existing, next);
+    if (!changed) return { entries: [...entries], changed, id: existing.id };
+    const updated = entries.slice();
+    updated[index] = next;
+    return { entries: updated, changed, id: next.id };
   }
-  return sections.join("\n\n");
-}
 
-function requiredEvidence(item: ConceptEvidence, index: number, seen: Set<string>): string {
-  const issues: string[] = [];
-  if (!isRecord(item)) throw new ConceptValidationError([`evidence[${index}] must be a mapping`]);
-  const id = requiredString(item.id, `evidence[${index}].id`, issues);
-  requiredString(item.excerpt, `evidence[${index}].excerpt`, issues);
-  if (seen.has(id)) issues.push(`duplicate evidence id: ${id}`);
-  seen.add(id);
-  if (issues.length) throw new ConceptValidationError(issues);
-  return id;
-}
-
-
-export function createConcept(input: CreateConceptInput): ConceptDocument {
-  const id = input.id ?? generateConceptId();
-  const frontmatter = validateConceptFrontmatter({
-    ...input.extraFrontmatter,
-    cheatcodes_id: id,
-    type: input.type,
+  const id = deriveEntryId(projectKey, input.title);
+  const entry = validateEntry({
+    id,
     title: input.title,
-    description: input.description,
-    tags: unique(input.tags ?? []),
-    status: "draft",
-    generated: { by: input.generatedBy, at: input.generatedAt },
+    summary: input.summary,
+    body: input.body,
+    date: input.date,
+    tags: input.tags,
     sources: input.sources,
   });
-  return {
-    frontmatter,
-    body: renderConceptBody(input.type, input.content, input.evidence),
-  };
-}
-
-export function createConceptMarkdown(input: CreateConceptInput): { id: string; concept: ConceptDocument; markdown: string } {
-  const concept = createConcept(input);
-  return {
-    id: concept.frontmatter.cheatcodes_id,
-    concept,
-    markdown: renderConceptMarkdown(concept),
-  };
-}
-
-function unique(values: string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-}
-
-function sourceKey(source: ConceptSource): string {
-  return `${source.id}\u0000${source.resource}`;
-}
-
-
-
-
-
-export function applyAdditiveConceptUpdate(existing: ConceptDocument, update: AdditiveConceptUpdate): AdditiveUpdateResult {
-  const current = validateConceptFrontmatter(existing.frontmatter);
-  if (current.status !== "draft" || current.verified !== undefined) {
-    throw new ConceptValidationError(["automatic updates require an unverified draft concept"]);
-  }
-  if (current.type !== update.type) {
-    throw new ConceptValidationError([`update type ${update.type} does not match target type ${current.type}`]);
-  }
-
-  const addendumBody = renderConceptBody(update.type, update.content, update.evidence, 3);
-  const addendum = `## Addendum\n\n${addendumBody}`;
-  const updatesHeading = "# Updates";
-  const existingBody = existing.body.replace(/\r\n?/g, "\n").trim();
-  const contentAdded = !existingBody.includes(addendum);
-
-  const sources = current.sources.map((source) => ({ ...source }));
-  const sourceKeys = new Set(sources.map(sourceKey));
-  const ids = new Map(sources.map((source) => [source.id, source.resource]));
-  let provenanceAdded = false;
-  for (const source of update.sources) {
-    const validated = validateConceptFrontmatter({ ...current, sources: [source] }).sources[0]!;
-    const priorResource = ids.get(validated.id);
-    if (priorResource !== undefined && priorResource !== validated.resource) {
-      throw new ConceptValidationError([`source id ${validated.id} refers to two resources`]);
+  const index = entries.findIndex((existing) => existing.id === id);
+  if (index >= 0) {
+    const existing = entries[index]!;
+    if (normalizeTitleKey(existing.title) !== normalizeTitleKey(entry.title)) {
+      throw new KnowledgeValidationError([`entry id ${id} already belongs to "${existing.title}"`]);
     }
-    const key = sourceKey(validated);
-    if (!sourceKeys.has(key)) {
-      sources.push(validated);
-      sourceKeys.add(key);
-      ids.set(validated.id, validated.resource);
-      provenanceAdded = true;
-    }
+    const merged = validateEntry({
+      ...entry,
+      date: input.date ?? existing.date,
+      tags: mergedValues(existing.tags, entry.tags),
+      sources: mergedValues(existing.sources, entry.sources),
+    });
+    const changed = !sameEntry(existing, merged);
+    if (!changed) return { entries: [...entries], changed, id };
+    const updated = entries.slice();
+    updated[index] = merged;
+    return { entries: updated, changed, id };
   }
-
-  const tags = unique([...(current.tags ?? []), ...(update.tags ?? [])]);
-  const tagsAdded = tags.length !== (current.tags ?? []).length;
-  const changed = contentAdded || provenanceAdded || tagsAdded;
-  if (!changed) return { concept: { frontmatter: current, body: existingBody }, changed, contentAdded, provenanceAdded };
-
-  let body = existingBody;
-  if (contentAdded) {
-    body = body.includes(`\n${updatesHeading}\n`) || body.startsWith(`${updatesHeading}\n`)
-      ? `${body}\n\n${addendum}`
-      : `${body}\n\n${updatesHeading}\n\n${addendum}`;
-  }
-  const frontmatter = validateConceptFrontmatter({
-    ...current,
-    tags,
-    sources,
-    generated: contentAdded || provenanceAdded
-      ? {
-          ...current.generated,
-          by: update.generatedBy ?? current.generated.by,
-          at: update.generatedAt,
-        }
-      : current.generated,
-  });
-  return { concept: { frontmatter, body }, changed, contentAdded, provenanceAdded };
+  return { entries: [...entries, entry], changed: true, id };
 }
-
-
-export const parseConcept = parseConceptMarkdown;
-export const renderConcept = renderConceptMarkdown;
-export const updateConceptAdditively = applyAdditiveConceptUpdate;

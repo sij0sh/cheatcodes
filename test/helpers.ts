@@ -10,18 +10,18 @@ export interface GlobalConfigOptions {
   dir?: string;
   model?: string;
   inputs?: string[];
-  automation?: { enabled?: boolean; setupMissingProjects?: boolean };
   workerTimeoutMinutes?: number;
+  knowledgeFile?: string;
   projectAliases?: Record<string, string[]>;
 }
 
 export function globalConfigObject(options: GlobalConfigOptions = {}): Record<string, unknown> {
   return {
-    version: 1,
+    version: 2,
     model: options.model ?? "fake/model",
     inputs: options.inputs ?? [],
-    automation: { enabled: true, setupMissingProjects: true, ...options.automation },
     workerTimeoutMinutes: options.workerTimeoutMinutes ?? 10,
+    ...(options.knowledgeFile !== undefined ? { knowledgeFile: options.knowledgeFile } : {}),
     projectAliases: options.projectAliases ?? {},
   };
 }
@@ -30,9 +30,5 @@ export async function writeGlobalConfig(options: GlobalConfigOptions = {}): Prom
   const dir = options.dir ?? await temporary("cheatcodes-config-");
   const file = path.join(dir, "config.json");
   await writeFile(file, JSON.stringify(globalConfigObject(options), null, 2));
-  return { file, env: { CHEATCODES_CONFIG: file } };
-}
-
-export function envForMissingConfig(): Promise<NodeJS.ProcessEnv> {
-  return temporary("cheatcodes-missing-").then((dir) => ({ CHEATCODES_CONFIG: path.join(dir, "config.json") }));
+  return { file, env: { CHEATCODES_CONFIG: file, CHEATCODES_STATE: path.join(dir, "state.json") } };
 }

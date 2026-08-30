@@ -1,12 +1,11 @@
-import { open, readdir, stat } from "node:fs/promises";import path from "node:path";
-import type { ProducerState } from "./state.js";
+import { open, readdir, stat } from "node:fs/promises";
+import path from "node:path";
+import type { FileCursor } from "./state.js";
 
 export interface SessionCandidate {
   file: string;
   size: number;
   mtimeMs: number;
-  header: { id: string; cwd: string; version: number };
-  matchedRoot: string;
 }
 
 export interface ScanWarning { file: string; message: string }
@@ -60,8 +59,8 @@ function matchProjectRoot(cwd: string, roots: string[]): string | undefined {
     .sort((a, b) => b.length - a.length)[0];
 }
 
-export async function scanInputs(inputs: string[], projectRoots: string[], state: ProducerState): Promise<ScanResult> {
-  const files: string[] = [];
+export async function scanInputs(inputs: string[], projectRoots: string[], files: Record<string, FileCursor>): Promise<ScanResult> {
+  const discovered: string[] = [];
   const skipped: ScanWarning[] = [];
   const missing: string[] = [];
   for (const input of [...new Set(inputs.map((value) => path.resolve(value)))].sort()) {
@@ -71,22 +70,21 @@ export async function scanInputs(inputs: string[], projectRoots: string[], state
       skipped.push({ file: input, message: `Cannot scan input: ${(error as Error).message}` });
       continue;
     }
-    if (metadata.isDirectory()) await discoverJsonl(input, files, skipped);
-    else if (input.endsWith(".jsonl")) files.push(input);
+    if (metadata.isDirectory()) await discoverJsonl(input, discovered, skipped);
+    else if (input.endsWith(".jsonl")) discovered.push(input);
     else skipped.push({ file: input, message: "Input is neither a directory nor a .jsonl file" });
   }
   const changed: SessionCandidate[] = [];
   const unchanged: string[] = [];
-  for (const file of [...new Set(files)].sort()) {
+  for (const file of [...new Set(discovered)].sort()) {
     let metadata;
     try { metadata = await stat(file); } catch (error) { skipped.push({ file, message: `Cannot stat session: ${(error as Error).message}` }); continue; }
-    const cursor = state.files[file];
+    const cursor = files[file];
     if (cursor && cursor.observedSize === metadata.size && cursor.mtimeMs === metadata.mtimeMs) { unchanged.push(file); continue; }
     try {
       const header = await readHeader(file);
-      const matchedRoot = matchProjectRoot(header.cwd, projectRoots);
-      if (!matchedRoot) { skipped.push({ file, message: "Session cwd is outside configured project roots" }); continue; }
-      changed.push({ file, size: metadata.size, mtimeMs: metadata.mtimeMs, header, matchedRoot });
+      if (!matchProjectRoot(header.cwd, projectRoots)) { skipped.push({ file, message: "Session cwd is outside configured project roots" }); continue; }
+      changed.push({ file, size: metadata.size, mtimeMs: metadata.mtimeMs });
     } catch (error) { skipped.push({ file, message: `Cannot read session header: ${(error as Error).message}` }); }
   }
   return { changed, unchanged, skipped, missing };

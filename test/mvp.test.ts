@@ -1,101 +1,247 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { initializeProject } from "../src/config.js";
 import type { Curator } from "../src/curate.js";
-import { publishProject, runProject } from "../src/cli.js";
+import { runProject } from "../src/run.js";
+import { loadGlobalState } from "../src/state.js";
+import { normalizeRepositoryPath, parseJsonlBytes, redactSecrets } from "../src/jsonl.js";
+import { parseKnowledgeMarkdown } from "../src/concept.js";
 import { temporary, writeGlobalConfig } from "./helpers.js";
 
 const execFileAsync = promisify(execFile);
 function line(value: unknown): string { return `${JSON.stringify(value)}\n`; }
 
-function fixture(root: string): string {
+function fixture(root: string, sessionId = "session-1"): string {
   return [
-    { type: "session", version: 3, id: "session-1", timestamp: "2026-01-01T00:00:00Z", cwd: root },
+    { type: "session", version: 3, id: sessionId, timestamp: "2026-01-01T00:00:00Z", cwd: root },
     { type: "message", id: "u1", parentId: null, timestamp: "2026-01-01T00:00:01Z", message: { role: "user", content: [{ type: "text", text: "No, that is wrong. We must use the repository adapter instead." }] } },
     { type: "message", id: "a1", parentId: "u1", timestamp: "2026-01-01T00:00:02Z", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "Understood. The repository adapter is required." }] } },
   ].map(line).join("");
 }
 
-test("init runs at the Git top level, publishes an empty bundle, and is idempotent", async () => {
+function fakeCurator(calls: { count: number }): Curator {
+  return { async curate(packet) {
+    calls.count++;
+    return { entries: [{ action: "create", title: "Use the repository adapter", summary: "Repository access uses the adapter.", body: "The repository adapter is the only persistence boundary.", tags: ["repository"], evidenceRefs: [packet.evidence[0]!.id] }] };
+  } };
+}
+
+async function sessionsWithFixture(root: string, sessionId = "session-1"): Promise<string> {
+  const sessions = path.join(root, "sessions");
+  await mkdir(sessions, { recursive: true });
+  await writeFile(path.join(sessions, "one.jsonl"), fixture(root, sessionId));
+  return sessions;
+}
+
+async function gitInit(root: string): Promise<void> {
+  await execFileAsync("git", ["init", "-q", root]);
+}
+
+test("first run discovers the Git root from a nested directory and creates one knowledge file", async () => {
   const root = await temporary();
   const originalCwd = process.cwd();
   try {
-    await execFileAsync("git", ["init", "-q", root]);
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
     const nested = path.join(root, "packages", "app");
     await mkdir(nested, { recursive: true });
-    const sessions = path.join(root, "sessions");
-    await mkdir(sessions);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     process.chdir(nested);
-    const first = await initializeProject({}, env);
-    assert.equal(first.root, root);
-    const second = await initializeProject({}, env);
-    assert.equal(second.projectId, first.projectId);
+    const calls = { count: 0 };
+    const result = await runProject({ env, curator: fakeCurator(calls) });
+    assert.equal(result.root, root);
+    assert.equal(result.changedFiles, 1);
+    assert.equal(calls.count, 1);
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    assert.match(knowledge, /^# CHEATCODES\n/);
+    assert.match(knowledge, /## Use the repository adapter\n/);
     const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
-    await readFile(path.join(root, ".cheatcodes", "project.json"), "utf8");
-    await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md"), "utf8");
+    assert.match(agents, /## Project knowledge/);
+    assert.match(agents, /`CHEATCODES\.md`/);
+    const entries = await readdir(root);
+    assert.equal(entries.includes(".cheatcodes"), false);
   } finally {
     process.chdir(originalCwd);
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("init requires a valid global config", async () => {
+test("run requires a global config", async () => {
   const root = await temporary();
   try {
-    const env = { CHEATCODES_CONFIG: path.join(root, "missing", "config.json") };
-    await assert.rejects(initializeProject({ root }, env), /No global config/);
+    await gitInit(root);
+    const env = { CHEATCODES_CONFIG: path.join(root, "missing", "config.json"), CHEATCODES_STATE: path.join(root, "state.json") };
+    await assert.rejects(runProject({ root, env }), /No global config/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("init and deterministic incremental run", async () => {
+test("run outside a Git repository fails", async () => {
+  const cwd = await temporary();
+  try {
+    const { env } = await writeGlobalConfig();
+    await assert.rejects(runProject({ cwd, env }), /Git repository/);
+  } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+test("runs are deterministic and incremental with global state cursors", async () => {
   const root = await temporary();
   try {
-    const sessions = path.join(root, "sessions");
-    await mkdir(sessions);
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    await initializeProject({ root }, env);
-    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
-    await writeFile(path.join(sessions, "one.jsonl"), fixture(root));
-    let calls = 0;
-    const curator: Curator = { async curate(packet) {
-      calls++;
-      return { concepts: [{ action: "create", type: "Decision", title: "Use the repository adapter", description: "Repository access uses the adapter.", tags: ["repository"], evidenceRefs: [packet.evidence[0]!.id], content: { answer: "Use the repository adapter.", rationale: "The direct approach violates project architecture." } }] };
-    } };
-    const first = await runProject({ root, curator, env, now: () => new Date("2026-01-01T00:00:00Z") });
+    const calls = { count: 0 };
+    const first = await runProject({ root, env, curator: fakeCurator(calls) });
     assert.equal(first.curatorCalls, 1);
-    assert.equal(calls, 1);
-    const stateBefore = await readFile(path.join(root, ".cheatcodes", "local", "state.json"));
-    const knowledgeBefore = await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md"));
-    const second = await runProject({ root, curator, env });
+    assert.equal(first.entriesWritten, 1);
+    const knowledgeFile = path.join(root, "CHEATCODES.md");
+    const knowledgeAfterFirst = await readFile(knowledgeFile, "utf8");
+    const stateAfterFirst = await loadGlobalState(env);
+    const key = first.projectKey;
+    const files = Object.keys(stateAfterFirst.projects[key]!.files);
+    assert.equal(files.length, 1);
+    assert.equal(files[0]!.startsWith(sessions), true);
+    const second = await runProject({ root, env, curator: fakeCurator(calls) });
     assert.equal(second.curatorCalls, 0);
-    assert.equal(calls, 1);
-    assert.deepEqual(await readFile(path.join(root, ".cheatcodes", "local", "state.json")), stateBefore);
-    assert.deepEqual(await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md")), knowledgeBefore);
-    await rm(path.join(root, ".cheatcodes", "knowledge"), { recursive: true });
-    await publishProject(root);
-    assert.deepEqual(await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md")), knowledgeBefore);
+    assert.equal(await readFile(knowledgeFile, "utf8"), knowledgeAfterFirst);
+    assert.deepEqual(await loadGlobalState(env), stateAfterFirst);
+    await writeFile(path.join(sessions, "one.jsonl"), fixture(root) + '{"type":"message","id":"u2"');
+    const third = await runProject({ root, env, curator: fakeCurator(calls) });
+    assert.equal(third.curatorCalls, 0);
+    assert.equal(await readFile(knowledgeFile, "utf8"), knowledgeAfterFirst);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("partial final line remains uncommitted", async () => {
+test("a rewritten source file is reconsidered without duplicating entries", async () => {
   const root = await temporary();
   try {
-    const sessions = path.join(root, "sessions"); await mkdir(sessions);
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root, "session-1");
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    await initializeProject({ root }, env);
-    const complete = line({ type: "session", version: 3, id: "s", cwd: root });
-    await writeFile(path.join(sessions, "one.jsonl"), `${complete}{"type":"message"`);
-    const curator: Curator = { async curate() { throw new Error("must not call"); } };
-    await runProject({ root, curator, env });
-    const state = JSON.parse(await readFile(path.join(root, ".cheatcodes", "local", "state.json"), "utf8"));
-    assert.equal(state.files[path.join(sessions, "one.jsonl")].committedOffset, Buffer.byteLength(complete));
+    const calls = { count: 0 };
+    await runProject({ root, env, curator: fakeCurator(calls) });
+    await writeFile(path.join(sessions, "one.jsonl"), fixture(root, "session-2"));
+    const warnings: string[] = [];
+    const second = await runProject({ root, env, curator: fakeCurator(calls), onWarning: (message) => warnings.push(message) });
+    assert.equal(warnings.some((message) => /source was rewritten/.test(message)), true);
+    assert.equal(second.curatorCalls, 1);
+    assert.equal(second.entriesWritten, 1);
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    assert.equal(knowledge.match(/## Use the repository adapter/g)?.length, 1);
+    assert.match(knowledge, /session:session-1#records=/);
+    assert.match(knowledge, /session:session-2#records=/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("durable output contains no evidence excerpts", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    assert.equal(knowledge.includes("No, that is wrong"), false);
+    assert.equal(knowledge.includes("repository adapter is required"), false);
+    assert.equal(knowledge.includes("cheatcodes/"), false);
+    assert.match(knowledge, /session:session-1#records=/);
+    const parsed = parseKnowledgeMarkdown(knowledge);
+    const stamp = new Date((await stat(path.join(sessions, "one.jsonl"))).mtimeMs).toISOString();
+    assert.equal(parsed[0]!.date, stamp);
+    const tempFiles = (await readdir(root)).filter((name) => name.includes(".tmp-"));
+    assert.deepEqual(tempFiles, []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("the knowledge pointer is appended once and replaces the legacy pointer", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const legacy = "## Project knowledge\n\nStart with `.cheatcodes/knowledge/index.md`. Check concept status before relying on a draft.";
+    await writeFile(path.join(root, "AGENTS.md"), `# Agents\n\n${legacy}\n`);
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.equal(agents.includes(".cheatcodes/knowledge"), false);
+    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    assert.equal((await readFile(path.join(root, "AGENTS.md"), "utf8")), agents);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("secret redaction covers common credential shapes", () => {
+  const redacted = redactSecrets([
+    "token Bearer abc.def.ghi-jk",
+    "key sk_live_ABCDEFGHIJKLmnop",
+    "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ12",
+    "AKIAIOSFODNN7EXAMPLE",
+    "https://user:hunter2@example.com/repo",
+    "MY_API_KEY = super-secret-value",
+    "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----",
+  ].join("\n"));
+  assert.equal(redacted.includes("Bearer abc"), false);
+  assert.equal(redacted.includes("sk_live_ABCDEFGHIJKLmnop"), false);
+  assert.equal(redacted.includes("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ12"), false);
+  assert.equal(redacted.includes("AKIAIOSFODNN7EXAMPLE"), false);
+  assert.equal(redacted.includes("hunter2"), false);
+  assert.equal(redacted.includes("super-secret-value"), false);
+  assert.equal(redacted.includes("PRIVATE KEY-----\nabc"), false);
+});
+
+test("repository path normalization scopes paths to the project and redacts outside paths", () => {
+  const root = "/repo";
+  assert.equal(normalizeRepositoryPath("src/a.ts", "key", [root], root), "repo://key/src/a.ts");
+  assert.equal(normalizeRepositoryPath("/repo/src/a.ts", "key", [root], root), "repo://key/src/a.ts");
+  assert.equal(normalizeRepositoryPath("/etc/passwd", "key", [root], root), undefined);
+  assert.equal(normalizeRepositoryPath("", "key", [root], root), undefined);
+});
+
+test("partial final JSONL lines are not committed until complete", () => {
+  const complete = fixture("/repo", "s9");
+  const parsed = parseJsonlBytes(Buffer.from(complete + `{"type":"message","id":"u2"`, { file: "f.jsonl" }));
+  assert.equal(parsed.sessionId, "s9");
+  assert.equal(parsed.records.some((record) => record.id === "u2"), false);
+  assert.equal(complete.includes("u2"), false);
+  const reparsed = parseJsonlBytes(Buffer.from(complete), { file: "f.jsonl" });
+  assert.equal(reparsed.completeOffset, parsed.completeOffset);
+  assert.equal(reparsed.completeSha256, parsed.completeSha256);
+});
+
+test("branch reconstruction follows parent chains across versions", () => {
+  const record = (id: string, parentId: string | null, role: string) =>
+    line({ type: "message", id, parentId, timestamp: "2026-01-01T00:00:00Z", message: { role, stopReason: "stop", content: [{ type: "text", text: `substantive message text for ${id}` }] } });
+  const v1 = parseJsonlBytes(Buffer.from([
+    line({ type: "session", id: "s", cwd: "/repo" }),
+    record("a", null, "user"),
+    record("b", undefined, "assistant"),
+  ].join("")), { file: "v1.jsonl" });
+  assert.equal(v1.branches.length, 1);
+  assert.equal(v1.branches[0]!.length, 2);
+  assert.equal(v1.branches[0]![1]!.parentId, v1.branches[0]![0]!.id);
+
+  const v3 = parseJsonlBytes(Buffer.from([
+    line({ type: "session", version: 3, id: "s", cwd: "/repo" }),
+    record("a", null, "user"),
+    record("b", "a", "assistant"),
+    record("c", "b", "user"),
+  ].join("")), { file: "v3.jsonl" });
+  assert.equal(v3.branches.length, 1);
+  assert.deepEqual(v3.branches[0]!.map((item) => item.id), ["a", "b", "c"]);
+});
+
+test("repository-boundary filtering skips sessions from other roots", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    await writeFile(path.join(sessions, "foreign.jsonl"), fixture("/elsewhere", "foreign-1"));
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const calls = { count: 0 };
+    const result = await runProject({ root, env, curator: fakeCurator(calls) });
+    assert.equal(result.changedFiles, 1);
+    await stat(path.join(root, "CHEATCODES.md"));
   } finally { await rm(root, { recursive: true, force: true }); }
 });

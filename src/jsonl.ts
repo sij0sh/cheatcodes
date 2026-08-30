@@ -64,7 +64,6 @@ export interface ParsedSession {
   version: number;
   sessionId: string;
   records: NormalizedRecord[];
-  rawRecords: CompleteJsonlRecord[];
   branches: NormalizedRecord[][];
   warnings: JsonlWarning[];
   completeOffset: number;
@@ -73,20 +72,6 @@ export interface ParsedSession {
 }
 
 interface RawLine { value: Record<string, unknown>; range: ByteRange; hash: string; index: number }
-
-export interface CompleteJsonlRecord {
-  value: Record<string, unknown>;
-  range: ByteRange;
-  byteHash: string;
-  index: number;
-}
-
-export interface CompleteJsonlResult {
-  records: CompleteJsonlRecord[];
-  warnings: JsonlWarning[];
-  completeOffset: number;
-  completeSha256: string;
-}
 
 const sha256 = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
 const asObject = (value: unknown): Record<string, unknown> | undefined =>
@@ -146,7 +131,6 @@ export function normalizeRepositoryPath(
   return `repo://${projectId}${relative ? `/${relative}` : ""}`;
 }
 
-export const normalizePath = normalizeRepositoryPath;
 
 function compactExcerpt(value: string, limit = RECEIPT_EXCERPT_LIMIT): string {
   const safe = redactSecrets(value).replace(/(?:data:[^;,]+;base64,|base64[:=]\s*)[A-Za-z0-9+/=]{80,}/gi, "[OMITTED BASE64]");
@@ -344,33 +328,6 @@ export function buildBranches(records: readonly NormalizedRecord[]): NormalizedR
   });
 }
 
-export function parseCompleteJsonlRecords(bytes: Buffer | Uint8Array, file?: string): CompleteJsonlResult {
-  
-  const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
-  const records: CompleteJsonlRecord[] = [];
-  const warnings: JsonlWarning[] = [];
-  let start = 0;
-  let completeOffset = 0;
-  let index = 0;
-  for (let newline = buffer.indexOf(0x0a, start); newline !== -1; newline = buffer.indexOf(0x0a, start)) {
-    const end = newline + 1;
-    const lineBytes = buffer.subarray(start, newline > start && buffer[newline - 1] === 0x0d ? newline - 1 : newline);
-    if (lineBytes.length) {
-      try {
-        const value = JSON.parse(lineBytes.toString("utf8"));
-        const object = asObject(value);
-        if (!object) throw new Error("record is not an object");
-        records.push({ value: object, range: { start, end }, byteHash: sha256(buffer.subarray(start, end)), index: index++ });
-      } catch {
-        warnings.push({ file, range: { start, end }, message: "Malformed complete JSONL record" });
-      }
-    }
-    completeOffset = end;
-    start = end;
-  }
-  return { records, warnings, completeOffset, completeSha256: sha256(buffer.subarray(0, completeOffset)) };
-}
-
 export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlOptions = {}): ParsedSession {
 
   const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
@@ -405,13 +362,11 @@ export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlO
   const records = normalizedFromRaw(entryLines, header, { ...options, cwd: options.cwd ?? header.cwd });
   const previous = Math.max(0, Math.min(options.previousCommittedOffset ?? 0, buffer.length));
   return {
-    header, version: header.version, sessionId: header.id, records, rawRecords: lines.map((line) => ({ value: line.value, range: line.range, byteHash: line.hash, index: line.index })), branches: buildBranches(records), warnings,
+    header, version: header.version, sessionId: header.id, records, branches: buildBranches(records), warnings,
     completeOffset, completeSha256: sha256(buffer.subarray(0, completeOffset)),
     previousPrefixSha256: sha256(buffer.subarray(0, previous)),
   };
 }
-
-export const parseJsonl = parseJsonlBytes;
 
 export async function parseJsonlFile(file: string, options: Omit<ParseJsonlOptions, "file"> = {}): Promise<ParsedSession> {
   return parseJsonlBytes(await readFile(file), { ...options, file });

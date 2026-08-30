@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { open, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
-import { parseConceptMarkdown } from "./concept.js";
-import { localDir } from "./config.js";
 
 export interface FileCursor {
   sessionId: string;
@@ -12,171 +11,250 @@ export interface FileCursor {
   prefixSha256: string;
 }
 
-export interface ProducerState { version: 1; files: Record<string, FileCursor> }
+export type RunOutcome = "success" | "failed" | "coalesced" | "timeout";
 
-export interface OperationWrite {
-  relativePath: string;
-  expected: "absent" | string;
-  contentBase64: string;
-  intendedSha256: string;
-}
-
-export interface MutationOperation {
+export interface RunRecord {
   version: 1;
-  packetId: string;
-  sourceFile: string;
-  sourceCommittedOffset?: number;
-  writes: OperationWrite[];
-  terminal: "success" | "no-op" | "schema-invalid";
+  invocationId: string;
+  pid: number;
+  startedAt: string;
+  finishedAt: string;
+  outcome: RunOutcome;
+  reason?: string;
+  changedFiles?: number;
+  curatorCalls?: number;
+  entriesWritten?: number;
+  warnings?: string[];
 }
 
-export interface ProjectLock { coalesced: boolean; staleRecovered: boolean; release(): Promise<void> }
-
-export interface LockOptions { coalesce?: boolean }
-
-export const EMPTY_STATE: ProducerState = { version: 1, files: {} };
-export const sha256 = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
-
-export async function loadState(root: string): Promise<ProducerState> {
-  try {
-    const value = JSON.parse(await readFile(path.join(localDir(root), "state.json"), "utf8")) as unknown;
-    if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1) throw new Error("Unsupported state version");
-    const files = (value as { files?: unknown }).files;
-    if (!files || typeof files !== "object" || Array.isArray(files)) throw new Error("Invalid state.files");
-    return value as ProducerState;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return structuredClone(EMPTY_STATE);
-    throw error;
-  }
+export interface ProjectState {
+  files: Record<string, FileCursor>;
+  lastRun?: RunRecord;
 }
 
-async function atomicWrite(file: string, bytes: string | Buffer): Promise<void> {
+export interface GlobalState {
+  version: 1;
+  projects: Record<string, ProjectState>;
+}
+
+export const EMPTY_PROJECT_STATE: ProjectState = { files: {} };
+
+export const EMPTY_GLOBAL_STATE: GlobalState = { version: 1, projects: {} };
+
+export function globalStatePath(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.CHEATCODES_STATE?.trim();
+  if (override) return path.resolve(override);
+  const xdg = env.XDG_STATE_HOME?.trim();
+  const base = xdg ? xdg : path.join(homedir(), ".local", "state");
+  return path.join(base, "cheatcodes", "state.json");
+}
+
+export function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export async function atomicWrite(file: string, bytes: Uint8Array | string): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.tmp-${process.pid}-${Date.now()}`;
   await writeFile(temporary, bytes, { flag: "wx" });
   await rename(temporary, file);
 }
 
-export async function writeState(root: string, state: ProducerState): Promise<void> {
-  const ordered: ProducerState = { version: 1, files: Object.fromEntries(Object.entries(state.files).sort(([a], [b]) => a.localeCompare(b))) };
-  await atomicWrite(path.join(localDir(root), "state.json"), `${JSON.stringify(ordered, null, 2)}\n`);
+export function orderState(state: GlobalState): GlobalState {
+  const projects: Record<string, ProjectState> = {};
+  for (const key of Object.keys(state.projects).sort()) {
+    const project = state.projects[key]!;
+    const files: Record<string, FileCursor> = {};
+    for (const file of Object.keys(project.files).sort()) files[file] = project.files[file]!;
+    const ordered: ProjectState = { files };
+    if (project.lastRun) ordered.lastRun = project.lastRun;
+    projects[key] = ordered;
+  }
+  return { version: 1, projects };
+}
+
+function requireObject(value: unknown, message: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(message);
+  return value as Record<string, unknown>;
+}
+
+function validateCursor(value: unknown, source: string): FileCursor {
+  const raw = requireObject(value, `${source} must be an object`);
+  for (const field of ["sessionId", "committedOffset", "observedSize", "mtimeMs", "prefixSha256"]) {
+    if (!(field in raw)) throw new Error(`${source}.${field} is required`);
+  }
+  if (typeof raw.sessionId !== "string" || !raw.sessionId) throw new Error(`${source}.sessionId must be a non-empty string`);
+  if (typeof raw.prefixSha256 !== "string") throw new Error(`${source}.prefixSha256 must be a string`);
+  for (const field of ["committedOffset", "observedSize", "mtimeMs"]) {
+    const numeric = raw[field];
+    if (typeof numeric !== "number" || !Number.isFinite(numeric) || numeric < 0) throw new Error(`${source}.${field} must be a non-negative number`);
+  }
+  return {
+    sessionId: raw.sessionId,
+    committedOffset: raw.committedOffset as number,
+    observedSize: raw.observedSize as number,
+    mtimeMs: raw.mtimeMs as number,
+    prefixSha256: raw.prefixSha256,
+  };
+}
+
+const OUTCOMES = new Set<string>(["success", "failed", "coalesced", "timeout"]);
+
+function validateRunRecord(value: unknown, source: string): RunRecord {
+  const raw = requireObject(value, `${source} must be an object`);
+  if (raw.version !== 1) throw new Error(`${source}.version must be 1`);
+  for (const field of ["invocationId", "startedAt", "finishedAt"]) {
+    if (typeof raw[field] !== "string" || !(raw[field] as string)) throw new Error(`${source}.${field} must be a non-empty string`);
+  }
+  if (typeof raw.pid !== "number" || !Number.isInteger(raw.pid)) throw new Error(`${source}.pid must be an integer`);
+  if (typeof raw.outcome !== "string" || !OUTCOMES.has(raw.outcome)) throw new Error(`${source}.outcome must be one of success, failed, coalesced, timeout`);
+  const record: RunRecord = {
+    version: 1,
+    invocationId: raw.invocationId as string,
+    pid: raw.pid,
+    startedAt: raw.startedAt as string,
+    finishedAt: raw.finishedAt as string,
+    outcome: raw.outcome as RunOutcome,
+  };
+  if (raw.reason !== undefined) {
+    if (typeof raw.reason !== "string") throw new Error(`${source}.reason must be a string`);
+    record.reason = raw.reason;
+  }
+  for (const field of ["changedFiles", "curatorCalls", "entriesWritten"] as const) {
+    if (raw[field] === undefined) continue;
+    if (typeof raw[field] !== "number" || !Number.isInteger(raw[field]) || (raw[field] as number) < 0) throw new Error(`${source}.${field} must be a non-negative integer`);
+    record[field] = raw[field];
+  }
+  if (raw.warnings !== undefined) {
+    if (!Array.isArray(raw.warnings) || !raw.warnings.every((item) => typeof item === "string")) throw new Error(`${source}.warnings must be a list of strings`);
+    record.warnings = raw.warnings;
+  }
+  return record;
+}
+
+export async function loadGlobalState(env: NodeJS.ProcessEnv = process.env): Promise<GlobalState> {
+  const file = globalStatePath(env);
+  let text: string;
+  try {
+    text = await readFile(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY_GLOBAL_STATE, projects: {} };
+    throw error;
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${file} is not valid JSON: ${(error as Error).message}`);
+  }
+  const root = requireObject(raw, `${file} must be an object`);
+  if (root.version !== 1) throw new Error(`${file}.version must be 1`);
+  const projectsRaw = requireObject(root.projects, `${file}.projects must be an object`);
+  const projects: Record<string, ProjectState> = {};
+  for (const [key, value] of Object.entries(projectsRaw)) {
+    const project = requireObject(value, `${file}.projects.${key} must be an object`);
+    const filesRaw = requireObject(project.files, `${file}.projects.${key}.files must be an object`);
+    const files: Record<string, FileCursor> = {};
+    for (const [name, cursor] of Object.entries(filesRaw)) files[name] = validateCursor(cursor, `${file}.projects.${key}.files.${name}`);
+    const state: ProjectState = { files };
+    if (project.lastRun !== undefined) state.lastRun = validateRunRecord(project.lastRun, `${file}.projects.${key}.lastRun`);
+    projects[key] = state;
+  }
+  return { version: 1, projects };
+}
+
+export interface FileLock {
+  path: string;
+  coalesced: boolean;
+  staleRecovered: boolean;
+  release(): Promise<void>;
 }
 
 function processAlive(pid: number): boolean {
-  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
-  try { process.kill(pid, 0); return true; } catch (error) { return (error as NodeJS.ErrnoException).code === "EPERM"; }
+  if (pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
 }
 
-export async function acquireProjectLock(root: string, options: LockOptions = {}): Promise<ProjectLock> {
-  const lockFile = path.join(localDir(root), "run.lock");
-  await mkdir(path.dirname(lockFile), { recursive: true });
+async function acquireLock(file: string, options: { coalesce?: boolean; waitMs?: number } = {}): Promise<FileLock> {
+  await mkdir(path.dirname(file), { recursive: true });
+  let coalesced = false;
   let staleRecovered = false;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const waitsUntil = options.waitMs ? Date.now() + options.waitMs : 0;
+  for (;;) {
     try {
-      const handle = await open(lockFile, "wx", 0o600);
-      await handle.writeFile(`${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`);
-      let released = false;
-      return {
-        coalesced: false,
-        staleRecovered,
-        async release() {
-          if (released) return;
-          released = true;
-          await handle.close();
-          try {
-            const owner = JSON.parse(await readFile(lockFile, "utf8")) as { pid?: number };
-            if (owner.pid === process.pid) await rm(lockFile, { force: true });
-          } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-        },
-      };
+      const handle = await open(file, "wx", 0o600);
+      try {
+        await handle.writeFile(`${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`);
+      } finally {
+        await handle.close();
+      }
+      break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      let ownerPid = 0;
-      try { ownerPid = (JSON.parse(await readFile(lockFile, "utf8")) as { pid?: number }).pid ?? 0; } catch {  }
-      if (processAlive(ownerPid)) {
-        if (options.coalesce) return { coalesced: true, staleRecovered: false, async release() {  } };
-        throw new Error(`Another cheatcodes writer is running (pid ${ownerPid})`);
+      if (waitsUntil && Date.now() < waitsUntil) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        continue;
       }
-      await rm(lockFile, { force: true });
-      staleRecovered = true;
+      let ownerPid = 0;
+      try {
+        ownerPid = (JSON.parse(await readFile(file, "utf8")) as { pid?: unknown }).pid as number ?? 0;
+      } catch {
+        ownerPid = 0;
+      }
+      if (!processAlive(ownerPid)) {
+        staleRecovered = true;
+        await rm(file, { force: true });
+        continue;
+      }
+      if (!options.coalesce) throw new Error(`Another cheatcodes run is active (lock: ${file})`);
+      coalesced = true;
+      break;
     }
   }
-  throw new Error("Could not acquire project lock");
+  return {
+    path: file,
+    coalesced,
+    staleRecovered,
+    release: async () => { await rm(file, { force: true }); },
+  };
 }
 
-export function operationPath(root: string, packetId: string): string {
-  if (!/^[A-Za-z0-9._-]+$/.test(packetId)) throw new Error("Invalid packet ID");
-  return path.join(localDir(root), "operations", `${packetId}.json`);
+export function stateLockPath(env: NodeJS.ProcessEnv = process.env): string {
+  return path.join(path.dirname(globalStatePath(env)), "state.lock");
 }
 
-export async function readOperation(root: string, packetId: string): Promise<MutationOperation | undefined> {
-  try { return JSON.parse(await readFile(operationPath(root, packetId), "utf8")) as MutationOperation; }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined; throw error; }
+export function projectLockPath(env: NodeJS.ProcessEnv = process.env, projectKey: string): string {
+  const safe = projectKey.replace(/[^A-Za-z0-9._-]/g, "_");
+  return path.join(path.dirname(globalStatePath(env)), "locks", `${safe}.lock`);
 }
 
-export async function listOperations(root: string): Promise<MutationOperation[]> {
-  const directory = path.join(root, ".cheatcodes", "operations");
-  let names: string[];
-  try { names = (await readdir(directory)).filter((name) => name.endsWith(".json")).sort(); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
-  return Promise.all(names.map(async (name) => JSON.parse(await readFile(path.join(directory, name), "utf8")) as MutationOperation));
+export async function acquireStateLock(env: NodeJS.ProcessEnv = process.env): Promise<FileLock> {
+  return acquireLock(stateLockPath(env), { waitMs: 10_000 });
 }
 
-export async function writeOperation(root: string, operation: MutationOperation): Promise<void> {
-  const file = operationPath(root, operation.packetId);
-  const existing = await readOperation(root, operation.packetId);
-  const rendered = `${JSON.stringify(operation, null, 2)}\n`;
-  if (existing) {
-    if (`${JSON.stringify(existing, null, 2)}\n` !== rendered) throw new Error(`Operation ${operation.packetId} already exists with different content`);
-    return;
+export async function acquireProjectLock(env: NodeJS.ProcessEnv, projectKey: string, options: { coalesce?: boolean } = {}): Promise<FileLock> {
+  return acquireLock(projectLockPath(env, projectKey), options);
+}
+
+export async function updateProjectState(
+  env: NodeJS.ProcessEnv,
+  projectKey: string,
+  mutate: (project: ProjectState) => ProjectState,
+): Promise<GlobalState> {
+  const lock = await acquireStateLock(env);
+  try {
+    const state = await loadGlobalState(env);
+    const current = state.projects[projectKey] ?? EMPTY_PROJECT_STATE;
+    state.projects[projectKey] = mutate(structuredClone(current));
+    const ordered = orderState(state);
+    await atomicWrite(globalStatePath(env), `${JSON.stringify(ordered, null, 2)}\n`);
+    return ordered;
+  } finally {
+    await lock.release();
   }
-  await atomicWrite(file, rendered);
-}
-
-function safeTarget(curatedRoot: string, relativePath: string): string {
-  if (path.isAbsolute(relativePath) || relativePath.includes("\0")) throw new Error("Unsafe operation target");
-  const target = path.resolve(curatedRoot, relativePath);
-  const relative = path.relative(curatedRoot, target);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Operation target escapes curated concepts");
-  return target;
-}
-
-async function currentHash(file: string): Promise<string | undefined> {
-  try { return sha256(await readFile(file)); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined; throw error; }
-}
-
-export async function applyOperation(root: string, operation: MutationOperation): Promise<void> {
-  const curated = path.join(root, ".cheatcodes", "curated", "concepts");
-  const ids = new Set<string>();
-  for (const write of operation.writes) {
-    const target = safeTarget(curated, write.relativePath);
-    const bytes = Buffer.from(write.contentBase64, "base64");
-    if (sha256(bytes) !== write.intendedSha256) throw new Error(`Corrupt intended bytes for ${write.relativePath}`);
-    const intended = parseConceptMarkdown(bytes.toString("utf8"));
-    const id = path.basename(write.relativePath, ".md");
-    if (write.relativePath !== `${id}.md` || intended.frontmatter.cheatcodes_id !== id) throw new Error(`Operation identity mismatch for ${write.relativePath}`);
-    if (ids.has(id)) throw new Error(`Duplicate operation target ${id}`);
-    ids.add(id);
-    const actual = await currentHash(target);
-    if (actual === write.intendedSha256) continue;
-    if (write.expected === "absent" ? actual !== undefined : actual !== write.expected) throw new Error(`Operation conflict for ${write.relativePath}`);
-    if (actual !== undefined) {
-      const current = parseConceptMarkdown((await readFile(target)).toString("utf8"));
-      if (current.frontmatter.cheatcodes_id !== id || current.frontmatter.type !== intended.frontmatter.type) throw new Error(`Operation target identity or type mismatch for ${write.relativePath}`);
-    }
-  }
-  for (const write of operation.writes) {
-    const target = safeTarget(curated, write.relativePath);
-    if (await currentHash(target) === write.intendedSha256) continue;
-    await atomicWrite(target, Buffer.from(write.contentBase64, "base64"));
-  }
-}
-
-export async function deleteOperation(root: string, packetId: string): Promise<void> {
-  await rm(operationPath(root, packetId), { force: true });
-}
-
-export async function fileMetadata(file: string): Promise<{ size: number; mtimeMs: number }> {
-  const value = await stat(file);
-  return { size: value.size, mtimeMs: value.mtimeMs };
 }

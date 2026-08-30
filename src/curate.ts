@@ -10,44 +10,43 @@ import {
 import { z } from "zod";
 import type { HarvestPacket } from "./harvest.js";
 
-const common = {
+export const CuratedActionSchema = z.object({
   action: z.enum(["create", "update"]),
-  targetConceptId: z.string().min(1).optional(),
+  targetEntryId: z.string().min(1).optional(),
   title: z.string().min(1),
-  description: z.string().min(1),
+  summary: z.string().min(1),
+  body: z.string().min(1),
   tags: z.array(z.string().min(1)).default([]),
   evidenceRefs: z.array(z.string().min(1)).min(1),
-};
-const DecisionSchema = z.object({ ...common, type: z.literal("Decision"), content: z.object({ answer: z.string().min(1), rationale: z.string().min(1), rejectedAlternative: z.string().min(1).optional() }).strict() }).strict();
-const GotchaSchema = z.object({ ...common, type: z.literal("Gotcha"), content: z.object({ symptom: z.string().min(1), cause: z.string().min(1), fix: z.string().min(1), validation: z.string().min(1).optional() }).strict() }).strict();
-const RunbookSchema = z.object({ ...common, type: z.literal("Runbook"), content: z.object({ purpose: z.string().min(1), steps: z.array(z.string().min(1)).min(1), validation: z.string().min(1).optional() }).strict() }).strict();
-export const CuratorResponseSchema = z.object({ concepts: z.array(z.discriminatedUnion("type", [DecisionSchema, GotchaSchema, RunbookSchema])) }).strict();
-export type CuratedConcept = z.infer<typeof DecisionSchema> | z.infer<typeof GotchaSchema> | z.infer<typeof RunbookSchema>;
+}).strict();
+export const CuratorResponseSchema = z.object({ entries: z.array(CuratedActionSchema) }).strict();
+export type CuratedEntry = z.infer<typeof CuratedActionSchema>;
 export type CuratorResponse = z.infer<typeof CuratorResponseSchema>;
 
 export interface CuratorOutcome { response?: CuratorResponse; schemaInvalid: boolean; warning?: string }
 export interface Curator { curate(packet: HarvestPacket): Promise<CuratorOutcome | CuratorResponse> }
 
 export const CURATOR_PROMPT = `You curate durable project knowledge from a bounded evidence packet.
-Return exactly one JSON object with a concepts array. Do not return Markdown or commentary.
-Each concept action is create or update and has type Decision, Gotcha, or Runbook, title, description, tags, evidenceRefs, and type-specific content.
-Updates must name targetConceptId and may target only the supplied update candidate. Creates must omit targetConceptId.
-Use only supplied evidence IDs. Never invent IDs, paths, timestamps, status, verification, or provenance.
-Return {"concepts":[]} when the evidence does not justify durable knowledge.`;
+Return exactly one JSON object with an entries array. Do not return Markdown or commentary.
+Each entry has action "create" or "update", title, summary, body, tags, and evidenceRefs.
+Every entry states only current project truth. Do not describe history, addenda, or replaced guidance.
+For updates, set targetEntryId to the supplied update candidate ID and return the complete revised entry: the body must replace the candidate's body entirely rather than append.
+Creates must omit targetEntryId.
+Use only supplied evidence IDs. Never invent IDs, paths, timestamps, or provenance.
+Return {"entries":[]} when the evidence does not justify durable knowledge.`;
 
 export function validateCuratorResponse(value: unknown, packet: HarvestPacket): CuratorResponse {
   const parsed = CuratorResponseSchema.parse(value);
   const evidenceIds = new Set(packet.evidence.map((item) => item.id));
   const updated = new Set<string>();
-  for (const concept of parsed.concepts) {
-    for (const reference of concept.evidenceRefs) if (!evidenceIds.has(reference)) throw new Error(`Unknown evidence reference: ${reference}`);
-    if (concept.action === "create" && concept.targetConceptId !== undefined) throw new Error("Create action must not include targetConceptId");
-    if (concept.action === "update") {
-      if (!concept.targetConceptId) throw new Error("Update action requires targetConceptId");
-      if (!packet.updateCandidate || packet.updateCandidate.id !== concept.targetConceptId) throw new Error("Update target is not the packet update candidate");
-      if (packet.updateCandidate.type !== concept.type) throw new Error("Update type does not match target type");
-      if (updated.has(concept.targetConceptId)) throw new Error("A target may be updated only once per response");
-      updated.add(concept.targetConceptId);
+  for (const entry of parsed.entries) {
+    for (const reference of entry.evidenceRefs) if (!evidenceIds.has(reference)) throw new Error(`Unknown evidence reference: ${reference}`);
+    if (entry.action === "create" && entry.targetEntryId !== undefined) throw new Error("Create action must not include targetEntryId");
+    if (entry.action === "update") {
+      if (!entry.targetEntryId) throw new Error("Update action requires targetEntryId");
+      if (!packet.updateCandidate || packet.updateCandidate.id !== entry.targetEntryId) throw new Error("Update target is not the packet update candidate");
+      if (updated.has(entry.targetEntryId)) throw new Error("A target may be updated only once per response");
+      updated.add(entry.targetEntryId);
     }
   }
   return parsed;

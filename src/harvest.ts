@@ -12,8 +12,6 @@ export interface Episode {
   sessionId: string;
   records: NormalizedRecord[];
   recordIds: string[];
-  firstRecordId: string;
-  lastRecordId: string;
   hasNewRecord: boolean;
   signals: SignalKind[];
 }
@@ -26,35 +24,26 @@ export interface EvidenceItem {
   path?: string;
 }
 
-export interface ConceptSummary {
-  id?: string;
-  cheatcodesId?: string;
-  cheatcodes_id?: string;
-  type: string;
+export interface EntrySummary {
+  id: string;
   title: string;
-  description: string;
+  summary: string;
   tags?: string[];
-  status: string;
-  paths?: string[];
-  verified?: unknown;
-  content?: string;
-  markdown?: string;
+  body?: string;
 }
 
 export interface ShortlistItem {
   id: string;
-  type: string;
   title: string;
-  description: string;
-  status: string;
+  summary: string;
   score: number;
 }
 
-export interface UpdateCandidate extends ShortlistItem { content: string }
+export interface UpdateCandidate extends ShortlistItem { body: string }
 
 export interface HarvestPacket {
   id: string;
-  projectId: string;
+  projectKey: string;
   sessionId: string;
   episodeId: string;
   recordIds: string[];
@@ -67,8 +56,8 @@ export interface HarvestPacket {
 }
 
 export interface HarvestOptions {
-  projectId: string;
-  concepts?: readonly ConceptSummary[];
+  projectKey: string;
+  entries?: readonly EntrySummary[];
   packetCharacterCap?: number;
   shortlistLimit?: number;
 }
@@ -80,7 +69,6 @@ function workflowBoundary(record: NormalizedRecord): boolean {
   if (record.kind === "workflow") return true;
   return record.kind === "user" && /\bworkflow\b.*\b(?:run|node|step)\b/i.test(record.text ?? "");
 }
-
 
 export function segmentBranch(branch: readonly NormalizedRecord[], sessionId = branch[0]?.sessionId ?? "unknown"): Episode[] {
   const groups: NormalizedRecord[][] = [];
@@ -102,7 +90,6 @@ function makeEpisode(sessionId: string, records: NormalizedRecord[]): Episode {
   const recordIds = records.map((record) => record.id);
   return {
     id: stableId("episode", [sessionId, ...recordIds]), sessionId, records, recordIds,
-    firstRecordId: recordIds[0]!, lastRecordId: recordIds[recordIds.length - 1]!,
     hasNewRecord: records.some((record) => record.isNew), signals: detectHighSignal(records),
   };
 }
@@ -173,9 +160,6 @@ export function detectHighSignal(records: readonly NormalizedRecord[]): SignalKi
   return signals;
 }
 
-export const isHighSignal = (episode: Episode | readonly NormalizedRecord[]): boolean =>
-  Array.isArray(episode) ? detectHighSignal(episode as readonly NormalizedRecord[]).length > 0 : (episode as Episode).signals.length > 0;
-
 function cleanExcerpt(value: string, limit: number): string {
   const clean = redactSecrets(value).trim();
   return clean.length <= limit ? clean : `${clean.slice(0, limit)}\n[truncated]`;
@@ -197,10 +181,6 @@ function evidenceFor(record: NormalizedRecord): EvidenceItem | undefined {
   };
 }
 
-function conceptId(concept: ConceptSummary): string {
-  return concept.id ?? concept.cheatcodesId ?? concept.cheatcodes_id ?? "";
-}
-
 function terms(value: string): Set<string> {
   return new Set(value.toLowerCase().match(/[a-z0-9][a-z0-9_-]{2,}/g) ?? []);
 }
@@ -211,30 +191,26 @@ function overlap(left: Set<string>, right: Set<string>): number {
   return count;
 }
 
-export function shortlistConcepts(
+export function shortlistEntries(
   episode: Episode,
-  concepts: readonly ConceptSummary[],
+  entries: readonly EntrySummary[],
   limit = SHORTLIST_LIMIT,
 ): { shortlist: ShortlistItem[]; updateCandidate?: UpdateCandidate } {
   const episodeText = episode.records.map((record) => [record.text, record.receipt?.path, record.receipt?.command].filter(Boolean).join(" ")).join(" ");
   const episodeTerms = terms(episodeText);
-  const paths = new Set(episode.records.flatMap((record) => record.receipt?.path ? [record.receipt.path] : []));
-  const ranked = concepts.map((concept) => {
-    const id = conceptId(concept);
-    const titleScore = overlap(episodeTerms, terms(concept.title)) * 4;
-    const tagScore = overlap(episodeTerms, terms((concept.tags ?? []).join(" "))) * 3;
-    const descriptionScore = overlap(episodeTerms, terms(concept.description));
-    const pathScore = (concept.paths ?? []).filter((candidate) => paths.has(candidate)).length * 6;
-    const typeScore = episode.signals.includes("decision") && concept.type === "Decision" ||
-      episode.signals.includes("resolved-failure") && concept.type === "Gotcha" ||
-      episode.signals.includes("procedure") && concept.type === "Runbook" ? 2 : 0;
-    return { concept, item: { id, type: concept.type, title: concept.title, description: concept.description, status: concept.status, score: titleScore + tagScore + descriptionScore + pathScore + typeScore } };
-  }).filter((entry) => entry.item.id && entry.item.score > 0)
+  const ranked = entries.map((entry) => {
+    const titleScore = overlap(episodeTerms, terms(entry.title)) * 4;
+    const tagScore = overlap(episodeTerms, terms((entry.tags ?? []).join(" "))) * 3;
+    const summaryScore = overlap(episodeTerms, terms(entry.summary));
+    return { entry, item: { id: entry.id, title: entry.title, summary: entry.summary, score: titleScore + tagScore + summaryScore } };
+  }).filter((item) => item.item.score > 0)
     .sort((a, b) => b.item.score - a.item.score || a.item.title.localeCompare(b.item.title) || a.item.id.localeCompare(b.item.id))
     .slice(0, Math.max(0, limit));
-  const shortlist = ranked.map((entry) => entry.item);
-  const candidate = ranked.find((entry) => entry.concept.status === "draft" && entry.concept.verified === undefined && Boolean(entry.concept.content ?? entry.concept.markdown));
-  const updateCandidate = candidate ? { ...candidate.item, content: candidate.concept.content ?? candidate.concept.markdown! } : undefined;
+  const shortlist = ranked.map((item) => item.item);
+  const candidate = ranked[0];
+  const updateCandidate = candidate && candidate.entry.body
+    ? { ...candidate.item, body: candidate.entry.body }
+    : undefined;
   return { shortlist, updateCandidate };
 }
 
@@ -246,10 +222,10 @@ export function createPacket(episode: Episode, options: HarvestOptions): Harvest
   });
   const userIntent = episode.records.filter((record) => record.kind === "user").map((record) => record.text).filter(Boolean).join("\n\n");
   const finalAssistantSummary = [...episode.records].reverse().find((record) => record.kind === "assistant")?.text ?? "";
-  const related = shortlistConcepts(episode, options.concepts ?? [], options.shortlistLimit ?? SHORTLIST_LIMIT);
-  const id = stableId("packet", [options.projectId, episode.sessionId, ...episode.records.flatMap((record) => [record.id, record.byteHash])]);
+  const related = shortlistEntries(episode, options.entries ?? [], options.shortlistLimit ?? SHORTLIST_LIMIT);
+  const id = stableId("packet", [options.projectKey, episode.sessionId, ...episode.records.flatMap((record) => [record.id, record.byteHash])]);
   const packet: HarvestPacket = {
-    id, projectId: options.projectId, sessionId: episode.sessionId, episodeId: episode.id,
+    id, projectKey: options.projectKey, sessionId: episode.sessionId, episodeId: episode.id,
     recordIds: episode.recordIds, signals: episode.signals, userIntent: cleanExcerpt(userIntent, 3_000),
     finalAssistantSummary: cleanExcerpt(finalAssistantSummary, 3_000), evidence,
     shortlist: related.shortlist, updateCandidate: related.updateCandidate,
@@ -259,7 +235,6 @@ export function createPacket(episode: Episode, options: HarvestOptions): Harvest
 }
 
 function packetLength(packet: HarvestPacket): number { return JSON.stringify(packet).length; }
-
 
 function fitPacket(packet: HarvestPacket, cap: number): void {
   for (let index = packet.evidence.length - 1; packetLength(packet) > cap && index >= 0; index--) {
@@ -273,20 +248,3 @@ function fitPacket(packet: HarvestPacket, cap: number): void {
   if (packetLength(packet) > cap && packet.updateCandidate) delete packet.updateCandidate;
   if (packetLength(packet) > cap && packet.evidence[0]) packet.evidence[0].excerpt = "";
 }
-
-export function harvestPackets(session: Pick<ParsedSession, "sessionId" | "branches">, options: HarvestOptions): HarvestPacket[] {
-  const packets = new Map<string, HarvestPacket>();
-  for (const episode of segmentSession(session)) {
-    const packet = createPacket(episode, options);
-    if (packet && !packets.has(packet.id)) packets.set(packet.id, packet);
-  }
-  return [...packets.values()];
-}
-
-export function renderPacket(packet: HarvestPacket, cap = PACKET_CHARACTER_CAP): string {
-  const copy = structuredClone(packet);
-  fitPacket(copy, cap);
-  return JSON.stringify(copy);
-}
-
-export const buildPackets = harvestPackets;

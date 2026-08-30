@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { initializeProject } from "../src/config.js";
-import { runProject } from "../src/cli.js";
+import { runProject } from "../src/run.js";
 import { writeGlobalConfig } from "./helpers.js";
 
 const model = process.env.CHEATCODES_LIVE_MODEL;
@@ -37,22 +36,19 @@ test("live model smoke test", { timeout: 300_000, skip: !model || process.env.CI
     const sessions = path.join(root, "sessions");
     await mkdir(sessions);
     const { env } = await writeGlobalConfig({ model: model!, inputs: [sessions] });
-    await initializeProject({ root }, env);
     await writeFile(path.join(sessions, "smoke.jsonl"), fixture(root));
     const result = await runProject({ root, env });
     console.log("run result:", JSON.stringify(result, null, 2));
     assert.equal(result.curatorCalls, 1);
-    assert.ok(result.conceptsWritten >= 1, "expected at least one concept write");
-    const concepts = (await readdir(path.join(root, ".cheatcodes", "curated", "concepts"))).filter((name) => name.endsWith(".md"));
-    assert.ok(concepts.length >= 1);
-    for (const name of concepts) {
-      console.log(`--- curated/${name} ---`);
-      console.log(await readFile(path.join(root, ".cheatcodes", "curated", "concepts", name), "utf8"));
-    }
-    const knowledge = await readFile(path.join(root, ".cheatcodes", "knowledge", "concepts", "index.md"), "utf8");
-    console.log("--- knowledge/concepts/index.md ---");
+    assert.ok(result.entriesWritten >= 1, "expected at least one entry write");
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    console.log("--- CHEATCODES.md ---");
     console.log(knowledge);
-    assert.match(knowledge, /## (Decision|Gotcha|Runbook)/);
+    assert.match(knowledge, /^# CHEATCODES\n/);
+    assert.match(knowledge, /## /);
+    assert.equal(knowledge.includes("smoke-session"), false);
+    const entries = await readdir(root);
+    assert.equal(entries.includes(".cheatcodes"), false);
     for (const warning of result.warnings) console.log(`warning: ${warning}`);
   } finally {
     await rm(root, { recursive: true, force: true });

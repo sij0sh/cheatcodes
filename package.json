@@ -3,19 +3,26 @@
   "version": "0.2.0",
   "description": "Standalone coding-agent knowledge harvester and curator CLI.",
   "type": "module",
-  "bin": { "cheatcodes": "dist/cli.js" },
+  "bin": {
+    "cheatcodes": "dist/cli.js"
+  },
   "exports": {
     ".": "./dist/cli.js",
     "./cli": "./dist/cli.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
-    "test": "node --import tsx --test test/**/*.test.ts",
-    "start": "tsx src/cli.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "start": "tsx src/cli.ts",
+    "test:live": "node --import tsx --test test/live/*.test.ts"
   },
-  "engines": { "node": ">=22.19.0" },
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.84.4",
     "yaml": "^2.8.1",
