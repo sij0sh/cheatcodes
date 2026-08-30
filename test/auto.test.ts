@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 import test from "node:test";
 import { deriveProjectKey, emptyGlobalConfig, globalConfigPath, loadGlobalConfig, validateGlobalConfig } from "../src/config.js";
 import type { Curator } from "../src/curate.js";
@@ -18,7 +17,6 @@ import {
 } from "../src/state.js";
 import { temporary, writeGlobalConfig } from "./helpers.js";
 
-const execFileAsync = promisify(execFile);
 function line(value: unknown): string { return `${JSON.stringify(value)}\n`; }
 
 function fixture(root: string, sessionId = "session-1"): string {
@@ -51,10 +49,6 @@ async function sessionsWithFixture(root: string, sessionId = "session-1"): Promi
   return sessions;
 }
 
-async function gitInit(root: string): Promise<void> {
-  await execFileAsync("git", ["init", "-q", root]);
-}
-
 function withCurator(options: RunOptions, curator: Curator): RunOptions {
   return { ...options, curator };
 }
@@ -78,8 +72,8 @@ test("global config validation enforces the version 2 shape", () => {
   assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), surprise: true }), /not a recognized field/);
   assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig(undefined) }), /model/);
   assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), workerTimeoutMinutes: 0 }), /workerTimeoutMinutes/);
-  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: "/tmp/out.md" }), /repository-relative/);
-  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: "../escape.md" }), /repository-relative/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: "/tmp/out.md" }), /project-relative/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: "../escape.md" }), /project-relative/);
   const configured = validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: ".pi-files/CHEATCODES.md" });
   assert.equal(configured.knowledgeFile, ".pi-files/CHEATCODES.md");
   assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), contextPointer: "yes" }), /contextPointer must be a boolean/);
@@ -88,42 +82,22 @@ test("global config validation enforces the version 2 shape", () => {
   assert.equal(valid.version, 2);
 });
 
-test("project keys derive from the normalized remote and fall back to the real path", async () => {
+test("project keys hash the real path and stay stable across calls", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const pathKey = await deriveProjectKey(root);
     assert.match(pathKey, /^path:[0-9a-f]{64}$/);
     const again = await deriveProjectKey(root);
     assert.equal(again, pathKey);
-    await execFileAsync("git", ["-C", root, "remote", "add", "origin", "git@GitHub.com:Example/Org.Repo.git"], { cwd: root });
-    const remoteKey = await deriveProjectKey(root);
-    assert.match(remoteKey, /^git:[0-9a-f]{64}$/);
-    assert.notEqual(remoteKey, pathKey);
+    const nested = await deriveProjectKey(path.join(root, "nested"));
+    assert.notEqual(nested, pathKey);
   } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test("run outside a Git repository is skipped without writes", async () => {
-  const cwd = await temporary();
-  const configDir = await temporary("cheatcodes-config-");
-  try {
-    const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
-    const result = await runWorker({ cwd, env });
-    assert.equal(result.outcome, "skipped");
-    assert.match(result.reason!, /outside a Git repository/);
-    assert.deepEqual(await readdir(cwd), []);
-    assert.equal(await loadGlobalConfig(env), undefined);
-  } finally {
-    await rm(cwd, { recursive: true, force: true });
-    await rm(configDir, { recursive: true, force: true });
-  }
 });
 
 test("run skips when no config exists and no model hint is available", async () => {
   const root = await temporary();
   const configDir = await temporary("cheatcodes-config-");
   try {
-    await gitInit(root);
     const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
     const result = await runWorker({ root, env });
     assert.equal(result.outcome, "skipped");
@@ -138,7 +112,6 @@ test("a model hint creates a missing version 2 config and never overwrites an ex
   const root = await temporary();
   const configDir = await temporary("cheatcodes-config-");
   try {
-    await gitInit(root);
     const env: NodeJS.ProcessEnv = {
       CHEATCODES_CONFIG: path.join(configDir, "config.json"),
       CHEATCODES_STATE: path.join(configDir, "state.json"),
@@ -162,10 +135,9 @@ test("a model hint creates a missing version 2 config and never overwrites an ex
   }
 });
 
-test("run creates the knowledge file and global state but no repository-local runtime data", async () => {
+test("run creates the knowledge file and global state but no project-local runtime data", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
@@ -186,7 +158,6 @@ test("run creates the knowledge file and global state but no repository-local ru
 test("contextPointer false creates the knowledge file without touching AGENTS.md", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
     const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
@@ -199,7 +170,6 @@ test("contextPointer false creates the knowledge file without touching AGENTS.md
 test("contextPointer false leaves an existing AGENTS.md untouched", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     await writeFile(path.join(root, "AGENTS.md"), "# Existing agents notes\n");
     const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
@@ -211,7 +181,6 @@ test("contextPointer false leaves an existing AGENTS.md untouched", async () => 
 test("knowledgeFile config moves the knowledge file and the AGENTS pointer", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions], knowledgeFile: ".pi-files/CHEATCODES.md" });
     const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
@@ -229,7 +198,6 @@ test("knowledgeFile config moves the knowledge file and the AGENTS pointer", asy
 test("direct session-file hints are scanned as extra inputs", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [] });
     const envWithHints = { ...env, CHEATCODES_PI_SESSION_FILE: path.join(sessions, "one.jsonl") };
@@ -245,7 +213,6 @@ test("startup adds existing Pi and Claude session roots to global inputs", async
   const root = await temporary();
   const harnesses = await temporary("cheatcodes-harnesses-");
   try {
-    await gitInit(root);
     const piAgentDir = path.join(harnesses, "pi-agent");
     const claudeConfigDir = path.join(harnesses, "claude");
     const piSessions = path.join(piAgentDir, "sessions");
@@ -271,7 +238,6 @@ test("startup adds existing Pi and Claude session roots to global inputs", async
 test("a second run coalesces under the project lock and records the outcome", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     const projectKey = await deriveProjectKey(root);
@@ -289,7 +255,6 @@ test("a stale lock is recovered automatically", async () => {
   const root = await temporary();
   const configDir = await temporary("cheatcodes-config-");
   try {
-    await gitInit(root);
     const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
     const projectKey = await deriveProjectKey(root);
     const lockFile = projectLockPath(env, projectKey);
@@ -309,7 +274,6 @@ test("a stale lock is recovered automatically", async () => {
 test("worker timeout aborts work, records the timeout, and releases the lock", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = path.join(root, "sessions");
     await mkdir(sessions);
     await writeFile(path.join(sessions, "one.jsonl"), fixture(root, "s1"));
@@ -333,7 +297,6 @@ test("worker timeout aborts work, records the timeout, and releases the lock", a
 test("status reports one entry count and the latest global run result", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
@@ -342,14 +305,13 @@ test("status reports one entry count and the latest global run result", async ()
     assert.equal(status.entries, 1);
     assert.equal(status.lastRun!.outcome, "success");
     assert.deepEqual(status.missingInputs, []);
-    assert.match(status.projectKey, /^(git|path):[0-9a-f]{64}$/);
+    assert.match(status.projectKey, /^path:[0-9a-f]{64}$/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("removed inputs prune obsolete cursors from global state", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
@@ -366,8 +328,6 @@ test("two projects keep isolated entries in one global state file", async () => 
   const rootA = await temporary();
   const rootB = await temporary();
   try {
-    await gitInit(rootA);
-    await gitInit(rootB);
     const sessionsA = await sessionsWithFixture(rootA, "a-1");
     const sessionsB = await sessionsWithFixture(rootB, "b-1");
     const { env } = await writeGlobalConfig({ dir: configDir, inputs: [sessionsA, sessionsB] });
@@ -393,18 +353,17 @@ test("concurrent state updates to different projects are merged", async () => {
     const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
     const cursor = { sessionId: "s", committedOffset: 1, observedSize: 1, mtimeMs: 1, prefixSha256: "abc" };
     await Promise.all([
-      updateProjectState(env, "git:aaa", (project) => ({ ...project, files: { ...project.files, "a.jsonl": cursor } })),
-      updateProjectState(env, "git:bbb", (project) => ({ ...project, files: { ...project.files, "b.jsonl": cursor } })),
+      updateProjectState(env, "path:aaa", (project) => ({ ...project, files: { ...project.files, "a.jsonl": cursor } })),
+      updateProjectState(env, "path:bbb", (project) => ({ ...project, files: { ...project.files, "b.jsonl": cursor } })),
     ]);
     const state = await loadGlobalState(env);
-    assert.deepEqual(Object.keys(state.projects).sort(), ["git:aaa", "git:bbb"]);
+    assert.deepEqual(Object.keys(state.projects).sort(), ["path:aaa", "path:bbb"]);
   } finally { await rm(configDir, { recursive: true, force: true }); }
 });
 
 test("failed runs record the failure and return a failed outcome", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     const failingCurator: Curator = { async curate() { throw new Error("curator exploded"); } };

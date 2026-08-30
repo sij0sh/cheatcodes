@@ -1,13 +1,10 @@
-import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 import { renderKnowledgeMarkdown } from "./concept.js";
 import { atomicWrite, sha256 } from "./state.js";
 
-const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
 
 export const PRODUCER_VERSION: string = require("../package.json").version as string;
@@ -64,7 +61,7 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
   if (raw.knowledgeFile !== undefined) {
     knowledgeFile = nonempty(raw.knowledgeFile, `${source}.knowledgeFile`);
     if (path.isAbsolute(knowledgeFile) || knowledgeFile.split(/[\\/]/).includes("..")) {
-      throw new Error(`${source}.knowledgeFile must be a repository-relative path`);
+      throw new Error(`${source}.knowledgeFile must be a project-relative path`);
     }
   }
   let contextPointer: boolean | undefined;
@@ -105,16 +102,6 @@ export async function saveGlobalConfig(config: GlobalConfig, env: NodeJS.Process
   await atomicWrite(globalConfigPath(env), `${JSON.stringify(config, null, 2)}\n`);
 }
 
-export async function discoverGitRoot(start: string = process.cwd()): Promise<string | undefined> {
-  try {
-    const { stdout } = await execFileAsync("git", ["-C", path.resolve(start), "rev-parse", "--show-toplevel"], { encoding: "utf8" });
-    const root = stdout.trim();
-    return root ? path.resolve(root) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function expandHome(value: string): string {
   if (value === "~") return homedir();
   if (value.startsWith("~/") || value.startsWith("~\\")) return path.join(homedir(), value.slice(2));
@@ -149,31 +136,11 @@ export function resolveProjectRoots(config: GlobalConfig, root: string, projectK
   return [...new Set([path.resolve(root), ...aliases])];
 }
 
-export function normalizeGitRemote(remote: string): string | undefined {
-  const value = remote.trim().replace(/\.git\/?$/, "");
-  const scp = value.match(/^git@([^:]+):(.+)$/);
-  if (scp) return `${scp[1]!.toLowerCase()}/${scp[2]!.replace(/^\/+/, "")}`;
-  try {
-    const url = new URL(value);
-    const repo = url.pathname.replace(/^\/+/, "");
-    return repo ? `${url.hostname.toLowerCase()}/${repo}` : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 async function realPath(value: string): Promise<string> {
   try { return await realpath(value); } catch { return path.resolve(value); }
 }
 
 export async function deriveProjectKey(root: string): Promise<string> {
-  try {
-    const { stdout } = await execFileAsync("git", ["-C", root, "remote", "get-url", "origin"], { encoding: "utf8" });
-    const normalized = normalizeGitRemote(stdout);
-    if (normalized) return `git:${sha256(normalized)}`;
-  } catch {
-    // No origin remote; fall back to the real repository path.
-  }
   return `path:${sha256(await realPath(root))}`;
 }
 
@@ -183,7 +150,7 @@ export function knowledgeFilePath(root: string, knowledgeFile = DEFAULT_KNOWLEDG
   const resolved = path.resolve(root, knowledgeFile);
   const relative = path.relative(root, resolved);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`knowledgeFile must stay inside the repository: ${knowledgeFile}`);
+    throw new Error(`knowledgeFile must stay inside the project: ${knowledgeFile}`);
   }
   return resolved;
 }

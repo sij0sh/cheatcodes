@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 import test from "node:test";
 import type { Curator } from "../src/curate.js";
 import { runProject } from "../src/run.js";
@@ -11,7 +9,6 @@ import { normalizeRepositoryPath, parseJsonlBytes, redactSecrets } from "../src/
 import { parseKnowledgeMarkdown } from "../src/concept.js";
 import { temporary, writeGlobalConfig } from "./helpers.js";
 
-const execFileAsync = promisify(execFile);
 function line(value: unknown): string { return `${JSON.stringify(value)}\n`; }
 
 function fixture(root: string, sessionId = "session-1"): string {
@@ -36,20 +33,13 @@ async function sessionsWithFixture(root: string, sessionId = "session-1"): Promi
   return sessions;
 }
 
-async function gitInit(root: string): Promise<void> {
-  await execFileAsync("git", ["init", "-q", root]);
-}
-
-test("first run discovers the Git root from a nested directory and creates one knowledge file", async () => {
+test("first run uses the working directory as the project root and creates one knowledge file", async () => {
   const root = await temporary();
   const originalCwd = process.cwd();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
-    const nested = path.join(root, "packages", "app");
-    await mkdir(nested, { recursive: true });
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    process.chdir(nested);
+    process.chdir(root);
     const calls = { count: 0 };
     const result = await runProject({ env, curator: fakeCurator(calls) });
     assert.equal(result.root, root);
@@ -72,24 +62,14 @@ test("first run discovers the Git root from a nested directory and creates one k
 test("run requires a global config", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const env = { CHEATCODES_CONFIG: path.join(root, "missing", "config.json"), CHEATCODES_STATE: path.join(root, "state.json") };
     await assert.rejects(runProject({ root, env }), /No global config/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("run outside a Git repository fails", async () => {
-  const cwd = await temporary();
-  try {
-    const { env } = await writeGlobalConfig();
-    await assert.rejects(runProject({ cwd, env }), /Git repository/);
-  } finally { await rm(cwd, { recursive: true, force: true }); }
-});
-
 test("runs are deterministic and incremental with global state cursors", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     const calls = { count: 0 };
@@ -117,7 +97,6 @@ test("runs are deterministic and incremental with global state cursors", async (
 test("a rewritten source file is reconsidered without duplicating entries", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root, "session-1");
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     const calls = { count: 0 };
@@ -138,7 +117,6 @@ test("a rewritten source file is reconsidered without duplicating entries", asyn
 test("durable output contains no evidence excerpts", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
@@ -158,7 +136,6 @@ test("durable output contains no evidence excerpts", async () => {
 test("the knowledge pointer is appended once and replaces the legacy pointer", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const legacy = "## Project knowledge\n\nStart with `.cheatcodes/knowledge/index.md`. Check concept status before relying on a draft.";
     await writeFile(path.join(root, "AGENTS.md"), `# Agents\n\n${legacy}\n`);
@@ -174,7 +151,6 @@ test("the knowledge pointer is appended once and replaces the legacy pointer", a
 test("an existing AGENTS.md keeps its content and gains the pointer exactly once", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     await writeFile(path.join(root, "AGENTS.md"), "# My project\n\nBe nice to the code.\n");
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
@@ -266,7 +242,6 @@ test("branch reconstruction follows parent chains across versions", () => {
 test("repository-boundary filtering skips sessions from other roots", async () => {
   const root = await temporary();
   try {
-    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     await writeFile(path.join(sessions, "foreign.jsonl"), fixture("/elsewhere", "foreign-1"));
     const { env } = await writeGlobalConfig({ inputs: [sessions] });

@@ -1,8 +1,8 @@
 # cheatcodes
 
-A standalone CLI that turns coding-agent sessions into a durable knowledge base for your Git repositories.
+A standalone CLI that turns coding-agent sessions into a durable knowledge base for your projects.
 
-Coding agents repeat solved mistakes. Session transcripts pile up and nothing extracts the rules that matter. cheatcodes reads your Pi and Claude Code session files, curates durable engineering rules with your model, and writes them to `CHEATCODES.md` at the repository root. Your agents read that file on the next session and stop repeating history.
+Coding agents repeat solved mistakes. Session transcripts pile up and nothing extracts the rules that matter. cheatcodes reads your Pi and Claude Code session files, curates durable engineering rules with your model, and writes them to `CHEATCODES.md` at the project root. Your agents read that file on the next session and stop repeating history.
 
 ## How it works
 
@@ -41,12 +41,12 @@ Start with `CHEATCODES.md`.
 - **Curation guardrails**: schema-validated model output, deduplication, additive updates, provenance per entry, and redaction of common credential shapes.
 - **Safe concurrency**: project lock with coalescing and stale recovery. Two launches in one project collapse into one run.
 - **Bounded work**: worker timeout (default 10 minutes) kills runaway curation.
-- **Scoped output**: repository paths are normalized to the project; outside paths are redacted.
-- **Global configuration**: one config file for all repositories; project identity derives from the Git `origin` remote.
+- **Scoped output**: paths inside the project are normalized relative to the project root; outside paths are redacted.
+- **Global configuration**: one config file for all projects; project identity derives from the project directory path.
 
 ## Install
 
-Requirements: Node >= 22.19, Git, and an LLM provider that your model string resolves to.
+Requirements: Node >= 22.19 and an LLM provider that your model string resolves to.
 
 ```sh
 git clone https://github.com/<your-account>/cheat-codes.git
@@ -55,13 +55,13 @@ npm install
 npm install -g .        # or: npm link
 ```
 
-Create the global config once, from any Git repository:
+Create the global config once, from any project directory:
 
 ```sh
 CHEATCODES_PI_MODEL="provider/model" cheatcodes run
 ```
 
-`run` skips outside Git repositories and skips again if no config exists. Every later run processes only new session bytes.
+`run` skips when no config exists and no model hint is available. Every later run processes only new session bytes.
 
 ## Configuration
 
@@ -84,9 +84,9 @@ Global config lives at `~/.config/cheatcodes/config.json` (override with `CHEATC
 | `model` | required | Curator model as `provider/model` |
 | `inputs` | discovered | Extra session files or directories to scan |
 | `workerTimeoutMinutes` | `10` | Hard deadline for one run |
-| `knowledgeFile` | `CHEATCODES.md` | Repository-relative output path |
+| `knowledgeFile` | `CHEATCODES.md` | Project-relative output path |
 | `contextPointer` | `true` | Write the `AGENTS.md` pointer |
-| `projectAliases` | `{}` | Extra repository roots per project key |
+| `projectAliases` | `{}` | Extra project roots per project key |
 
 Run state (cursors, last-run record) lives at `~/.local/state/cheatcodes/state.json` (override with `CHEATCODES_STATE`).
 
@@ -94,7 +94,7 @@ Run state (cursors, last-run record) lives at `~/.local/state/cheatcodes/state.j
 
 | Command | Effect |
 | --- | --- |
-| `cheatcodes run` | Process new session bytes for this repository. `auto` is an alias. |
+| `cheatcodes run` | Process new session bytes for this project. `auto` is an alias. |
 | `cheatcodes status` | Show project key, discovered inputs, entry count, last run. |
 
 ## Launchers (set and forget)
@@ -106,7 +106,7 @@ Launchers only trigger `cheatcodes run` as a detached, fire-and-forget process. 
 | `pi-cheatcodes` | Pi `session_start` event | `github.com/<your-account>/pi-cheatcodes` |
 | `claude-cheatcodes` | Claude Code `SessionStart` hook | `github.com/<your-account>/claude-cheatcodes` |
 
-Without a launcher, run `cheatcodes run` manually in any repository. Incremental processing keeps it fast.
+Without a launcher, run `cheatcodes run` manually in any project directory. Incremental processing keeps it fast.
 
 ## Uninstall
 
@@ -115,7 +115,7 @@ npm uninstall -g cheatcodes
 rm -rf ~/.config/cheatcodes ~/.local/state/cheatcodes
 ```
 
-Remove `CHEATCODES.md` and the `AGENTS.md` pointer from any repository where you no longer want curated knowledge.
+Remove `CHEATCODES.md` and the `AGENTS.md` pointer from any project where you no longer want curated knowledge.
 
 ## Development
 

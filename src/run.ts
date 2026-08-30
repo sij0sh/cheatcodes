@@ -5,7 +5,6 @@ import path from "node:path";
 import {
   deriveProjectKey,
   discoverDefaultInputs,
-  discoverGitRoot,
   emptyGlobalConfig,
   ensureKnowledgeOutput,
   globalConfigPath,
@@ -119,8 +118,7 @@ function curatedInput(curated: CuratedEntry, source: string, date: string) {
 
 export async function runProject(options: RunOptions = {}): Promise<RunResult> {
   const env = options.env ?? process.env;
-  const root = options.root ? path.resolve(options.root) : await discoverGitRoot(options.cwd);
-  if (!root) throw new Error("cheatcodes requires a Git repository; run it inside a project");
+  const root = path.resolve(options.root ?? options.cwd ?? process.cwd());
   const global = await loadGlobalConfig(env);
   if (!global) throw new Error(`No global config at ${globalConfigPath(env)}`);
   const projectKey = await deriveProjectKey(root);
@@ -235,8 +233,7 @@ export interface ProjectStatus {
 }
 
 export async function projectStatus(root?: string, env: NodeJS.ProcessEnv = process.env): Promise<ProjectStatus> {
-  const projectRoot = root ? path.resolve(root) : await discoverGitRoot();
-  if (!projectRoot) throw new Error("cheatcodes requires a Git repository; run it inside a project");
+  const projectRoot = path.resolve(root ?? process.cwd());
   const global = await loadGlobalConfig(env);
   if (!global) throw new Error(`No global config at ${globalConfigPath(env)}`);
   const projectKey = await deriveProjectKey(projectRoot);
@@ -294,8 +291,7 @@ export async function runWorker(options: RunOptions = {}): Promise<WorkerResult>
   const now = options.now ?? (() => new Date());
   const invocationId = randomUUID();
   const startedAt = now();
-  const root = options.root ? path.resolve(options.root) : await discoverGitRoot(options.cwd);
-  if (!root) return { outcome: "skipped", invocationId, reason: "outside a Git repository", warnings: [] };
+  const root = path.resolve(options.root ?? options.cwd ?? process.cwd());
   const hints = readLauncherHints(env);
   let global = await loadGlobalConfig(env);
   let configChanged = false;
