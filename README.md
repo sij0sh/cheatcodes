@@ -1,167 +1,117 @@
-# cheatcodes
+# Cheatcodes
 
-A standalone CLI that turns coding-agent sessions into a durable knowledge base for your projects.
+Turn lessons from coding-agent sessions into a small, reusable project memory.
 
-Coding agents repeat solved mistakes. Session transcripts pile up and nothing extracts the rules that matter. cheatcodes reads your Pi and Claude Code session files, curates durable engineering rules with your model, and writes them to `CHEATCODES.md` at the project root. Your agents read that file on the next session and stop repeating history.
+Cheatcodes reads past Pi and Claude Code sessions, finds durable lessons, and keeps them in `CHEATCODES.md`.
+
+## Why use it?
+
+- **Retroactive:** learn from corrections, failed attempts, decisions, and working fixes after the work is done.
+- **Lean:** process only new or changed session data. No server, database, dashboard, or project-local runtime directory.
+- **Simple:** keep the result as readable Markdown beside the code.
+- **Current:** update old guidance instead of piling new notes on top of it.
+- **Portable:** point agents to the same knowledge through `AGENTS.md`.
+
+Cheatcodes is useful when the same lessons keep coming up across agent sessions, but maintaining a large instruction file by hand is not.
 
 ## How it works
 
-1. A launcher spawns `cheatcodes run` when a session starts, or you run it yourself.
-2. cheatcodes reads session JSONL from Pi (`~/.pi/agent/sessions`) and Claude Code (`~/.claude/projects`). It discovers these roots on first run and persists them in its global config.
-3. It processes only new bytes. File cursors, record hashes, and a project lock make repeat runs cheap and safe.
-4. Your configured model curates substantive exchanges into knowledge entries. A correction like "No, use the repository adapter" becomes a rule. Trivial traffic (file listings, read receipts) is dropped.
-5. It writes `CHEATCODES.md` and adds a pointer to `AGENTS.md` so coding agents find it.
+1. Scan Pi and Claude Code session logs for the current project.
+2. Look for high-signal moments such as user corrections, resolved failures, decisions, and repeatable procedures.
+3. Send a small, redacted evidence packet to your chosen model.
+4. Create or update an entry in `CHEATCODES.md`.
+5. Remember what was processed so the next run only handles changes.
 
-## Example
+Raw transcript excerpts are not copied into the knowledge file. Common secrets are redacted before curation.
 
-A session correction becomes a curated entry:
+## Compared with other approaches
 
-```markdown
-<!-- cheatcodes-entry {"id":"cc-4e5f...","title":"Use the OpenAI Codex provider for GPT-5.6 Luna","summary":"gpt-5.6-luna is registered under openai-codex, not z-ai-openai.","date":"2026-08-29T00:25:14.239Z","tags":["openai","model-routing"],"sources":["session:01a04abf-...#records=61eb19fa"]}-->
-## Use the OpenAI Codex provider for GPT-5.6 Luna
+| Approach | Tradeoff | What Cheatcodes adds |
+| --- | --- | --- |
+| Handwritten `AGENTS.md` or `CLAUDE.md` | Very simple, but someone must notice and record every lesson | Learns retrospectively and adds a small pointer to the generated knowledge |
+| Transcript search or archives | Keeps everything, including noise and outdated advice | Keeps only durable, current project guidance |
+| Memory servers and RAG systems | Powerful retrieval, with more infrastructure and hidden state | One inspectable Markdown file and incremental local state |
 
-gpt-5.6-luna is registered under openai-codex, not z-ai-openai.
+Cheatcodes is deliberately narrower. It is project memory, not chat search or a general knowledge base.
 
-Using z-ai-openai/gpt-5.6-luna fails before the first model call.
-<!-- /cheatcodes-entry -->
-```
+## Start up
 
-Each entry is self-describing markdown with a title, summary, date, tags, and source references back to the session. `AGENTS.md` gains one pointer:
+Requires Node.js 22.19 or newer.
 
-```markdown
-## Project knowledge
+### 1. Install from this repository
 
-Start with `CHEATCODES.md`.
-```
-
-## Features
-
-- **Multi-harness input**: reads Pi and Claude Code sessions. Handles both JSONL formats and their tool-call shapes.
-- **Incremental by design**: commits complete records only, tracks byte cursors and prefix hashes, and detects rewritten files.
-- **Curation guardrails**: schema-validated model output, deduplication, additive updates, provenance per entry, and redaction of common credential shapes.
-- **Safe concurrency**: project lock with coalescing and stale recovery. Two launches in one project collapse into one run.
-- **Bounded work**: worker timeout (default 10 minutes) kills runaway curation.
-- **Scoped output**: paths inside the project are normalized relative to the project root; outside paths are redacted.
-- **Global configuration**: one config file for all projects; project identity derives from the project directory path.
-
-## Install
-
-Requirements: Node >= 22.19 and an LLM provider that your model string resolves to.
-
-```sh
-git clone https://github.com/<your-account>/cheat-codes.git
-cd cheat-codes
+```bash
 npm install
-npm install -g .        # or: npm link
+npm run build
+npm link
 ```
 
-Create the global config once, from any project directory:
+### 2. Choose a curator model
 
-```sh
-CHEATCODES_PI_MODEL="provider/model" cheatcodes run
-```
-
-`run` skips when no config exists and no model hint is available. Every later run processes only new session bytes.
-
-## Configuration
-
-Global config lives at `~/.config/cheatcodes/config.json` (override with `CHEATCODES_CONFIG`).
+Create `~/.config/cheatcodes/config.json`:
 
 ```json
 {
   "version": 2,
   "model": "provider/model",
-  "inputs": ["~/.pi/agent/sessions", "~/.claude/projects"],
+  "inputs": [],
   "workerTimeoutMinutes": 10,
-  "knowledgeFile": "CHEATCODES.md",
-  "contextPointer": true,
   "projectAliases": {}
 }
 ```
 
-| Field | Default | Purpose |
-| --- | --- | --- |
-| `model` | required | Curator model as `provider/model` |
-| `inputs` | discovered | Extra session files or directories to scan |
-| `workerTimeoutMinutes` | `10` | Hard deadline for one run |
-| `knowledgeFile` | `CHEATCODES.md` | Project-relative output path |
-| `contextPointer` | `true` | Write the `AGENTS.md` pointer |
-| `projectAliases` | `{}` | Extra project roots per project key |
+If Pi is installed, Cheatcodes copies Pi's model registry the first time it needs one. Otherwise it creates `~/.config/cheatcodes/models.json` with an example provider for you to replace. Existing model files are never overwritten.
 
-Run state (cursors, last-run record) lives at `~/.local/state/cheatcodes/state.json` (override with `CHEATCODES_STATE`).
+Empty `inputs` are fine. On startup, Cheatcodes discovers these folders when present:
 
-## Bring your own API
+- `~/.pi/agent/sessions`
+- `~/.claude/projects`
 
-cheatcodes resolves your `model` string through a model registry at
-`~/.config/cheatcodes/models.json`. It seeds this file on first run: it copies
-your Pi registry (`~/.pi/agent/models.json`) when one exists, otherwise it
-writes a scaffold. It never overwrites the file afterwards. Delete it to
-re-seed.
+You can also add other session folders to `inputs`.
 
-Claude-only users edit the file directly. A minimal provider looks like this:
+### 3. Run it from a project
 
-```json
-{
-  "providers": {
-    "example": {
-      "baseUrl": "https://api.example.com/v1",
-      "api": "openai-completions",
-      "apiKey": "$EXAMPLE_API_KEY",
-      "models": [
-        { "id": "example-model", "name": "Example Model", "reasoning": false,
-          "contextWindow": 128000, "maxTokens": 8192 }
-      ]
-    }
-  }
-}
+```bash
+cd /path/to/project
+cheatcodes run
+cheatcodes status
 ```
 
-Rules:
+The first run creates:
 
-- Set `model` in the global config to `example/example-model`.
-- `apiKey` accepts a literal, an environment reference (`$VAR`), or a command
-  (`!cmd`). Prefer `$VAR`.
-- Four API types exist: `openai-completions`, `openai-responses`,
-  `anthropic-messages`, and `google-generative-ai`. Custom providers need a
-  `baseUrl`. Google requires one.
-- A run skips when the configured model does not resolve in this registry.
+- `CHEATCODES.md`, containing curated project knowledge
+- a short `AGENTS.md` pointer so compatible agents know where to look
 
-See the Pi `models.json` documentation for the full schema.
+Runtime cursors and locks stay in the user's state directory, not in the project. Set `"contextPointer": false` if you do not want Cheatcodes to touch `AGENTS.md`.
+
+## Sister shims
+
+Cheatcodes is the shared engine. Its Pi and Claude Code sister shims are thin, host-specific launchers.
+
+They run Cheatcodes at the right point in each agent's lifecycle and pass available context, such as the current project, session file, or model. They do not maintain a second knowledge store or implement separate learning logic.
+
+Use a shim for automatic runs inside its supported agent. Use `cheatcodes run` when you want a manual or tool-independent workflow. Both paths update the same `CHEATCODES.md`.
 
 ## Commands
 
-| Command | Effect |
-| --- | --- |
-| `cheatcodes run` | Process new session bytes for this project. `auto` is an alias. |
-| `cheatcodes status` | Show project key, discovered inputs, entry count, last run. |
+```text
+cheatcodes run      Process new session data for the current project
+cheatcodes status   Show inputs, entry count, and the last run
+```
 
-## Launchers (set and forget)
+## Output
 
-Launchers only trigger `cheatcodes run` as a detached, fire-and-forget process. They add no foreground work to agent startup.
+`CHEATCODES.md` is plain Markdown. Read it, edit it, review it in Git, or remove entries you no longer want. The file remains useful even without Cheatcodes running.
 
-| Launcher | Trigger | Repository |
+## Configuration
+
+| Field | Purpose | Default |
 | --- | --- | --- |
-| `pi-cheatcodes` | Pi `session_start` event | `github.com/<your-account>/pi-cheatcodes` |
-| `claude-cheatcodes` | Claude Code `SessionStart` hook | `github.com/<your-account>/claude-cheatcodes` |
+| `model` | Model used to curate evidence | Required |
+| `inputs` | Session files or folders to scan | Discovered Pi and Claude Code folders |
+| `workerTimeoutMinutes` | Maximum run time | `10` |
+| `knowledgeFile` | Project-relative output path | `CHEATCODES.md` |
+| `contextPointer` | Add the knowledge pointer to `AGENTS.md` | `true` |
+| `projectAliases` | Treat other paths as the same project | `{}` |
 
-Without a launcher, run `cheatcodes run` manually in any project directory. Incremental processing keeps it fast.
-
-## Uninstall
-
-```sh
-npm uninstall -g cheatcodes
-rm -rf ~/.config/cheatcodes ~/.local/state/cheatcodes
-```
-
-Remove `CHEATCODES.md` and the `AGENTS.md` pointer from any project where you no longer want curated knowledge.
-
-## Development
-
-```sh
-npm test              # unit suite, no network
-npm run test:live     # opt-in live-model smoke test; refuses to run with CI=true
-```
-
-## License
-
-MIT.
+Set `CHEATCODES_CONFIG` to use a different config path.
