@@ -1,38 +1,31 @@
 # cheat-codes - source bundle
 
-- generated: 2026-08-30T13:15:18+00:00
-- files: 24
-- total: 3,647 lines / 157,410 bytes
+- generated: 2026-08-30T15:45:37+00:00
+- files: 17
+- total: 3,044 lines / 134,803 bytes
 - scope: repo source + cheat-codes knowledge base (no node_modules, no dist, no package-lock, no curated duplicates, no local runtime state)
 
 ## contents
 
 | file | lines | bytes | sha256 |
 | --- | ---: | ---: | --- |
-| [package.json](#packagejson) | 30 | 729 | `9134f5e19907d8a2` |
+| [package.json](#packagejson) | 37 | 811 | `2a30fe0105ded407` |
 | [tsconfig.json](#tsconfigjson) | 16 | 328 | `4bd34f3354b2d186` |
-| [AGENTS.md](#AGENTSmd) | 4 | 115 | `e4647afffc4f32e1` |
-| [src/cli.ts](#srcclits) | 341 | 16,612 | `42297942e3f29799` |
-| [src/concept.ts](#srcconceptts) | 475 | 16,822 | `654bc73746ddcc35` |
-| [src/config.ts](#srcconfigts) | 350 | 15,346 | `6122efdf71d3700b` |
-| [src/curate.ts](#srccuratets) | 142 | 7,763 | `5ae75b87629c456d` |
-| [src/harvest.ts](#srcharvestts) | 293 | 13,431 | `7cde3d09cc8144a6` |
-| [src/jsonl.ts](#srcjsonlts) | 419 | 19,333 | `7208743d14b8a9d5` |
-| [src/publish.ts](#srcpublishts) | 309 | 9,842 | `3b34cd577a9a39ef` |
-| [src/scan.ts](#srcscants) | 94 | 4,628 | `f2fef7558567ba42` |
-| [src/state.ts](#srcstatets) | 183 | 8,568 | `814427d6a9b73627` |
-| [src/worker.ts](#srcworkerts) | 254 | 9,477 | `a7f2ea7c44458040` |
-| [test/auto.test.ts](#testautotestts) | 296 | 14,534 | `151246deb174666e` |
-| [test/helpers.ts](#testhelpersts) | 39 | 1,456 | `b4b7045ee3315220` |
-| [test/mvp.test.ts](#testmvptestts) | 102 | 5,519 | `8aaab1d330668f22` |
-| [test/smoke.live.test.ts](#testsmokelivetestts) | 61 | 3,934 | `096dbed71a5bc2b9` |
-| [.cheatcodes/project.json](#cheatcodesprojectjson) | 5 | 80 | `a58a7d0edfed271a` |
-| [.cheatcodes/knowledge/concepts/2fad95eef7.md](#cheatcodesknowledgeconcepts2fad95eef7md) | 41 | 1,699 | `4cc0482fd061f2f3` |
-| [.cheatcodes/knowledge/concepts/4fa2bab553.md](#cheatcodesknowledgeconcepts4fa2bab553md) | 77 | 2,931 | `9ae5f8c983d6e723` |
-| [.cheatcodes/knowledge/concepts/6cf7bf3342.md](#cheatcodesknowledgeconcepts6cf7bf3342md) | 35 | 1,184 | `eb4aab20b1f4a707` |
-| [.cheatcodes/knowledge/concepts/7fa22339ce.md](#cheatcodesknowledgeconcepts7fa22339cemd) | 58 | 2,140 | `67994bbdd206e1d2` |
-| [.cheatcodes/knowledge/concepts/index.md](#cheatcodesknowledgeconceptsindexmd) | 15 | 822 | `4ab7f4f98aefb7c8` |
-| [.cheatcodes/knowledge/index.md](#cheatcodesknowledgeindexmd) | 8 | 117 | `c0e82332b893187b` |
+| [AGENTS.md](#AGENTSmd) | 4 | 60 | `a241fb21f4fb060c` |
+| [src/cli.ts](#srcclits) | 55 | 2,387 | `ba1ade366c2a03b2` |
+| [src/concept.ts](#srcconceptts) | 284 | 10,401 | `68fe600ac6f2c178` |
+| [src/config.ts](#srcconfigts) | 213 | 9,351 | `92f2c6e27229f0e6` |
+| [src/curate.ts](#srccuratets) | 141 | 6,981 | `cb0a81805651cf5e` |
+| [src/harvest.ts](#srcharvestts) | 251 | 11,327 | `4bc948331127ea94` |
+| [src/jsonl.ts](#srcjsonlts) | 374 | 17,590 | `301705b84ff2efd6` |
+| [src/run.ts](#srcrunts) | 351 | 14,625 | `fe2e36866a68e6a2` |
+| [src/scan.ts](#srcscants) | 92 | 4,514 | `68af177190844dc0` |
+| [src/state.ts](#srcstatets) | 261 | 9,897 | `2cda69e1ec2d5a51` |
+| [test/auto.test.ts](#testautotestts) | 399 | 20,049 | `c59ac7be32b4390c` |
+| [test/concept.test.ts](#testconcepttestts) | 209 | 8,056 | `8310953589272d74` |
+| [test/helpers.ts](#testhelpersts) | 37 | 1,409 | `47f6c0f04d32ca79` |
+| [test/live/smoke.live.test.ts](#testlivesmokelivetestts) | 57 | 3,608 | `15db7dab94509d2a` |
+| [test/mvp.test.ts](#testmvptestts) | 263 | 13,409 | `e0f1cff0141ab32e` |
 
 ## `package.json`
 
@@ -42,19 +35,26 @@
   "version": "0.2.0",
   "description": "Standalone coding-agent knowledge harvester and curator CLI.",
   "type": "module",
-  "bin": { "cheatcodes": "dist/cli.js" },
+  "bin": {
+    "cheatcodes": "dist/cli.js"
+  },
   "exports": {
     ".": "./dist/cli.js",
     "./cli": "./dist/cli.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
-    "test": "node --import tsx --test test/**/*.test.ts",
-    "start": "tsx src/cli.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "start": "tsx src/cli.ts",
+    "test:live": "node --import tsx --test test/live/*.test.ts"
   },
-  "engines": { "node": ">=22.19.0" },
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.84.4",
     "yaml": "^2.8.1",
@@ -93,300 +93,19 @@
 ```markdown
 ## Project knowledge
 
-Start with `.cheatcodes/knowledge/index.md`. Check concept status before relying on a draft.
+Start with `.pi-files/CHEATCODES.md`.
 ```
 
 ## `src/cli.ts`
 
 ```typescript
 #!/usr/bin/env node
-import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-  findProjectRoot, globalConfigPath, initializeProject, loadGlobalConfig, loadProjectIdentity,
-  PRODUCER_VERSION, resolveGlobalInputs, resolveProjectRoots,
-} from "./config.js";
-import { applyAdditiveConceptUpdate, createConceptMarkdown, parseConceptMarkdown, renderConceptMarkdown, type ConceptSource } from "./concept.js";
-import { normalizeCuratorOutcome, PiCurator, type Curator, type CuratedConcept } from "./curate.js";
-import { createPacket, segmentSession, type ConceptSummary, type EvidenceItem, type HarvestPacket } from "./harvest.js";
-import { parseJsonlFile } from "./jsonl.js";
-import { publishKnowledge } from "./publish.js";
-import { scanInputs, type ScanWarning } from "./scan.js";
-import {
-  acquireProjectLock, applyOperation, deleteOperation, listOperations, loadState, readOperation, sha256,
-  writeOperation, writeState, type MutationOperation, type OperationWrite, type ProjectLock,
-} from "./state.js";
-import { readLastRun, runAuto, type WorkerRecord } from "./worker.js";
-
-export interface RunOptions {
-  root?: string;
-  curator?: Curator;
-  curatorFactory?: () => Promise<Curator>;
-  now?: () => Date;
-  onWarning?: (message: string) => void;
-  shouldStop?: () => boolean;
-  extraInputs?: string[];
-  env?: NodeJS.ProcessEnv;
-  lock?: ProjectLock;
-}
-
-export interface RunResult {
-  changedFiles: number;
-  curatorCalls: number;
-  packets: number;
-  conceptsWritten: number;
-  prunedCursors: number;
-  warnings: string[];
-  published: boolean;
-  staleLockRecovered: boolean;
-  deadlineExceeded: boolean;
-}
-
-function warningText(warning: ScanWarning): string { return `${warning.file}: ${warning.message}`; }
-
-async function loadConcepts(root: string): Promise<ConceptSummary[]> {
-  const directory = path.join(root, ".cheatcodes", "curated", "concepts");
-  let names: string[];
-  try { names = (await readdir(directory)).filter((name) => name.endsWith(".md")).sort(); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
-  const concepts: ConceptSummary[] = [];
-  for (const name of names) {
-    const markdown = await readFile(path.join(directory, name), "utf8");
-    const document = parseConceptMarkdown(markdown);
-    concepts.push({
-      id: document.frontmatter.cheatcodes_id,
-      type: document.frontmatter.type,
-      title: document.frontmatter.title,
-      description: document.frontmatter.description,
-      tags: document.frontmatter.tags,
-      status: document.frontmatter.status,
-      verified: document.frontmatter.verified,
-      content: markdown,
-    });
-  }
-  return concepts;
-}
-
-function selectedEvidence(packet: HarvestPacket, concept: CuratedConcept): EvidenceItem[] {
-  const selected = new Set(concept.evidenceRefs);
-  return packet.evidence.filter((item) => selected.has(item.id));
-}
-
-function sourceFor(packet: HarvestPacket, evidence: EvidenceItem[]): ConceptSource {
-  const ids = [...new Set(evidence.flatMap((item) => item.recordIds))];
-  const digest = sha256(`${packet.sessionId}\0${ids.join("\0")}`).slice(0, 16);
-  return { id: `session-${digest}`, resource: `session:${packet.sessionId}#entries=${ids.join(",")}`, title: "Session evidence" };
-}
-
-function operationWrite(relativePath: string, expected: "absent" | string, markdown: string): OperationWrite {
-  const bytes = Buffer.from(markdown, "utf8");
-  return { relativePath, expected, contentBase64: bytes.toString("base64"), intendedSha256: sha256(bytes) };
-}
-
-async function operationFromResponse(root: string, sourceFile: string, packet: HarvestPacket, concepts: CuratedConcept[], now: Date, warn: (message: string) => void): Promise<MutationOperation> {
-  const writes: OperationWrite[] = [];
-  const targetIds = new Set<string>();
-  for (const concept of concepts) {
-    const evidence = selectedEvidence(packet, concept);
-    const source = sourceFor(packet, evidence);
-    if (concept.action === "create") {
-      const created = createConceptMarkdown({
-        type: concept.type,
-        title: concept.title,
-        description: concept.description,
-        tags: concept.tags,
-        content: concept.content,
-        sources: [source],
-        evidence: evidence.map((item) => ({ id: item.id, excerpt: item.excerpt })),
-        generatedBy: `cheatcodes/${PRODUCER_VERSION}`,
-        generatedAt: now.toISOString(),
-      });
-      writes.push(operationWrite(`${created.id}.md`, "absent", created.markdown));
-      continue;
-    }
-    const targetId = concept.targetConceptId!;
-    if (targetIds.has(targetId)) throw new Error(`Duplicate update target ${targetId}`);
-    targetIds.add(targetId);
-    const target = path.join(root, ".cheatcodes", "curated", "concepts", `${targetId}.md`);
-    let previous: Buffer;
-    try { previous = await readFile(target); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new Error(`Update target does not exist: ${targetId}`); throw error; }
-    const document = parseConceptMarkdown(previous.toString("utf8"));
-    if (document.frontmatter.cheatcodes_id !== targetId) throw new Error(`Update target ID mismatch: ${targetId}`);
-    try {
-      const result = applyAdditiveConceptUpdate(document, {
-        type: concept.type,
-        content: concept.content,
-        tags: concept.tags,
-        sources: [source],
-        evidence: evidence.map((item) => ({ id: item.id, excerpt: item.excerpt })),
-        generatedAt: now.toISOString(),
-      });
-      if (result.changed) writes.push(operationWrite(`${targetId}.md`, sha256(previous), renderConceptMarkdown(result.concept)));
-    } catch (error) {
-      warn(`Packet ${packet.id}: rejected update to ${targetId}: ${(error as Error).message}`);
-    }
-  }
-  return { version: 1, packetId: packet.id, sourceFile, writes, terminal: writes.length ? "success" : "no-op" };
-}
-
-async function getCurator(options: RunOptions, root: string, model: string): Promise<Curator> {
-  if (options.curator) return options.curator;
-  if (options.curatorFactory) return options.curatorFactory();
-  return PiCurator.create({ projectRoot: root, model });
-}
-
-export async function runProject(options: RunOptions = {}): Promise<RunResult> {
-  const env = options.env ?? process.env;
-  const root = options.root ? path.resolve(options.root) : await findProjectRoot(undefined, env);
-  const identity = await loadProjectIdentity(root);
-  if (!identity) throw new Error(`No cheatcodes project at ${root}; run \`cheatcodes init\` first`);
-  const global = await loadGlobalConfig(env);
-  if (!global) throw new Error(`No global config at ${globalConfigPath(env)}`);
-  const inputs = [...resolveGlobalInputs(global, env), ...(options.extraInputs ?? []).map((value) => path.resolve(value))];
-  const projectRoots = resolveProjectRoots(global, root, identity.projectId);
-  const lock = options.lock ?? await acquireProjectLock(root);
-  const warnings: string[] = [];
-  const warn = (message: string): void => { warnings.push(message); options.onWarning?.(message); };
-  let curator: Curator | undefined;
-  let curatorCalls = 0;
-  let packets = 0;
-  let conceptsWritten = 0;
-  let prunedCursors = 0;
-  let deadlineExceeded = false;
-  try {
-    if (lock.staleRecovered) warn("Recovered a stale project mutation lock");
-    const state = await loadState(root);
-    for (const pending of await listOperations(root)) {
-      const committed = state.files[pending.sourceFile]?.committedOffset;
-      if (pending.sourceCommittedOffset !== undefined && committed !== undefined && committed >= pending.sourceCommittedOffset) {
-        await applyOperation(root, pending);
-        await deleteOperation(root, pending.packetId);
-      }
-    }
-    const processedPacketIds = new Set<string>();
-    const scan = await scanInputs(inputs, projectRoots, state);
-    scan.skipped.map(warningText).forEach(warn);
-    scan.missing.forEach((file) => warn(`${file}: configured input does not exist`));
-    const enumerated = new Set([...scan.changed.map((item) => item.file), ...scan.unchanged]);
-    for (const file of Object.keys(state.files)) {
-      if (enumerated.has(file)) continue;
-      const underMissing = scan.missing.some((missing) => file === missing || file.startsWith(`${missing}${path.sep}`));
-      let exists = false;
-      if (!underMissing) {
-        try { exists = (await stat(file)).isFile(); }
-        catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-      }
-      if (underMissing || !exists) {
-        delete state.files[file];
-        prunedCursors++;
-        warn(`Pruned state cursor for removed input: ${file}`);
-      }
-    }
-    if (prunedCursors) await writeState(root, state);
-    for (const candidate of scan.changed) {
-      if (options.shouldStop?.()) { deadlineExceeded = true; break; }
-      const cursor = state.files[candidate.file];
-      let parsed = await parseJsonlFile(candidate.file, {
-        previousCommittedOffset: cursor?.committedOffset ?? 0,
-        projectId: identity.projectId,
-        projectRoots,
-      });
-      const appended = cursor !== undefined && cursor.sessionId === parsed.sessionId && cursor.committedOffset <= parsed.completeOffset && cursor.prefixSha256 === parsed.previousPrefixSha256;
-      const rewritten = cursor !== undefined && !appended;
-      if (rewritten) {
-        warn(`${candidate.file}: source was rewritten; all complete records will be reconsidered`);
-        parsed = await parseJsonlFile(candidate.file, { previousCommittedOffset: cursor.committedOffset, rewritten: true, projectId: identity.projectId, projectRoots });
-      }
-      for (const item of parsed.warnings) warn(`${item.file ?? candidate.file}:${item.range.start}-${item.range.end}: ${item.message}`);
-      const completedOperations: string[] = [];
-      const episodes = segmentSession(parsed);
-      for (const episode of episodes) {
-        const packet = createPacket(episode, { projectId: identity.projectId, concepts: await loadConcepts(root) });
-        if (!packet) continue;
-        packets++;
-        if (processedPacketIds.has(packet.id)) continue;
-        processedPacketIds.add(packet.id);
-        let operation = await readOperation(root, packet.id);
-        if (!operation) {
-          curator ??= await getCurator(options, root, global.model);
-          curatorCalls++;
-          const outcome = normalizeCuratorOutcome(await curator.curate(packet), packet);
-          if (outcome.schemaInvalid || !outcome.response) {
-            warn(`Packet ${packet.id} was terminally skipped after schema validation failed${outcome.warning ? `: ${outcome.warning}` : ""}`);
-            operation = { version: 1, packetId: packet.id, sourceFile: candidate.file, writes: [], terminal: "schema-invalid" };
-          } else {
-            operation = await operationFromResponse(root, candidate.file, packet, outcome.response.concepts, (options.now ?? (() => new Date()))(), warn);
-          }
-          operation.sourceCommittedOffset = parsed.completeOffset;
-          await writeOperation(root, operation);
-        }
-        if (operation.sourceFile !== candidate.file) throw new Error(`Operation ${operation.packetId} belongs to another source file`);
-        await applyOperation(root, operation);
-        conceptsWritten += operation.writes.length;
-        completedOperations.push(operation.packetId);
-      }
-      state.files[candidate.file] = {
-        sessionId: parsed.sessionId,
-        committedOffset: parsed.completeOffset,
-        observedSize: candidate.size,
-        mtimeMs: candidate.mtimeMs,
-        prefixSha256: parsed.completeSha256,
-      };
-      await writeState(root, state);
-      for (const packetId of completedOperations) await deleteOperation(root, packetId);
-    }
-    const published = await publishKnowledge(root);
-    return { changedFiles: scan.changed.length, curatorCalls, packets, conceptsWritten, prunedCursors, warnings, published: published.changed, staleLockRecovered: lock.staleRecovered, deadlineExceeded };
-  } finally { await lock.release(); }
-}
-
-export async function publishProject(root?: string): Promise<Awaited<ReturnType<typeof publishKnowledge>>> {
-  const projectRoot = root ? path.resolve(root) : await findProjectRoot();
-  const lock = await acquireProjectLock(projectRoot);
-  try { return await publishKnowledge(projectRoot); } finally { await lock.release(); }
-}
-
-export interface ProjectStatus {
-  root: string;
-  projectId: string;
-  inputs: string[];
-  missingInputs: string[];
-  discoveredFiles: number;
-  drafts: number;
-  stable: number;
-  deprecated: number;
-  skipped: ScanWarning[];
-  lastRun?: WorkerRecord;
-}
-
-export async function projectStatus(root?: string, env: NodeJS.ProcessEnv = process.env): Promise<ProjectStatus> {
-  const projectRoot = root ? path.resolve(root) : await findProjectRoot(undefined, env);
-  const identity = await loadProjectIdentity(projectRoot);
-  if (!identity) throw new Error(`No cheatcodes project at ${projectRoot}`);
-  const global = await loadGlobalConfig(env);
-  if (!global) throw new Error(`No global config at ${globalConfigPath(env)}`);
-  const inputs = resolveGlobalInputs(global, env);
-  const projectRoots = resolveProjectRoots(global, projectRoot, identity.projectId);
-  const concepts = await loadConcepts(projectRoot);
-  const scan = await scanInputs(inputs, projectRoots, await loadState(projectRoot));
-  return {
-    root: projectRoot,
-    projectId: identity.projectId,
-    inputs,
-    missingInputs: scan.missing,
-    discoveredFiles: scan.changed.length + scan.unchanged.length,
-    drafts: concepts.filter((item) => item.status === "draft").length,
-    stable: concepts.filter((item) => item.status === "stable").length,
-    deprecated: concepts.filter((item) => item.status === "deprecated").length,
-    skipped: scan.skipped,
-    lastRun: await readLastRun(projectRoot),
-  };
-}
+import { projectStatus, runWorker } from "./run.js";
 
 function usage(): string {
-  return "Usage:\n  cheatcodes init\n  cheatcodes run\n  cheatcodes publish\n  cheatcodes status\n  cheatcodes auto";
+  return "Usage:\n  cheatcodes run\n  cheatcodes status";
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
@@ -402,34 +121,29 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     process.exitCode = 2;
     return;
   }
-  if (command === "init") {
-    const result = await initializeProject();
-    console.log(`Initialized cheatcodes project ${result.projectId} in ${result.root}`);
-  } else if (command === "run") {
-    const result = await runProject();
-    for (const warning of result.warnings) console.warn(`warning: ${warning}`);
-    console.log(`Processed ${result.changedFiles} changed file(s), ${result.curatorCalls} curator call(s), ${result.conceptsWritten} concept write(s).`);
-  } else if (command === "publish") {
-    const result = await publishProject();
-    console.log(result.changed ? `Published ${result.conceptCount} concept(s).` : "Knowledge bundle is up to date.");
-  } else if (command === "status") {
-    const result = await projectStatus();
-    console.log(`Project ${result.projectId} at ${result.root}`);
-    console.log(`Inputs: ${result.discoveredFiles} session file(s) discovered, ${result.skipped.length} skipped, ${result.missingInputs.length} missing input(s).`);
-    console.log(`Concepts: ${result.drafts} draft, ${result.stable} stable, ${result.deprecated} deprecated.`);
-    if (result.lastRun) {
-      console.log(`Last worker run: ${result.lastRun.outcome}${result.lastRun.reason ? ` (${result.lastRun.reason})` : ""} at ${result.lastRun.finishedAt}.`);
-    } else {
-      console.log("Last worker run: none recorded.");
-    }
-  } else if (command === "auto") {
-    const result = await runAuto();
+  if (command === "run" || command === "auto") {
+    const result = await runWorker();
     if (result.outcome === "failed" || result.outcome === "timeout") {
-      console.error(`cheatcodes auto: ${result.outcome}${result.reason ? `: ${result.reason}` : ""}`);
+      console.error(`cheatcodes ${command}: ${result.outcome}${result.reason ? `: ${result.reason}` : ""}`);
       process.exitCode = 1;
       return;
     }
-    console.log(`cheatcodes auto: ${result.outcome}${result.reason ? ` (${result.reason})` : ""}`);
+    if (result.run) {
+      for (const warning of result.run.warnings) console.warn(`warning: ${warning}`);
+      console.log(`Processed ${result.run.changedFiles} changed file(s), ${result.run.curatorCalls} curator call(s), ${result.run.entriesWritten} entry write(s).`);
+    } else {
+      console.log(`cheatcodes ${command}: ${result.outcome}${result.reason ? ` (${result.reason})` : ""}`);
+    }
+  } else if (command === "status") {
+    const result = await projectStatus();
+    console.log(`Project ${result.projectKey} at ${result.root}`);
+    console.log(`Inputs: ${result.discoveredFiles} session file(s) discovered, ${result.skipped.length} skipped, ${result.missingInputs.length} missing input(s).`);
+    console.log(`Entries: ${result.entries} in ${result.knowledgeFile}.`);
+    if (result.lastRun) {
+      console.log(`Last run: ${result.lastRun.outcome}${result.lastRun.reason ? ` (${result.lastRun.reason})` : ""} at ${result.lastRun.finishedAt}.`);
+    } else {
+      console.log("Last run: none recorded.");
+    }
   } else {
     console.error(`cheatcodes: unknown command "${command}"`);
     console.error(usage());
@@ -444,515 +158,317 @@ if (invoked) main().catch((error) => { console.error(`cheatcodes: ${(error as Er
 ## `src/concept.ts`
 
 ```typescript
-import { randomBytes } from "node:crypto";
-import { parse, stringify } from "yaml";
+import { createHash } from "node:crypto";
 
-export const CONCEPT_TYPES = ["Decision", "Gotcha", "Runbook"] as const;
-export type ConceptType = (typeof CONCEPT_TYPES)[number];
-
-export const CONCEPT_STATUSES = ["draft", "stable", "deprecated"] as const;
-export type ConceptStatus = (typeof CONCEPT_STATUSES)[number];
-
-export interface GeneratedMetadata {
-  by: string;
-  at?: string;
-  [key: string]: unknown;
-}
-
-export interface Verification {
-  by: string;
-  at: string;
-  [key: string]: unknown;
-}
-
-export interface ConceptSource {
+export interface KnowledgeEntry {
   id: string;
-  resource: string;
-  title?: string;
-  [key: string]: unknown;
-}
-
-
-export interface ConceptFrontmatter {
-  cheatcodes_id: string;
-  type: ConceptType;
   title: string;
-  description: string;
-  tags?: string[];
-  status: ConceptStatus;
-  generated: GeneratedMetadata;
-  sources: ConceptSource[];
-  verified?: Verification[];
-  stale_after?: string;
-  [key: string]: unknown;
-}
-
-export interface ConceptDocument {
-  frontmatter: ConceptFrontmatter;
-  
+  summary: string;
   body: string;
+  date?: string;
+  tags?: string[];
+  sources?: string[];
 }
 
-export type DecisionContent = {
-  answer: string;
-  rationale: string;
-  rejectedAlternative?: string;
-};
-
-export type GotchaContent = {
-  symptom: string;
-  cause: string;
-  fix: string;
-  validation?: string;
-};
-
-export type RunbookContent = {
-  purpose: string;
-  steps: string[];
-  validation?: string;
-};
-
-export type ConceptContent = DecisionContent | GotchaContent | RunbookContent;
-
-export interface ConceptEvidence {
-  id: string;
-  excerpt: string;
-  title?: string;
-}
-
-export interface CreateConceptInput {
-  
-  id?: string;
-  type: ConceptType;
+export interface CuratedEntryInput {
+  action: "create" | "update";
+  targetEntryId?: string;
   title: string;
-  description: string;
+  summary: string;
+  body: string;
+  date?: string;
   tags?: string[];
-  content: ConceptContent;
-  sources: ConceptSource[];
-  evidence?: ConceptEvidence[];
-  generatedBy: string;
-  generatedAt: string;
-  
-  extraFrontmatter?: Record<string, unknown>;
+  sources?: string[];
 }
 
-export interface AdditiveConceptUpdate {
-  type: ConceptType;
-  content: ConceptContent;
-  tags?: string[];
-  sources: ConceptSource[];
-  evidence?: ConceptEvidence[];
-  generatedAt: string;
-  
-  generatedBy?: string;
-}
-
-export interface AdditiveUpdateResult {
-  concept: ConceptDocument;
-  changed: boolean;
-  contentAdded: boolean;
-  provenanceAdded: boolean;
-}
-
-export class ConceptValidationError extends Error {
+export class KnowledgeValidationError extends Error {
   readonly issues: string[];
 
   constructor(issues: string[]) {
-    super(`Invalid concept:\n- ${issues.join("\n- ")}`);
-    this.name = "ConceptValidationError";
+    super(`Invalid knowledge entry:\n- ${issues.join("\n- ")}`);
+    this.name = "KnowledgeValidationError";
     this.issues = issues;
   }
 }
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const DATETIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const OPEN_MARKER = "<!-- cheatcodes-entry ";
+const CLOSE_MARKER = "<!-- /cheatcodes-entry -->";
+const DOCUMENT_HEADING = "# CHEATCODES";
+const RESERVED_TEXT = [OPEN_MARKER, CLOSE_MARKER, "-->"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function requiredString(value: unknown, path: string, issues: string[]): string {
+function requiredString(value: unknown, field: string, issues: string[]): string {
   if (typeof value !== "string" || value.trim() === "") {
-    issues.push(`${path} must be a non-empty string`);
+    issues.push(`${field} must be a non-empty string`);
     return "";
   }
   return value.trim();
 }
 
-function validateDatetime(value: unknown, path: string, issues: string[]): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "string" || !DATETIME_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
-    issues.push(`${path} must be an ISO 8601 datetime with a UTC offset`);
-    return undefined;
+function rejectReserved(value: string, field: string, issues: string[]): void {
+  for (const marker of RESERVED_TEXT) {
+    if (value.includes(marker)) {
+      issues.push(`${field} must not contain reserved text: ${marker.trim()}`);
+      return;
+    }
   }
-  return value;
 }
 
-function validateResource(value: unknown, path: string, issues: string[]): string {
-  const resource = requiredString(value, path, issues);
-  if (resource !== "" && /[\u0000-\u001f\u007f]/u.test(resource)) {
-    issues.push(`${path} must not contain control characters`);
-  }
-  return resource;
+function normalizeMultiline(value: string): string {
+  return value.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").trim();
 }
 
-function normalizeStringList(value: unknown, path: string, issues: string[]): string[] | undefined {
-  if (value === undefined) return undefined;
+function normalizeList(value: unknown, field: string, issues: string[]): string[] {
+  if (value === undefined) return [];
   if (!Array.isArray(value)) {
-    issues.push(`${path} must be a list of non-empty strings`);
-    return undefined;
+    issues.push(`${field} must be a list of non-empty strings`);
+    return [];
   }
   const result: string[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const item = requiredString(value[index], `${path}[${index}]`, issues);
-    if (item && !result.includes(item)) result.push(item);
-  }
-  return result;
+  value.forEach((item, index) => {
+    const itemText = requiredString(item, `${field}[${index}]`, issues);
+    if (itemText && !result.includes(itemText)) result.push(itemText);
+  });
+  return result.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
+function optionalDate(value: unknown, issues: string[]): string | undefined {
+  if (value === undefined || value === "") return undefined;
+  if (typeof value !== "string") {
+    issues.push("date must be an ISO 8601 datetime string");
+    return undefined;
+  }
+  const parsed = new Date(value.trim());
+  if (Number.isNaN(parsed.getTime())) {
+    issues.push("date must be an ISO 8601 datetime string");
+    return undefined;
+  }
+  return parsed.toISOString();
+}
 
-export function validateConceptFrontmatter(value: unknown): ConceptFrontmatter {
+export function validateEntry(value: unknown): KnowledgeEntry {
   const issues: string[] = [];
-  if (!isRecord(value)) throw new ConceptValidationError(["frontmatter must be a mapping"]);
+  if (!isRecord(value)) throw new KnowledgeValidationError(["entry must be a mapping"]);
 
-  const id = requiredString(value.cheatcodes_id, "cheatcodes_id", issues);
+  const id = requiredString(value.id, "id", issues);
   if (id && !ID_PATTERN.test(id)) {
-    issues.push("cheatcodes_id may contain only letters, digits, dots, underscores, and hyphens");
+    issues.push("id may contain only letters, digits, dots, underscores, and hyphens");
   }
-
-  const rawType = requiredString(value.type, "type", issues);
-  if (!CONCEPT_TYPES.includes(rawType as ConceptType)) {
-    issues.push(`type must be one of ${CONCEPT_TYPES.join(", ")}`);
-  }
-
-  const rawStatus = requiredString(value.status, "status", issues);
-  if (!CONCEPT_STATUSES.includes(rawStatus as ConceptStatus)) {
-    issues.push(`status must be one of ${CONCEPT_STATUSES.join(", ")}`);
-  }
-
   const title = requiredString(value.title, "title", issues);
-  const description = requiredString(value.description, "description", issues);
-  const tags = normalizeStringList(value.tags, "tags", issues);
+  const summary = requiredString(value.summary, "summary", issues);
+  const body = requiredString(value.body, "body", issues);
+  const date = optionalDate(value.date, issues);
+  const tags = normalizeList(value.tags, "tags", issues);
+  const sources = normalizeList(value.sources, "sources", issues);
 
-  let generated: GeneratedMetadata = { by: "" };
-  if (!isRecord(value.generated)) {
-    issues.push("generated must be a mapping");
-  } else {
-    generated = {
-      ...value.generated,
-      by: requiredString(value.generated.by, "generated.by", issues),
-    } as GeneratedMetadata;
-    const at = validateDatetime(value.generated.at, "generated.at", issues);
-    if (at !== undefined) generated.at = at;
-    else if (value.generated.at !== undefined) delete generated.at;
+  for (const [field, text] of [["id", id], ["title", title], ["summary", summary], ["body", body]] as const) {
+    if (text) rejectReserved(text, field, issues);
   }
+  tags.forEach((tag, index) => rejectReserved(tag, `tags[${index}]`, issues));
+  sources.forEach((source, index) => rejectReserved(source, `sources[${index}]`, issues));
 
-  const sources: ConceptSource[] = [];
-  if (!Array.isArray(value.sources) || value.sources.length === 0) {
-    issues.push("sources must be a non-empty list");
-  } else {
-    value.sources.forEach((source, index) => {
-      if (!isRecord(source)) {
-        issues.push(`sources[${index}] must be a mapping`);
-        return;
-      }
-      const normalized: ConceptSource = {
-        ...source,
-        id: requiredString(source.id, `sources[${index}].id`, issues),
-        resource: validateResource(source.resource, `sources[${index}].resource`, issues),
-      } as ConceptSource;
-      if (source.title !== undefined) {
-        normalized.title = requiredString(source.title, `sources[${index}].title`, issues);
-      }
-      sources.push(normalized);
-    });
-  }
-  const sourceIds = new Set<string>();
-  for (const source of sources) {
-    if (sourceIds.has(source.id)) issues.push(`duplicate source id: ${source.id}`);
-    sourceIds.add(source.id);
-  }
-
-  let verified: Verification[] | undefined;
-  if (value.verified !== undefined) {
-    const events = Array.isArray(value.verified) ? value.verified : [value.verified];
-    verified = [];
-    events.forEach((event, index) => {
-      if (!isRecord(event)) {
-        issues.push(`verified[${index}] must be a mapping`);
-        return;
-      }
-      verified!.push({
-        ...event,
-        by: requiredString(event.by, `verified[${index}].by`, issues),
-        at: validateDatetime(event.at, `verified[${index}].at`, issues) ?? "",
-      } as Verification);
-    });
-    if (verified.length === 0) issues.push("verified must contain at least one event");
-  }
-
-  const staleAfter = validateDatetime(value.stale_after, "stale_after", issues);
-  if (issues.length > 0) throw new ConceptValidationError(issues);
-
-  const normalized: Record<string, unknown> = { ...value };
-  normalized.cheatcodes_id = id;
-  normalized.type = rawType;
-  normalized.title = title;
-  normalized.description = description;
-  normalized.status = rawStatus;
-  normalized.generated = generated;
-  normalized.sources = sources;
-  if (tags !== undefined) normalized.tags = tags;
-  if (verified !== undefined) normalized.verified = verified;
-  if (staleAfter !== undefined) normalized.stale_after = staleAfter;
-  return normalized as ConceptFrontmatter;
+  if (issues.length > 0) throw new KnowledgeValidationError(issues);
+  const entry: KnowledgeEntry = { id, title, summary, body: normalizeMultiline(body) };
+  if (date) entry.date = date;
+  if (tags.length > 0) entry.tags = tags;
+  if (sources.length > 0) entry.sources = sources;
+  return entry;
 }
 
+interface EntryMetadata {
+  id: string;
+  title: string;
+  summary: string;
+  date?: string;
+  tags?: string[];
+  sources?: string[];
+}
 
-export function parseConceptMarkdown(markdown: string): ConceptDocument {
+function metadataFor(entry: KnowledgeEntry): EntryMetadata {
+  const metadata: EntryMetadata = { id: entry.id, title: entry.title, summary: entry.summary };
+  if (entry.date) metadata.date = entry.date;
+  if (entry.tags && entry.tags.length > 0) metadata.tags = entry.tags;
+  if (entry.sources && entry.sources.length > 0) metadata.sources = entry.sources;
+  return metadata;
+}
+
+function renderBlock(entry: KnowledgeEntry): string {
+  const valid = validateEntry(entry);
+  const metadata = JSON.stringify(metadataFor(valid));
+  return [
+    `${OPEN_MARKER}${metadata}-->`,
+    `## ${valid.title}`,
+    "",
+    valid.summary,
+    "",
+    valid.body,
+    "",
+    CLOSE_MARKER,
+    "",
+  ].join("\n");
+}
+
+function normalizeTitleKey(title: string): string {
+  return title.normalize("NFKC").toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function entryOrder(entry: KnowledgeEntry): string {
+  return `${normalizeTitleKey(entry.title)}\u0000${entry.id}`;
+}
+
+export function renderKnowledgeMarkdown(entries: readonly KnowledgeEntry[]): string {
+  const valid = entries.map((entry) => validateEntry(entry));
+  valid.sort((a, b) => (entryOrder(a) < entryOrder(b) ? -1 : entryOrder(a) > entryOrder(b) ? 1 : 0));
+  const blocks = valid.map((entry) => renderBlock(entry));
+  return blocks.length > 0 ? `${DOCUMENT_HEADING}\n\n${blocks.join("")}` : `${DOCUMENT_HEADING}\n`;
+}
+
+function renderedPrefix(entry: KnowledgeEntry): string {
+  return `## ${entry.title}\n\n${entry.summary}\n\n`;
+}
+
+export function parseKnowledgeMarkdown(markdown: string): KnowledgeEntry[] {
   const normalized = markdown.replace(/\r\n?/g, "\n");
-  if (!normalized.startsWith("---\n")) {
-    throw new ConceptValidationError(["document must start with YAML frontmatter"]);
+  const entries: KnowledgeEntry[] = [];
+  const ids = new Set<string>();
+  let cursor = 0;
+  for (;;) {
+    const open = normalized.indexOf(OPEN_MARKER, cursor);
+    if (open < 0) break;
+    const metadataStart = open + OPEN_MARKER.length;
+    const metadataEnd = normalized.indexOf("-->", metadataStart);
+    if (metadataEnd < 0) throw new KnowledgeValidationError(["entry metadata must be closed with -->"]);
+    let raw: unknown;
+    const metadataText = normalized.slice(metadataStart, metadataEnd);
+    try {
+      raw = JSON.parse(metadataText);
+    } catch {
+      throw new KnowledgeValidationError([`entry metadata must be valid JSON: ${metadataText.slice(0, 80)}`]);
+    }
+    if (!isRecord(raw)) throw new KnowledgeValidationError(["entry metadata must be a JSON object"]);
+    const blockStart = metadataEnd + 3;
+    const blockEnd = normalized.indexOf(CLOSE_MARKER, blockStart);
+    if (blockEnd < 0) throw new KnowledgeValidationError(["entry must be closed with a closing comment"]);
+    const rendered = normalized.slice(blockStart, blockEnd).replace(/^\n/, "");
+    const partial = validateEntry({ ...raw, body: "structural-placeholder" });
+    const prefix = renderedPrefix(partial);
+    if (!rendered.startsWith(prefix)) {
+      throw new KnowledgeValidationError([`entry ${partial.id} must render its title and summary after the metadata`]);
+    }
+    const entry = validateEntry({ ...raw, body: rendered.slice(prefix.length) });
+    if (ids.has(entry.id)) throw new KnowledgeValidationError([`duplicate entry id: ${entry.id}`]);
+    ids.add(entry.id);
+    entries.push(entry);
+    cursor = blockEnd + CLOSE_MARKER.length;
   }
-  const closing = normalized.indexOf("\n---\n", 4);
-  if (closing < 0) throw new ConceptValidationError(["frontmatter must end with ---"]);
-
-  const yamlText = normalized.slice(4, closing);
-  let raw: unknown;
-  try {
-    raw = parse(yamlText);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new ConceptValidationError([`invalid YAML: ${message}`]);
-  }
-  const frontmatter = validateConceptFrontmatter(raw);
-  const body = normalized.slice(closing + 5).trim();
-  if (body === "") throw new ConceptValidationError(["body must be non-empty"]);
-  return { frontmatter, body };
+  return entries;
 }
 
-
-export function renderConceptMarkdown(concept: ConceptDocument): string {
-  const frontmatter = validateConceptFrontmatter(concept.frontmatter);
-  const body = concept.body.replace(/\r\n?/g, "\n").trim();
-  if (!body) throw new ConceptValidationError(["body must be non-empty"]);
-  const yaml = stringify(frontmatter, { lineWidth: 0 }).trimEnd();
-  return `---\n${yaml}\n---\n\n${body}\n`;
+export function deriveEntryId(projectKey: string, title: string): string {
+  const digest = createHash("sha256").update(`${projectKey}\u0000${normalizeTitleKey(title)}`).digest("hex");
+  return `cc-${digest.slice(0, 24)}`;
 }
 
-export function generateConceptId(): string {
-  return randomBytes(5).toString("hex");
+function mergedValues(existing: string[] | undefined, incoming: string[] | undefined): string[] {
+  return [...new Set([...(existing ?? []), ...(incoming ?? [])])].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
-function assertContent(type: ConceptType, content: ConceptContent): void {
+function sameEntry(a: KnowledgeEntry, b: KnowledgeEntry): boolean {
+  return renderBlock(a) === renderBlock(b);
+}
+
+export function applyCuratedEntry(
+  entries: readonly KnowledgeEntry[],
+  input: CuratedEntryInput,
+  projectKey: string,
+): { entries: KnowledgeEntry[]; changed: boolean; id: string } {
   const issues: string[] = [];
-  if (!isRecord(content)) throw new ConceptValidationError(["content must be a mapping"]);
-  if (type === "Decision") {
-    const decision = content as DecisionContent;
-    requiredString(decision.answer, "content.answer", issues);
-    requiredString(decision.rationale, "content.rationale", issues);
-    if (decision.rejectedAlternative !== undefined) requiredString(decision.rejectedAlternative, "content.rejectedAlternative", issues);
-  } else if (type === "Gotcha") {
-    const gotcha = content as GotchaContent;
-    requiredString(gotcha.symptom, "content.symptom", issues);
-    requiredString(gotcha.cause, "content.cause", issues);
-    requiredString(gotcha.fix, "content.fix", issues);
-    if (gotcha.validation !== undefined) requiredString(gotcha.validation, "content.validation", issues);
-  } else {
-    const runbook = content as RunbookContent;
-    requiredString(runbook.purpose, "content.purpose", issues);
-    if (!Array.isArray(runbook.steps) || runbook.steps.length === 0) issues.push("content.steps must be a non-empty list");
-    else runbook.steps.forEach((step, index) => requiredString(step, `content.steps[${index}]`, issues));
-    if (runbook.validation !== undefined) requiredString(runbook.validation, "content.validation", issues);
-  }
-  if (issues.length) throw new ConceptValidationError(issues);
-}
+  if (input.action !== "create" && input.action !== "update") issues.push("action must be create or update");
+  if (issues.length > 0) throw new KnowledgeValidationError(issues);
 
-function section(level: number, title: string, text: string): string {
-  return `${"#".repeat(level)} ${title}\n\n${text.trim()}`;
-}
-
-
-export function renderConceptBody(type: ConceptType, content: ConceptContent, evidence: ConceptEvidence[] = [], level = 1): string {
-  assertContent(type, content);
-  const sections: string[] = [];
-  if (type === "Decision") {
-    const decision = content as DecisionContent;
-    sections.push(section(level, "Answer", decision.answer), section(level, "Why", decision.rationale));
-    if (decision.rejectedAlternative) sections.push(section(level, "Rejected alternative", decision.rejectedAlternative));
-  } else if (type === "Gotcha") {
-    const gotcha = content as GotchaContent;
-    sections.push(section(level, "Symptom", gotcha.symptom), section(level, "Cause", gotcha.cause), section(level, "Fix", gotcha.fix));
-    if (gotcha.validation) sections.push(section(level, "Validation", gotcha.validation));
-  } else {
-    const runbook = content as RunbookContent;
-    const steps = runbook.steps.map((step, index) => `${index + 1}. ${step.trim()}`).join("\n");
-    sections.push(section(level, "Purpose", runbook.purpose), section(level, "Steps", steps));
-    if (runbook.validation) sections.push(section(level, "Validation", runbook.validation));
-  }
-
-  if (evidence.length > 0) {
-    const seen = new Set<string>();
-    const lines = evidence.map((item, index) => {
-      const id = requiredEvidence(item, index, seen);
-      return `- [${id}] ${item.excerpt.trim()}`;
+  if (input.action === "update") {
+    if (!input.targetEntryId) throw new KnowledgeValidationError(["update requires targetEntryId"]);
+    const index = entries.findIndex((entry) => entry.id === input.targetEntryId);
+    if (index < 0) throw new KnowledgeValidationError([`update target not found: ${input.targetEntryId}`]);
+    const existing = entries[index]!;
+    const next = validateEntry({
+      id: existing.id,
+      title: input.title,
+      summary: input.summary,
+      body: input.body,
+      date: input.date ?? existing.date,
+      tags: mergedValues(existing.tags, input.tags),
+      sources: mergedValues(existing.sources, input.sources),
     });
-    sections.push(section(level, "Evidence", lines.join("\n")));
+    const changed = !sameEntry(existing, next);
+    if (!changed) return { entries: [...entries], changed, id: existing.id };
+    const updated = entries.slice();
+    updated[index] = next;
+    return { entries: updated, changed, id: next.id };
   }
-  return sections.join("\n\n");
-}
 
-function requiredEvidence(item: ConceptEvidence, index: number, seen: Set<string>): string {
-  const issues: string[] = [];
-  if (!isRecord(item)) throw new ConceptValidationError([`evidence[${index}] must be a mapping`]);
-  const id = requiredString(item.id, `evidence[${index}].id`, issues);
-  requiredString(item.excerpt, `evidence[${index}].excerpt`, issues);
-  if (seen.has(id)) issues.push(`duplicate evidence id: ${id}`);
-  seen.add(id);
-  if (issues.length) throw new ConceptValidationError(issues);
-  return id;
-}
-
-
-export function createConcept(input: CreateConceptInput): ConceptDocument {
-  const id = input.id ?? generateConceptId();
-  const frontmatter = validateConceptFrontmatter({
-    ...input.extraFrontmatter,
-    cheatcodes_id: id,
-    type: input.type,
+  const id = deriveEntryId(projectKey, input.title);
+  const entry = validateEntry({
+    id,
     title: input.title,
-    description: input.description,
-    tags: unique(input.tags ?? []),
-    status: "draft",
-    generated: { by: input.generatedBy, at: input.generatedAt },
+    summary: input.summary,
+    body: input.body,
+    date: input.date,
+    tags: input.tags,
     sources: input.sources,
   });
-  return {
-    frontmatter,
-    body: renderConceptBody(input.type, input.content, input.evidence),
-  };
-}
-
-export function createConceptMarkdown(input: CreateConceptInput): { id: string; concept: ConceptDocument; markdown: string } {
-  const concept = createConcept(input);
-  return {
-    id: concept.frontmatter.cheatcodes_id,
-    concept,
-    markdown: renderConceptMarkdown(concept),
-  };
-}
-
-function unique(values: string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-}
-
-function sourceKey(source: ConceptSource): string {
-  return `${source.id}\u0000${source.resource}`;
-}
-
-
-
-
-
-export function applyAdditiveConceptUpdate(existing: ConceptDocument, update: AdditiveConceptUpdate): AdditiveUpdateResult {
-  const current = validateConceptFrontmatter(existing.frontmatter);
-  if (current.status !== "draft" || current.verified !== undefined) {
-    throw new ConceptValidationError(["automatic updates require an unverified draft concept"]);
-  }
-  if (current.type !== update.type) {
-    throw new ConceptValidationError([`update type ${update.type} does not match target type ${current.type}`]);
-  }
-
-  const addendumBody = renderConceptBody(update.type, update.content, update.evidence, 3);
-  const addendum = `## Addendum\n\n${addendumBody}`;
-  const updatesHeading = "# Updates";
-  const existingBody = existing.body.replace(/\r\n?/g, "\n").trim();
-  const contentAdded = !existingBody.includes(addendum);
-
-  const sources = current.sources.map((source) => ({ ...source }));
-  const sourceKeys = new Set(sources.map(sourceKey));
-  const ids = new Map(sources.map((source) => [source.id, source.resource]));
-  let provenanceAdded = false;
-  for (const source of update.sources) {
-    const validated = validateConceptFrontmatter({ ...current, sources: [source] }).sources[0]!;
-    const priorResource = ids.get(validated.id);
-    if (priorResource !== undefined && priorResource !== validated.resource) {
-      throw new ConceptValidationError([`source id ${validated.id} refers to two resources`]);
+  const index = entries.findIndex((existing) => existing.id === id);
+  if (index >= 0) {
+    const existing = entries[index]!;
+    if (normalizeTitleKey(existing.title) !== normalizeTitleKey(entry.title)) {
+      throw new KnowledgeValidationError([`entry id ${id} already belongs to "${existing.title}"`]);
     }
-    const key = sourceKey(validated);
-    if (!sourceKeys.has(key)) {
-      sources.push(validated);
-      sourceKeys.add(key);
-      ids.set(validated.id, validated.resource);
-      provenanceAdded = true;
-    }
+    const merged = validateEntry({
+      ...entry,
+      date: input.date ?? existing.date,
+      tags: mergedValues(existing.tags, entry.tags),
+      sources: mergedValues(existing.sources, entry.sources),
+    });
+    const changed = !sameEntry(existing, merged);
+    if (!changed) return { entries: [...entries], changed, id };
+    const updated = entries.slice();
+    updated[index] = merged;
+    return { entries: updated, changed, id };
   }
-
-  const tags = unique([...(current.tags ?? []), ...(update.tags ?? [])]);
-  const tagsAdded = tags.length !== (current.tags ?? []).length;
-  const changed = contentAdded || provenanceAdded || tagsAdded;
-  if (!changed) return { concept: { frontmatter: current, body: existingBody }, changed, contentAdded, provenanceAdded };
-
-  let body = existingBody;
-  if (contentAdded) {
-    body = body.includes(`\n${updatesHeading}\n`) || body.startsWith(`${updatesHeading}\n`)
-      ? `${body}\n\n${addendum}`
-      : `${body}\n\n${updatesHeading}\n\n${addendum}`;
-  }
-  const frontmatter = validateConceptFrontmatter({
-    ...current,
-    tags,
-    sources,
-    generated: contentAdded || provenanceAdded
-      ? {
-          ...current.generated,
-          by: update.generatedBy ?? current.generated.by,
-          at: update.generatedAt,
-        }
-      : current.generated,
-  });
-  return { concept: { frontmatter, body }, changed, contentAdded, provenanceAdded };
+  return { entries: [...entries, entry], changed: true, id };
 }
-
-
-export const parseConcept = parseConceptMarkdown;
-export const renderConcept = renderConceptMarkdown;
-export const updateConceptAdditively = applyAdditiveConceptUpdate;
 ```
 
 ## `src/config.ts`
 
 ```typescript
-import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { publishKnowledge } from "./publish.js";
+import { renderKnowledgeMarkdown } from "./concept.js";
+import { atomicWrite, sha256 } from "./state.js";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
 
 export const PRODUCER_VERSION: string = require("../package.json").version as string;
 
-
-
-export interface GlobalAutomation { enabled: boolean; setupMissingProjects: boolean }
-
 export interface GlobalConfig {
-  version: 1;
+  version: 2;
   model: string;
   inputs: string[];
-  automation: GlobalAutomation;
   workerTimeoutMinutes: number;
+  knowledgeFile?: string;
+  contextPointer?: boolean;
   projectAliases: Record<string, string[]>;
 }
-
-export interface ProjectIdentity { version: 1; projectId: string }
-
-export const DEFAULT_AUTOMATION: GlobalAutomation = { enabled: true, setupMissingProjects: true };
 
 export function globalConfigPath(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.CHEATCODES_CONFIG?.trim();
@@ -974,49 +490,53 @@ function stringList(value: unknown, name: string): string[] {
   return [...new Set(value.map((item) => (item as string).trim()))];
 }
 
+const VERSION_2_EXAMPLE = `{"version":2,"model":"<model>","inputs":[],"workerTimeoutMinutes":10,"projectAliases":{}}`;
+
 export function validateGlobalConfig(value: unknown, source = "config"): GlobalConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${source} must be an object`);
   const raw = value as Record<string, unknown>;
-  const allowed = new Set(["version", "model", "inputs", "automation", "workerTimeoutMinutes", "projectAliases"]);
+  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "projectAliases"]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) throw new Error(`${source}.${key} is not a recognized field`);
   }
-  if (raw.version !== 1) throw new Error(`${source}.version must be 1`);
-  const automationRaw = raw.automation;
-  if (!automationRaw || typeof automationRaw !== "object" || Array.isArray(automationRaw)) {
-    throw new Error(`${source}.automation must be an object`);
+  if (raw.version !== 2) {
+    if (raw.version === 1) {
+      throw new Error(`${source}.version is 1; config version 2 removed "automation" ("enabled", "setupMissingProjects"). Replace ${source} with ${VERSION_2_EXAMPLE}`);
+    }
+    throw new Error(`${source}.version must be 2`);
   }
-  const automation = automationRaw as Record<string, unknown>;
-  for (const key of Object.keys(automation)) {
-    if (key !== "enabled" && key !== "setupMissingProjects") throw new Error(`${source}.automation.${key} is not a recognized field`);
-  }
-  if (typeof automation.enabled !== "boolean") throw new Error(`${source}.automation.enabled must be a boolean`);
-  if (typeof automation.setupMissingProjects !== "boolean") throw new Error(`${source}.automation.setupMissingProjects must be a boolean`);
+  if (raw.automation !== undefined) throw new Error(`${source}.automation was removed in config version 2; delete the field`);
   const timeout = raw.workerTimeoutMinutes;
   if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout <= 0) throw new Error(`${source}.workerTimeoutMinutes must be a positive number`);
+  let knowledgeFile: string | undefined;
+  if (raw.knowledgeFile !== undefined) {
+    knowledgeFile = nonempty(raw.knowledgeFile, `${source}.knowledgeFile`);
+    if (path.isAbsolute(knowledgeFile) || knowledgeFile.split(/[\\/]/).includes("..")) {
+      throw new Error(`${source}.knowledgeFile must be a repository-relative path`);
+    }
+  }
+  let contextPointer: boolean | undefined;
+  if (raw.contextPointer !== undefined) {
+    if (typeof raw.contextPointer !== "boolean") throw new Error(`${source}.contextPointer must be a boolean`);
+    contextPointer = raw.contextPointer;
+  }
   const aliasesRaw = raw.projectAliases;
   if (!aliasesRaw || typeof aliasesRaw !== "object" || Array.isArray(aliasesRaw)) throw new Error(`${source}.projectAliases must be an object`);
   const projectAliases: Record<string, string[]> = {};
-  for (const [id, paths] of Object.entries(aliasesRaw)) projectAliases[nonempty(id, `${source}.projectAliases key`)] = stringList(paths, `${source}.projectAliases.${id}`);
+  for (const [key, paths] of Object.entries(aliasesRaw)) projectAliases[nonempty(key, `${source}.projectAliases key`)] = stringList(paths, `${source}.projectAliases.${key}`);
   return {
-    version: 1,
+    version: 2,
     model: nonempty(raw.model, `${source}.model`),
     inputs: stringList(raw.inputs, `${source}.inputs`),
-    automation: { enabled: automation.enabled, setupMissingProjects: automation.setupMissingProjects },
     workerTimeoutMinutes: timeout,
+    knowledgeFile,
+    contextPointer,
     projectAliases,
   };
 }
 
 export function emptyGlobalConfig(model: string): GlobalConfig {
-  return { version: 1, model, inputs: [], automation: { ...DEFAULT_AUTOMATION }, workerTimeoutMinutes: 10, projectAliases: {} };
-}
-
-async function atomicJson(file: string, value: unknown): Promise<void> {
-  await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-  const temporary = `${file}.tmp-${process.pid}`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  await rename(temporary, file);
+  return { version: 2, model, inputs: [], workerTimeoutMinutes: 10, projectAliases: {} };
 }
 
 export async function loadGlobalConfig(env: NodeJS.ProcessEnv = process.env): Promise<GlobalConfig | undefined> {
@@ -1030,49 +550,8 @@ export async function loadGlobalConfig(env: NodeJS.ProcessEnv = process.env): Pr
 }
 
 export async function saveGlobalConfig(config: GlobalConfig, env: NodeJS.ProcessEnv = process.env): Promise<void> {
-  await atomicJson(globalConfigPath(env), config);
+  await atomicWrite(globalConfigPath(env), `${JSON.stringify(config, null, 2)}\n`);
 }
-
-
-
-export function projectFilePath(root: string): string {
-  return path.join(root, ".cheatcodes", "project.json");
-}
-
-export function legacyConfigPath(root: string): string {
-  return path.join(root, ".cheatcodes", "config.json");
-}
-
-export function localDir(root: string): string {
-  return path.join(root, ".cheatcodes", "local");
-}
-
-export function validateProjectIdentity(value: unknown, source = "project.json"): ProjectIdentity {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${source} must be an object`);
-  const raw = value as Record<string, unknown>;
-  const allowed = new Set(["version", "projectId"]);
-  for (const key of Object.keys(raw)) if (!allowed.has(key)) throw new Error(`${source}.${key} is not a recognized field`);
-  if (raw.version !== 1) throw new Error(`${source}.version must be 1`);
-  return { version: 1, projectId: nonempty(raw.projectId, `${source}.projectId`) };
-}
-
-export async function loadProjectIdentity(root: string): Promise<ProjectIdentity | undefined> {
-  try {
-    return validateProjectIdentity(JSON.parse(await readFile(projectFilePath(root), "utf8")));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-}
-
-async function fileExists(file: string): Promise<boolean> {
-  try { await stat(file); return true; } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
-  }
-}
-
-
 
 export async function discoverGitRoot(start: string = process.cwd()): Promise<string | undefined> {
   try {
@@ -1095,128 +574,9 @@ export function resolveGlobalInputs(config: GlobalConfig, env: NodeJS.ProcessEnv
   return [...new Set(config.inputs.map((value) => path.resolve(base, expandHome(value))))];
 }
 
-export function resolveProjectRoots(config: GlobalConfig, root: string, projectId: string): string[] {
-  const aliases = (config.projectAliases[projectId] ?? []).map((value) => path.resolve(expandHome(value)));
+export function resolveProjectRoots(config: GlobalConfig, root: string, projectKey: string): string[] {
+  const aliases = (config.projectAliases[projectKey] ?? []).map((value) => path.resolve(expandHome(value)));
   return [...new Set([path.resolve(root), ...aliases])];
-}
-
-
-
-interface LegacyProjectConfig {
-  projectId: string;
-  model: string;
-  inputs: string[];
-  projectRoots: string[];
-}
-
-function validateLegacyConfig(value: unknown, source: string): LegacyProjectConfig {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${source} must be an object`);
-  const raw = value as Record<string, unknown>;
-  if (!Array.isArray(raw.projectRoots) || !raw.projectRoots.length) throw new Error(`${source}.projectRoots must be a non-empty list of paths`);
-  return {
-    projectId: nonempty(raw.projectId, `${source}.projectId`),
-    model: nonempty(raw.model, `${source}.model`),
-    inputs: stringList(raw.inputs, `${source}.inputs`),
-    projectRoots: [...new Set(raw.projectRoots.map((item) => (item as string).trim()))],
-  };
-}
-
-export interface MigrationResult { root: string; projectId: string; warnings: string[] }
-
-async function moveInto(from: string, to: string, warn: (message: string) => void): Promise<void> {
-  if (!(await fileExists(from))) return;
-  if (await fileExists(to)) {
-    await rm(from, { recursive: true, force: true });
-    warn(`Discarded leftover legacy file from an interrupted migration: ${from}`);
-    return;
-  }
-  await rename(from, to);
-}
-
-
-
-
-
-function parseJsonFile(file: string, text: string): unknown {
-  try { return JSON.parse(text); }
-  catch (error) { throw new Error(`${file} is not valid JSON: ${(error as Error).message}`); }
-}
-
-export async function migrateLegacyProject(root: string, env: NodeJS.ProcessEnv = process.env): Promise<MigrationResult> {
-  const legacyFile = legacyConfigPath(root);
-  if (!(await fileExists(legacyFile))) {
-    const identity = await loadProjectIdentity(root);
-    if (!identity) throw new Error(`No cheatcodes project at ${root}`);
-    return { root, projectId: identity.projectId, warnings: [] };
-  }
-
-  const legacy = validateLegacyConfig(parseJsonFile(legacyFile, await readFile(legacyFile, "utf8")), legacyFile);
-  const warnings: string[] = [];
-  const warn = (message: string): void => { warnings.push(message); };
-
-  
-  const legacyLock = path.join(root, ".cheatcodes", "run.lock");
-  if (await fileExists(legacyLock)) {
-    try {
-      const owner = JSON.parse(await readFile(legacyLock, "utf8")) as { pid?: number };
-      const pid = typeof owner.pid === "number" ? owner.pid : 0;
-      let alive = false;
-      if (pid > 0) { try { process.kill(pid, 0); alive = true; } catch (error) { alive = (error as NodeJS.ErrnoException).code === "EPERM"; } }
-      if (alive) throw new Error(`Migration deferred: live cheatcodes writer (pid ${pid}) still holds ${legacyLock}`);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {  } else throw error;
-    }
-  }
-
-  let global = await loadGlobalConfig(env);
-  const resolvedInputs = [...new Set(legacy.inputs.map((value) => path.resolve(root, expandHome(value))))];
-  if (!global) {
-    global = emptyGlobalConfig(legacy.model);
-    global.inputs = resolvedInputs;
-  } else {
-    if (global.model !== legacy.model) warn(`Kept global model ${global.model}; legacy project model ${legacy.model} was ignored`);
-    global.inputs = [...new Set([...global.inputs, ...resolvedInputs])];
-  }
-  const resolvedRoot = path.resolve(root);
-  const aliases = (global.projectAliases[legacy.projectId] ?? []).map((value) => path.resolve(expandHome(value)));
-  const extraAliases = legacy.projectRoots.map((value) => path.resolve(root, value)).filter((value) => value !== resolvedRoot);
-  if (extraAliases.length) global.projectAliases[legacy.projectId] = [...new Set([...aliases, ...extraAliases])];
-  await saveGlobalConfig(global, env);
-
-  await mkdir(localDir(root), { recursive: true });
-  await writeFile(path.join(localDir(root), ".gitignore"), "*\n", "utf8");
-  await moveInto(path.join(root, ".cheatcodes", "state.json"), path.join(localDir(root), "state.json"), warn);
-  await moveInto(path.join(root, ".cheatcodes", "operations"), path.join(localDir(root), "operations"), warn);
-  await moveInto(legacyLock, path.join(localDir(root), "run.lock"), warn);
-
-  await atomicJson(projectFilePath(root), { version: 1, projectId: legacy.projectId } satisfies ProjectIdentity);
-  await publishKnowledge(root);
-  await rm(legacyFile, { force: true });
-  return { root: resolvedRoot, projectId: legacy.projectId, warnings };
-}
-
-
-
-export async function findProjectRoot(start: string = process.cwd(), env: NodeJS.ProcessEnv = process.env): Promise<string> {
-  let current = path.resolve(start);
-  while (true) {
-    if (await fileExists(projectFilePath(current))) return current;
-    if (await fileExists(legacyConfigPath(current))) return (await migrateLegacyProject(current, env)).root;
-    const parent = path.dirname(current);
-    if (parent === current) throw new Error("No cheatcodes project found; run `cheatcodes init` first");
-    current = parent;
-  }
-}
-
-
-
-async function deriveProjectId(root: string): Promise<string> {
-  try {
-    const { stdout } = await execFileAsync("git", ["-C", root, "remote", "get-url", "origin"], { encoding: "utf8" });
-    return normalizeGitRemote(stdout) ?? `local:${randomUUID()}`;
-  } catch {
-    return `local:${randomUUID()}`;
-  }
 }
 
 export function normalizeGitRemote(remote: string): string | undefined {
@@ -1232,45 +592,71 @@ export function normalizeGitRemote(remote: string): string | undefined {
   }
 }
 
-export const KNOWLEDGE_POINTER = "## Project knowledge\n\nStart with `.cheatcodes/knowledge/index.md`. Check concept status before relying on a draft.";
+async function realPath(value: string): Promise<string> {
+  try { return await realpath(value); } catch { return path.resolve(value); }
+}
 
-async function updateContextPointer(root: string): Promise<string> {
+export async function deriveProjectKey(root: string): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync("git", ["-C", root, "remote", "get-url", "origin"], { encoding: "utf8" });
+    const normalized = normalizeGitRemote(stdout);
+    if (normalized) return `git:${sha256(normalized)}`;
+  } catch {
+    // No origin remote; fall back to the real repository path.
+  }
+  return `path:${sha256(await realPath(root))}`;
+}
+
+export const DEFAULT_KNOWLEDGE_FILE = "CHEATCODES.md";
+
+export function knowledgeFilePath(root: string, knowledgeFile = DEFAULT_KNOWLEDGE_FILE): string {
+  const resolved = path.resolve(root, knowledgeFile);
+  const relative = path.relative(root, resolved);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`knowledgeFile must stay inside the repository: ${knowledgeFile}`);
+  }
+  return resolved;
+}
+
+function knowledgePointer(knowledgeFile: string): string {
+  return `## Project knowledge\n\nStart with \`${knowledgeFile}\`.`;
+}
+
+const LEGACY_KNOWLEDGE_POINTER = "## Project knowledge\n\nStart with `.cheatcodes/knowledge/index.md`. Check concept status before relying on a draft.";
+
+async function updateContextPointer(root: string, knowledgeFile: string): Promise<string> {
   const override = path.join(root, "AGENTS.override.md");
   const regular = path.join(root, "AGENTS.md");
   let target = regular;
   try { await readFile(override); target = override; } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   let existing = "";
   try { existing = await readFile(target, "utf8"); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-  if (!existing.includes(KNOWLEDGE_POINTER)) {
-    const next = `${existing.trimEnd()}${existing.trim() ? "\n\n" : ""}${KNOWLEDGE_POINTER}\n`;
-    await writeFile(target, next);
+  const pointer = knowledgePointer(knowledgeFile);
+  if (existing.includes(pointer)) return target;
+  let next: string;
+  if (existing.includes(LEGACY_KNOWLEDGE_POINTER)) {
+    next = existing.replace(LEGACY_KNOWLEDGE_POINTER, pointer);
+  } else {
+    next = `${existing.trimEnd()}${existing.trim() ? "\n\n" : ""}${pointer}\n`;
   }
+  await writeFile(target, next);
   return target;
 }
 
-export interface InitializeOptions { root?: string }
+export interface KnowledgeOutput { knowledgeFile: string; contextFile?: string }
 
-export interface InitializedProject { root: string; projectId: string; contextFile: string }
-
-
-
-
-
-export async function initializeProject(options: InitializeOptions = {}, env: NodeJS.ProcessEnv = process.env): Promise<InitializedProject> {
-  const global = await loadGlobalConfig(env);
-  if (!global) throw new Error(`No global config at ${globalConfigPath(env)}; create it with a "model" before initializing a project`);
-  const fallback = options.root ?? await discoverGitRoot() ?? process.cwd();
-  const root = path.resolve(fallback);
-  const cheatcodes = path.join(root, ".cheatcodes");
-  await mkdir(path.join(cheatcodes, "curated", "concepts"), { recursive: true });
-  await mkdir(localDir(root), { recursive: true });
-  await writeFile(path.join(localDir(root), ".gitignore"), "*\n", "utf8");
-  const existing = await loadProjectIdentity(root);
-  const projectId = existing?.projectId ?? await deriveProjectId(root);
-  await atomicJson(projectFilePath(root), { version: 1, projectId } satisfies ProjectIdentity);
-  await publishKnowledge(root);
-  const contextFile = await updateContextPointer(root);
-  return { root, projectId, contextFile };
+export async function ensureKnowledgeOutput(root: string, knowledgeFile = DEFAULT_KNOWLEDGE_FILE, contextPointer = true): Promise<KnowledgeOutput> {
+  const knowledgePath = knowledgeFilePath(root, knowledgeFile);
+  try {
+    await readFile(knowledgePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    await mkdir(path.dirname(knowledgePath), { recursive: true });
+    await atomicWrite(knowledgePath, renderKnowledgeMarkdown([]));
+  }
+  if (!contextPointer) return { knowledgeFile: knowledgePath };
+  const contextFile = await updateContextPointer(root, knowledgeFile);
+  return { knowledgeFile: knowledgePath, contextFile };
 }
 ```
 
@@ -1289,44 +675,43 @@ import {
 import { z } from "zod";
 import type { HarvestPacket } from "./harvest.js";
 
-const common = {
+export const CuratedActionSchema = z.object({
   action: z.enum(["create", "update"]),
-  targetConceptId: z.string().min(1).optional(),
+  targetEntryId: z.string().min(1).optional(),
   title: z.string().min(1),
-  description: z.string().min(1),
+  summary: z.string().min(1),
+  body: z.string().min(1),
   tags: z.array(z.string().min(1)).default([]),
   evidenceRefs: z.array(z.string().min(1)).min(1),
-};
-const DecisionSchema = z.object({ ...common, type: z.literal("Decision"), content: z.object({ answer: z.string().min(1), rationale: z.string().min(1), rejectedAlternative: z.string().min(1).optional() }).strict() }).strict();
-const GotchaSchema = z.object({ ...common, type: z.literal("Gotcha"), content: z.object({ symptom: z.string().min(1), cause: z.string().min(1), fix: z.string().min(1), validation: z.string().min(1).optional() }).strict() }).strict();
-const RunbookSchema = z.object({ ...common, type: z.literal("Runbook"), content: z.object({ purpose: z.string().min(1), steps: z.array(z.string().min(1)).min(1), validation: z.string().min(1).optional() }).strict() }).strict();
-export const CuratorResponseSchema = z.object({ concepts: z.array(z.discriminatedUnion("type", [DecisionSchema, GotchaSchema, RunbookSchema])) }).strict();
-export type CuratedConcept = z.infer<typeof DecisionSchema> | z.infer<typeof GotchaSchema> | z.infer<typeof RunbookSchema>;
+}).strict();
+export const CuratorResponseSchema = z.object({ entries: z.array(CuratedActionSchema) }).strict();
+export type CuratedEntry = z.infer<typeof CuratedActionSchema>;
 export type CuratorResponse = z.infer<typeof CuratorResponseSchema>;
 
 export interface CuratorOutcome { response?: CuratorResponse; schemaInvalid: boolean; warning?: string }
 export interface Curator { curate(packet: HarvestPacket): Promise<CuratorOutcome | CuratorResponse> }
 
 export const CURATOR_PROMPT = `You curate durable project knowledge from a bounded evidence packet.
-Return exactly one JSON object with a concepts array. Do not return Markdown or commentary.
-Each concept action is create or update and has type Decision, Gotcha, or Runbook, title, description, tags, evidenceRefs, and type-specific content.
-Updates must name targetConceptId and may target only the supplied update candidate. Creates must omit targetConceptId.
-Use only supplied evidence IDs. Never invent IDs, paths, timestamps, status, verification, or provenance.
-Return {"concepts":[]} when the evidence does not justify durable knowledge.`;
+Return exactly one JSON object with an entries array. Do not return Markdown or commentary.
+Each entry has action "create" or "update", title, summary, body, tags, and evidenceRefs.
+Every entry states only current project truth. Do not describe history, addenda, or replaced guidance.
+For updates, set targetEntryId to the supplied update candidate ID and return the complete revised entry: the body must replace the candidate's body entirely rather than append.
+Creates must omit targetEntryId.
+Use only supplied evidence IDs. Never invent IDs, paths, timestamps, or provenance.
+Return {"entries":[]} when the evidence does not justify durable knowledge.`;
 
 export function validateCuratorResponse(value: unknown, packet: HarvestPacket): CuratorResponse {
   const parsed = CuratorResponseSchema.parse(value);
   const evidenceIds = new Set(packet.evidence.map((item) => item.id));
   const updated = new Set<string>();
-  for (const concept of parsed.concepts) {
-    for (const reference of concept.evidenceRefs) if (!evidenceIds.has(reference)) throw new Error(`Unknown evidence reference: ${reference}`);
-    if (concept.action === "create" && concept.targetConceptId !== undefined) throw new Error("Create action must not include targetConceptId");
-    if (concept.action === "update") {
-      if (!concept.targetConceptId) throw new Error("Update action requires targetConceptId");
-      if (!packet.updateCandidate || packet.updateCandidate.id !== concept.targetConceptId) throw new Error("Update target is not the packet update candidate");
-      if (packet.updateCandidate.type !== concept.type) throw new Error("Update type does not match target type");
-      if (updated.has(concept.targetConceptId)) throw new Error("A target may be updated only once per response");
-      updated.add(concept.targetConceptId);
+  for (const entry of parsed.entries) {
+    for (const reference of entry.evidenceRefs) if (!evidenceIds.has(reference)) throw new Error(`Unknown evidence reference: ${reference}`);
+    if (entry.action === "create" && entry.targetEntryId !== undefined) throw new Error("Create action must not include targetEntryId");
+    if (entry.action === "update") {
+      if (!entry.targetEntryId) throw new Error("Update action requires targetEntryId");
+      if (!packet.updateCandidate || packet.updateCandidate.id !== entry.targetEntryId) throw new Error("Update target is not the packet update candidate");
+      if (updated.has(entry.targetEntryId)) throw new Error("A target may be updated only once per response");
+      updated.add(entry.targetEntryId);
     }
   }
   return parsed;
@@ -1437,8 +822,6 @@ export interface Episode {
   sessionId: string;
   records: NormalizedRecord[];
   recordIds: string[];
-  firstRecordId: string;
-  lastRecordId: string;
   hasNewRecord: boolean;
   signals: SignalKind[];
 }
@@ -1451,35 +834,26 @@ export interface EvidenceItem {
   path?: string;
 }
 
-export interface ConceptSummary {
-  id?: string;
-  cheatcodesId?: string;
-  cheatcodes_id?: string;
-  type: string;
+export interface EntrySummary {
+  id: string;
   title: string;
-  description: string;
+  summary: string;
   tags?: string[];
-  status: string;
-  paths?: string[];
-  verified?: unknown;
-  content?: string;
-  markdown?: string;
+  body?: string;
 }
 
 export interface ShortlistItem {
   id: string;
-  type: string;
   title: string;
-  description: string;
-  status: string;
+  summary: string;
   score: number;
 }
 
-export interface UpdateCandidate extends ShortlistItem { content: string }
+export interface UpdateCandidate extends ShortlistItem { body: string }
 
 export interface HarvestPacket {
   id: string;
-  projectId: string;
+  projectKey: string;
   sessionId: string;
   episodeId: string;
   recordIds: string[];
@@ -1492,8 +866,8 @@ export interface HarvestPacket {
 }
 
 export interface HarvestOptions {
-  projectId: string;
-  concepts?: readonly ConceptSummary[];
+  projectKey: string;
+  entries?: readonly EntrySummary[];
   packetCharacterCap?: number;
   shortlistLimit?: number;
 }
@@ -1505,7 +879,6 @@ function workflowBoundary(record: NormalizedRecord): boolean {
   if (record.kind === "workflow") return true;
   return record.kind === "user" && /\bworkflow\b.*\b(?:run|node|step)\b/i.test(record.text ?? "");
 }
-
 
 export function segmentBranch(branch: readonly NormalizedRecord[], sessionId = branch[0]?.sessionId ?? "unknown"): Episode[] {
   const groups: NormalizedRecord[][] = [];
@@ -1527,7 +900,6 @@ function makeEpisode(sessionId: string, records: NormalizedRecord[]): Episode {
   const recordIds = records.map((record) => record.id);
   return {
     id: stableId("episode", [sessionId, ...recordIds]), sessionId, records, recordIds,
-    firstRecordId: recordIds[0]!, lastRecordId: recordIds[recordIds.length - 1]!,
     hasNewRecord: records.some((record) => record.isNew), signals: detectHighSignal(records),
   };
 }
@@ -1598,9 +970,6 @@ export function detectHighSignal(records: readonly NormalizedRecord[]): SignalKi
   return signals;
 }
 
-export const isHighSignal = (episode: Episode | readonly NormalizedRecord[]): boolean =>
-  Array.isArray(episode) ? detectHighSignal(episode as readonly NormalizedRecord[]).length > 0 : (episode as Episode).signals.length > 0;
-
 function cleanExcerpt(value: string, limit: number): string {
   const clean = redactSecrets(value).trim();
   return clean.length <= limit ? clean : `${clean.slice(0, limit)}\n[truncated]`;
@@ -1622,10 +991,6 @@ function evidenceFor(record: NormalizedRecord): EvidenceItem | undefined {
   };
 }
 
-function conceptId(concept: ConceptSummary): string {
-  return concept.id ?? concept.cheatcodesId ?? concept.cheatcodes_id ?? "";
-}
-
 function terms(value: string): Set<string> {
   return new Set(value.toLowerCase().match(/[a-z0-9][a-z0-9_-]{2,}/g) ?? []);
 }
@@ -1636,30 +1001,26 @@ function overlap(left: Set<string>, right: Set<string>): number {
   return count;
 }
 
-export function shortlistConcepts(
+export function shortlistEntries(
   episode: Episode,
-  concepts: readonly ConceptSummary[],
+  entries: readonly EntrySummary[],
   limit = SHORTLIST_LIMIT,
 ): { shortlist: ShortlistItem[]; updateCandidate?: UpdateCandidate } {
   const episodeText = episode.records.map((record) => [record.text, record.receipt?.path, record.receipt?.command].filter(Boolean).join(" ")).join(" ");
   const episodeTerms = terms(episodeText);
-  const paths = new Set(episode.records.flatMap((record) => record.receipt?.path ? [record.receipt.path] : []));
-  const ranked = concepts.map((concept) => {
-    const id = conceptId(concept);
-    const titleScore = overlap(episodeTerms, terms(concept.title)) * 4;
-    const tagScore = overlap(episodeTerms, terms((concept.tags ?? []).join(" "))) * 3;
-    const descriptionScore = overlap(episodeTerms, terms(concept.description));
-    const pathScore = (concept.paths ?? []).filter((candidate) => paths.has(candidate)).length * 6;
-    const typeScore = episode.signals.includes("decision") && concept.type === "Decision" ||
-      episode.signals.includes("resolved-failure") && concept.type === "Gotcha" ||
-      episode.signals.includes("procedure") && concept.type === "Runbook" ? 2 : 0;
-    return { concept, item: { id, type: concept.type, title: concept.title, description: concept.description, status: concept.status, score: titleScore + tagScore + descriptionScore + pathScore + typeScore } };
-  }).filter((entry) => entry.item.id && entry.item.score > 0)
+  const ranked = entries.map((entry) => {
+    const titleScore = overlap(episodeTerms, terms(entry.title)) * 4;
+    const tagScore = overlap(episodeTerms, terms((entry.tags ?? []).join(" "))) * 3;
+    const summaryScore = overlap(episodeTerms, terms(entry.summary));
+    return { entry, item: { id: entry.id, title: entry.title, summary: entry.summary, score: titleScore + tagScore + summaryScore } };
+  }).filter((item) => item.item.score > 0)
     .sort((a, b) => b.item.score - a.item.score || a.item.title.localeCompare(b.item.title) || a.item.id.localeCompare(b.item.id))
     .slice(0, Math.max(0, limit));
-  const shortlist = ranked.map((entry) => entry.item);
-  const candidate = ranked.find((entry) => entry.concept.status === "draft" && entry.concept.verified === undefined && Boolean(entry.concept.content ?? entry.concept.markdown));
-  const updateCandidate = candidate ? { ...candidate.item, content: candidate.concept.content ?? candidate.concept.markdown! } : undefined;
+  const shortlist = ranked.map((item) => item.item);
+  const candidate = ranked[0];
+  const updateCandidate = candidate && candidate.entry.body
+    ? { ...candidate.item, body: candidate.entry.body }
+    : undefined;
   return { shortlist, updateCandidate };
 }
 
@@ -1671,10 +1032,10 @@ export function createPacket(episode: Episode, options: HarvestOptions): Harvest
   });
   const userIntent = episode.records.filter((record) => record.kind === "user").map((record) => record.text).filter(Boolean).join("\n\n");
   const finalAssistantSummary = [...episode.records].reverse().find((record) => record.kind === "assistant")?.text ?? "";
-  const related = shortlistConcepts(episode, options.concepts ?? [], options.shortlistLimit ?? SHORTLIST_LIMIT);
-  const id = stableId("packet", [options.projectId, episode.sessionId, ...episode.records.flatMap((record) => [record.id, record.byteHash])]);
+  const related = shortlistEntries(episode, options.entries ?? [], options.shortlistLimit ?? SHORTLIST_LIMIT);
+  const id = stableId("packet", [options.projectKey, episode.sessionId, ...episode.records.flatMap((record) => [record.id, record.byteHash])]);
   const packet: HarvestPacket = {
-    id, projectId: options.projectId, sessionId: episode.sessionId, episodeId: episode.id,
+    id, projectKey: options.projectKey, sessionId: episode.sessionId, episodeId: episode.id,
     recordIds: episode.recordIds, signals: episode.signals, userIntent: cleanExcerpt(userIntent, 3_000),
     finalAssistantSummary: cleanExcerpt(finalAssistantSummary, 3_000), evidence,
     shortlist: related.shortlist, updateCandidate: related.updateCandidate,
@@ -1684,7 +1045,6 @@ export function createPacket(episode: Episode, options: HarvestOptions): Harvest
 }
 
 function packetLength(packet: HarvestPacket): number { return JSON.stringify(packet).length; }
-
 
 function fitPacket(packet: HarvestPacket, cap: number): void {
   for (let index = packet.evidence.length - 1; packetLength(packet) > cap && index >= 0; index--) {
@@ -1698,23 +1058,6 @@ function fitPacket(packet: HarvestPacket, cap: number): void {
   if (packetLength(packet) > cap && packet.updateCandidate) delete packet.updateCandidate;
   if (packetLength(packet) > cap && packet.evidence[0]) packet.evidence[0].excerpt = "";
 }
-
-export function harvestPackets(session: Pick<ParsedSession, "sessionId" | "branches">, options: HarvestOptions): HarvestPacket[] {
-  const packets = new Map<string, HarvestPacket>();
-  for (const episode of segmentSession(session)) {
-    const packet = createPacket(episode, options);
-    if (packet && !packets.has(packet.id)) packets.set(packet.id, packet);
-  }
-  return [...packets.values()];
-}
-
-export function renderPacket(packet: HarvestPacket, cap = PACKET_CHARACTER_CAP): string {
-  const copy = structuredClone(packet);
-  fitPacket(copy, cap);
-  return JSON.stringify(copy);
-}
-
-export const buildPackets = harvestPackets;
 ```
 
 ## `src/jsonl.ts`
@@ -1786,7 +1129,6 @@ export interface ParsedSession {
   version: number;
   sessionId: string;
   records: NormalizedRecord[];
-  rawRecords: CompleteJsonlRecord[];
   branches: NormalizedRecord[][];
   warnings: JsonlWarning[];
   completeOffset: number;
@@ -1795,20 +1137,6 @@ export interface ParsedSession {
 }
 
 interface RawLine { value: Record<string, unknown>; range: ByteRange; hash: string; index: number }
-
-export interface CompleteJsonlRecord {
-  value: Record<string, unknown>;
-  range: ByteRange;
-  byteHash: string;
-  index: number;
-}
-
-export interface CompleteJsonlResult {
-  records: CompleteJsonlRecord[];
-  warnings: JsonlWarning[];
-  completeOffset: number;
-  completeSha256: string;
-}
 
 const sha256 = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
 const asObject = (value: unknown): Record<string, unknown> | undefined =>
@@ -1868,7 +1196,6 @@ export function normalizeRepositoryPath(
   return `repo://${projectId}${relative ? `/${relative}` : ""}`;
 }
 
-export const normalizePath = normalizeRepositoryPath;
 
 function compactExcerpt(value: string, limit = RECEIPT_EXCERPT_LIMIT): string {
   const safe = redactSecrets(value).replace(/(?:data:[^;,]+;base64,|base64[:=]\s*)[A-Za-z0-9+/=]{80,}/gi, "[OMITTED BASE64]");
@@ -2066,33 +1393,6 @@ export function buildBranches(records: readonly NormalizedRecord[]): NormalizedR
   });
 }
 
-export function parseCompleteJsonlRecords(bytes: Buffer | Uint8Array, file?: string): CompleteJsonlResult {
-  
-  const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
-  const records: CompleteJsonlRecord[] = [];
-  const warnings: JsonlWarning[] = [];
-  let start = 0;
-  let completeOffset = 0;
-  let index = 0;
-  for (let newline = buffer.indexOf(0x0a, start); newline !== -1; newline = buffer.indexOf(0x0a, start)) {
-    const end = newline + 1;
-    const lineBytes = buffer.subarray(start, newline > start && buffer[newline - 1] === 0x0d ? newline - 1 : newline);
-    if (lineBytes.length) {
-      try {
-        const value = JSON.parse(lineBytes.toString("utf8"));
-        const object = asObject(value);
-        if (!object) throw new Error("record is not an object");
-        records.push({ value: object, range: { start, end }, byteHash: sha256(buffer.subarray(start, end)), index: index++ });
-      } catch {
-        warnings.push({ file, range: { start, end }, message: "Malformed complete JSONL record" });
-      }
-    }
-    completeOffset = end;
-    start = end;
-  }
-  return { records, warnings, completeOffset, completeSha256: sha256(buffer.subarray(0, completeOffset)) };
-}
-
 export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlOptions = {}): ParsedSession {
 
   const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
@@ -2127,344 +1427,383 @@ export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlO
   const records = normalizedFromRaw(entryLines, header, { ...options, cwd: options.cwd ?? header.cwd });
   const previous = Math.max(0, Math.min(options.previousCommittedOffset ?? 0, buffer.length));
   return {
-    header, version: header.version, sessionId: header.id, records, rawRecords: lines.map((line) => ({ value: line.value, range: line.range, byteHash: line.hash, index: line.index })), branches: buildBranches(records), warnings,
+    header, version: header.version, sessionId: header.id, records, branches: buildBranches(records), warnings,
     completeOffset, completeSha256: sha256(buffer.subarray(0, completeOffset)),
     previousPrefixSha256: sha256(buffer.subarray(0, previous)),
   };
 }
-
-export const parseJsonl = parseJsonlBytes;
 
 export async function parseJsonlFile(file: string, options: Omit<ParseJsonlOptions, "file"> = {}): Promise<ParsedSession> {
   return parseJsonlBytes(await readFile(file), { ...options, file });
 }
 ```
 
-## `src/publish.ts`
+## `src/run.ts`
 
 ```typescript
 import { randomUUID } from "node:crypto";
-import {
-  lstat,
-  mkdir,
-  readdir,
-  readFile,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import { rmSync } from "node:fs";
 import path from "node:path";
 import {
-  CONCEPT_TYPES,
-  ConceptDocument,
-  ConceptType,
-  parseConceptMarkdown,
-} from "./concept.js";
+  deriveProjectKey,
+  discoverGitRoot,
+  emptyGlobalConfig,
+  ensureKnowledgeOutput,
+  globalConfigPath,
+  knowledgeFilePath,
+  loadGlobalConfig,
+  resolveGlobalInputs,
+  resolveProjectRoots,
+  saveGlobalConfig,
+} from "./config.js";
+import { applyCuratedEntry, parseKnowledgeMarkdown, renderKnowledgeMarkdown, type KnowledgeEntry } from "./concept.js";
+import { normalizeCuratorOutcome, PiCurator, type Curator, type CuratedEntry } from "./curate.js";
+import { createPacket, segmentSession, type EvidenceItem, type HarvestPacket } from "./harvest.js";
+import { parseJsonlFile } from "./jsonl.js";
+import { scanInputs, type ScanWarning } from "./scan.js";
+import {
+  acquireProjectLock,
+  atomicWrite,
+  loadGlobalState,
+  updateProjectState,
+  type FileLock,
+  type ProjectState,
+  type RunOutcome,
+  type RunRecord,
+} from "./state.js";
 
-export interface PublishOptions {
-  
-  projectRoot?: string;
-  
-  cheatcodesDir?: string;
-  
-  curatedDir?: string;
-  
-  knowledgeDir?: string;
+export interface LauncherHints {
+  sessionFile?: string;
+  previousSessionFile?: string;
+  model?: string;
+  thinking?: boolean;
 }
 
-export interface PublishedConcept {
-  id: string;
-  type: ConceptType;
-  title: string;
-  description: string;
-  status: "draft" | "stable" | "deprecated";
-  relativePath: string;
-}
-
-export interface PublishResult {
-  changed: boolean;
-  recoveredBackup: boolean;
-  conceptCount: number;
-  knowledgeDir: string;
-}
-
-export class PublishValidationError extends Error {
-  readonly issues: string[];
-
-  constructor(issues: string[]) {
-    super(`Cannot publish knowledge bundle:\n- ${issues.join("\n- ")}`);
-    this.name = "PublishValidationError";
-    this.issues = issues;
-  }
-}
-
-type DesiredTree = Map<string, Buffer>;
-
-type ResolvedPaths = {
-  curatedDir: string;
-  knowledgeDir: string;
-  backupDir: string;
-};
-
-function resolvePaths(options: PublishOptions | string | undefined): ResolvedPaths {
-  const normalized = typeof options === "string" ? { projectRoot: options } : (options ?? {});
-  const projectRoot = path.resolve(normalized.projectRoot ?? process.cwd());
-  const cheatcodesDir = path.resolve(projectRoot, normalized.cheatcodesDir ?? ".cheatcodes");
-  const curatedDir = path.resolve(projectRoot, normalized.curatedDir ?? path.join(cheatcodesDir, "curated", "concepts"));
-  const knowledgeDir = path.resolve(projectRoot, normalized.knowledgeDir ?? path.join(cheatcodesDir, "knowledge"));
-  return { curatedDir, knowledgeDir, backupDir: `${knowledgeDir}.backup` };
-}
-
-async function exists(target: string): Promise<boolean> {
-  try {
-    await lstat(target);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
-  }
-}
-
-
-export async function recoverPublishBackup(options?: PublishOptions | string): Promise<boolean> {
-  const { knowledgeDir, backupDir } = resolvePaths(options);
-  if (!(await exists(backupDir))) return false;
-  if (await exists(knowledgeDir)) {
-    await rm(backupDir, { recursive: true, force: true });
-  } else {
-    await mkdir(path.dirname(knowledgeDir), { recursive: true });
-    await rename(backupDir, knowledgeDir);
-  }
-  return true;
-}
-
-async function markdownFiles(root: string): Promise<string[]> {
-  if (!(await exists(root))) return [];
-  const result: string[] = [];
-
-  async function visit(directory: string): Promise<void> {
-    const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((left, right) => compareText(left.name, right.name));
-    for (const entry of entries) {
-      const absolute = path.join(directory, entry.name);
-      if (entry.isSymbolicLink()) {
-        throw new PublishValidationError([`symbolic links are not allowed in curated concepts: ${absolute}`]);
-      }
-      if (entry.isDirectory()) await visit(absolute);
-      else if (entry.isFile() && entry.name.endsWith(".md")) result.push(absolute);
-    }
-  }
-
-  await visit(root);
-  return result;
-}
-
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function normalizedTitle(title: string): string {
-  return title.normalize("NFKC").toLowerCase();
-}
-
-function markdownText(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/([\[\]])/g, "\\$1").replace(/[\r\n]+/g, " ").trim();
-}
-
-function markdownDescription(value: string): string {
-  return markdownText(value).replace(/\s+/g, " ");
-}
-
-function linkPath(value: string): string {
-  return value.split("/").map(encodeURIComponent).join("/");
-}
-
-function renderRootIndex(): string {
-  return [
-    "---",
-    'okf_version: "0.2"',
-    "---",
-    "",
-    "# Project knowledge",
-    "",
-    "- [Concepts](concepts/) - Curated decisions, gotchas, and runbooks.",
-    "",
-  ].join("\n");
-}
-
-
-export function renderConceptIndex(concepts: readonly PublishedConcept[]): string {
-  const lines = ["# Concepts", ""];
-  for (const type of CONCEPT_TYPES) {
-    const group = concepts
-      .filter((concept) => concept.type === type)
-      .sort((left, right) => {
-        const titleOrder = compareText(normalizedTitle(left.title), normalizedTitle(right.title));
-        return titleOrder || compareText(left.relativePath, right.relativePath);
-      });
-    if (group.length === 0) continue;
-    lines.push(`## ${type}`, "");
-    for (const concept of group) {
-      lines.push(`- [${markdownText(concept.title)}](${linkPath(concept.relativePath)}) [${concept.status}] - ${markdownDescription(concept.description)}`);
-    }
-    lines.push("");
-  }
-  return `${lines.join("\n").trimEnd()}\n`;
-}
-
-async function buildDesiredTree(curatedDir: string): Promise<{ tree: DesiredTree; concepts: PublishedConcept[] }> {
-  const tree: DesiredTree = new Map();
-  const concepts: PublishedConcept[] = [];
-  const issues: string[] = [];
-  const ids = new Map<string, string>();
-  const files = await markdownFiles(curatedDir);
-
-  for (const filename of files) {
-    const relative = path.relative(curatedDir, filename).split(path.sep).join("/");
-    let bytes: Buffer;
-    let document: ConceptDocument;
-    try {
-      bytes = await readFile(filename);
-      document = parseConceptMarkdown(bytes.toString("utf8"));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      issues.push(`${relative}: ${message}`);
-      continue;
-    }
-
-    const id = document.frontmatter.cheatcodes_id;
-    const expectedName = `${id}.md`;
-    if (relative !== expectedName) {
-      issues.push(`${relative}: path must be exactly ${expectedName}`);
-    }
-    const previous = ids.get(id);
-    if (previous !== undefined) issues.push(`${relative}: duplicate cheatcodes_id ${id} also used by ${previous}`);
-    else ids.set(id, relative);
-
-    tree.set(`concepts/${relative}`, bytes);
-    concepts.push({
-      id,
-      type: document.frontmatter.type,
-      title: document.frontmatter.title,
-      description: document.frontmatter.description,
-      status: document.frontmatter.status,
-      relativePath: relative,
-    });
-  }
-
-  if (issues.length > 0) throw new PublishValidationError(issues);
-  tree.set("index.md", Buffer.from(renderRootIndex(), "utf8"));
-  tree.set("concepts/index.md", Buffer.from(renderConceptIndex(concepts), "utf8"));
-  return { tree, concepts };
-}
-
-async function readTree(root: string): Promise<DesiredTree | undefined> {
-  if (!(await exists(root))) return undefined;
-  const result: DesiredTree = new Map();
-
-  async function visit(directory: string): Promise<void> {
-    const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((left, right) => compareText(left.name, right.name));
-    for (const entry of entries) {
-      const absolute = path.join(directory, entry.name);
-      const relative = path.relative(root, absolute).split(path.sep).join("/");
-      if (entry.isDirectory()) await visit(absolute);
-      else if (entry.isFile()) result.set(relative, await readFile(absolute));
-      else throw new PublishValidationError([`generated bundle contains an unsupported entry: ${relative}`]);
-    }
-  }
-
-  await visit(root);
-  return result;
-}
-
-function treesEqual(left: DesiredTree | undefined, right: DesiredTree): boolean {
-  if (left === undefined || left.size !== right.size) return false;
-  for (const [name, bytes] of right) {
-    const actual = left.get(name);
-    if (actual === undefined || !actual.equals(bytes)) return false;
-  }
-  return true;
-}
-
-async function writeTree(root: string, tree: DesiredTree): Promise<void> {
-  await mkdir(root, { recursive: false });
-  const names = [...tree.keys()].sort(compareText);
-  for (const name of names) {
-    const target = path.join(root, ...name.split("/"));
-    await mkdir(path.dirname(target), { recursive: true });
-    await writeFile(target, tree.get(name)!, { flag: "wx" });
-  }
-}
-
-
-export async function publishKnowledge(options?: PublishOptions | string): Promise<PublishResult> {
-  const paths = resolvePaths(options);
-  const recoveredBackup = await recoverPublishBackup(options);
-  const { tree, concepts } = await buildDesiredTree(paths.curatedDir);
-  const current = await readTree(paths.knowledgeDir);
-  if (treesEqual(current, tree)) {
-    return {
-      changed: false,
-      recoveredBackup,
-      conceptCount: concepts.length,
-      knowledgeDir: paths.knowledgeDir,
-    };
-  }
-
-  await mkdir(path.dirname(paths.knowledgeDir), { recursive: true });
-  const stageDir = `${paths.knowledgeDir}.staging-${process.pid}-${randomUUID()}`;
-  let oldMoved = false;
-  try {
-    await writeTree(stageDir, tree);
-    const staged = await readTree(stageDir);
-    if (!treesEqual(staged, tree)) throw new Error("staged knowledge bundle failed byte validation");
-
-    if (await exists(paths.knowledgeDir)) {
-      await rename(paths.knowledgeDir, paths.backupDir);
-      oldMoved = true;
-    }
-    try {
-      await rename(stageDir, paths.knowledgeDir);
-    } catch (error) {
-      if (oldMoved && !(await exists(paths.knowledgeDir)) && await exists(paths.backupDir)) {
-        await rename(paths.backupDir, paths.knowledgeDir);
-        oldMoved = false;
-      }
-      throw error;
-    }
-    if (oldMoved) {
-      await rm(paths.backupDir, { recursive: true, force: true });
-      oldMoved = false;
-    }
-  } finally {
-    await rm(stageDir, { recursive: true, force: true });
-  }
-
+export function readLauncherHints(env: NodeJS.ProcessEnv = process.env): LauncherHints {
   return {
-    changed: true,
-    recoveredBackup,
-    conceptCount: concepts.length,
-    knowledgeDir: paths.knowledgeDir,
+    sessionFile: env.CHEATCODES_PI_SESSION_FILE?.trim() ? path.resolve(env.CHEATCODES_PI_SESSION_FILE) : undefined,
+    previousSessionFile: env.CHEATCODES_PI_PREVIOUS_SESSION_FILE?.trim() ? path.resolve(env.CHEATCODES_PI_PREVIOUS_SESSION_FILE) : undefined,
+    model: env.CHEATCODES_PI_MODEL?.trim() || undefined,
+    thinking: env.CHEATCODES_PI_THINKING?.trim() ? true : undefined,
   };
 }
 
-export const publish = publishKnowledge;
-export const publishKnowledgeBundle = publishKnowledge;
+export function hintModel(hints: LauncherHints): string | undefined {
+  if (!hints.model) return undefined;
+  return hints.thinking ? `${hints.model}:thinking` : hints.model;
+}
+
+export function hintInputs(hints: LauncherHints): string[] {
+  const directories = new Set<string>();
+  for (const file of [hints.sessionFile, hints.previousSessionFile]) {
+    if (file) directories.add(path.dirname(file));
+  }
+  return [...directories];
+}
+
+export interface RunOptions {
+  root?: string;
+  cwd?: string;
+  curator?: Curator;
+  curatorFactory?: () => Promise<Curator>;
+  now?: () => Date;
+  onWarning?: (message: string) => void;
+  shouldStop?: () => boolean;
+  extraInputs?: string[];
+  env?: NodeJS.ProcessEnv;
+  lock?: FileLock;
+}
+
+export interface RunResult {
+  root: string;
+  projectKey: string;
+  changedFiles: number;
+  curatorCalls: number;
+  packets: number;
+  entriesWritten: number;
+  prunedCursors: number;
+  warnings: string[];
+  staleLockRecovered: boolean;
+  deadlineExceeded: boolean;
+}
+
+function warningText(warning: ScanWarning): string { return `${warning.file}: ${warning.message}`; }
+
+async function getCurator(options: RunOptions, root: string, model: string): Promise<Curator> {
+  if (options.curator) return options.curator;
+  if (options.curatorFactory) return options.curatorFactory();
+  return PiCurator.create({ projectRoot: root, model });
+}
+
+function selectedEvidence(packet: HarvestPacket, entry: CuratedEntry): EvidenceItem[] {
+  const selected = new Set(entry.evidenceRefs);
+  return packet.evidence.filter((item) => selected.has(item.id));
+}
+
+function sourceFor(packet: HarvestPacket, evidence: EvidenceItem[]): string {
+  const ids = [...new Set(evidence.flatMap((item) => item.recordIds))].sort();
+  return `session:${packet.sessionId}#records=${ids.join(",")}`;
+}
+
+function curatedInput(curated: CuratedEntry, source: string, date: string) {
+  return {
+    action: curated.action,
+    targetEntryId: curated.targetEntryId,
+    title: curated.title,
+    summary: curated.summary,
+    body: curated.body,
+    date,
+    tags: curated.tags,
+    sources: [source],
+  };
+}
+
+export async function runProject(options: RunOptions = {}): Promise<RunResult> {
+  const env = options.env ?? process.env;
+  const root = options.root ? path.resolve(options.root) : await discoverGitRoot(options.cwd);
+  if (!root) throw new Error("cheatcodes requires a Git repository; run it inside a project");
+  const global = await loadGlobalConfig(env);
+  if (!global) throw new Error(`No global config at ${globalConfigPath(env)}`);
+  const projectKey = await deriveProjectKey(root);
+  const lock = options.lock ?? await acquireProjectLock(env, projectKey);
+  const knowledgeFile = knowledgeFilePath(root, global.knowledgeFile);
+  const warnings: string[] = [];
+  const warn = (message: string): void => { warnings.push(message); options.onWarning?.(message); };
+  let curator: Curator | undefined;
+  let curatorCalls = 0;
+  let packets = 0;
+  let entriesWritten = 0;
+  let prunedCursors = 0;
+  let deadlineExceeded = false;
+  try {
+    if (lock.staleRecovered) warn("Recovered a stale project mutation lock");
+    await ensureKnowledgeOutput(root, global.knowledgeFile, global.contextPointer !== false);
+    let entries: KnowledgeEntry[] = parseKnowledgeMarkdown(await readFile(knowledgeFile, "utf8"));
+    const globalState = await loadGlobalState(env);
+    const projectState: ProjectState = globalState.projects[projectKey] ?? { files: {} };
+    const inputs = [...resolveGlobalInputs(global, env), ...(options.extraInputs ?? []).map((value) => path.resolve(value))];
+    const projectRoots = resolveProjectRoots(global, root, projectKey);
+    const scan = await scanInputs(inputs, projectRoots, projectState.files);
+    scan.skipped.map(warningText).forEach(warn);
+    scan.missing.forEach((file) => warn(`${file}: configured input does not exist`));
+    const prunedFiles = new Set<string>();
+    const enumerated = new Set([...scan.changed.map((item) => item.file), ...scan.unchanged]);
+    for (const file of Object.keys(projectState.files)) {
+      if (enumerated.has(file)) continue;
+      const underMissing = scan.missing.some((missing) => file === missing || file.startsWith(`${missing}${path.sep}`));
+      let exists = false;
+      if (!underMissing) {
+        try { exists = (await stat(file)).isFile(); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      }
+      if (underMissing || !exists) {
+        prunedFiles.add(file);
+        prunedCursors++;
+        warn(`Pruned state cursor for removed input: ${file}`);
+      }
+    }
+    if (prunedFiles.size > 0) {
+      await updateProjectState(env, projectKey, (project) => {
+        const files = { ...project.files };
+        for (const file of prunedFiles) delete files[file];
+        return { ...project, files };
+      });
+    }
+    for (const candidate of scan.changed) {
+      if (options.shouldStop?.()) { deadlineExceeded = true; break; }
+      const sessionDate = new Date(candidate.mtimeMs).toISOString();
+      const cursor = projectState.files[candidate.file];
+      let parsed = await parseJsonlFile(candidate.file, {
+        previousCommittedOffset: cursor?.committedOffset ?? 0,
+        projectId: projectKey,
+        projectRoots,
+      });
+      const appended = cursor !== undefined && cursor.sessionId === parsed.sessionId && cursor.committedOffset <= parsed.completeOffset && cursor.prefixSha256 === parsed.previousPrefixSha256;
+      if (cursor !== undefined && !appended) {
+        warn(`${candidate.file}: source was rewritten; all complete records will be reconsidered`);
+        parsed = await parseJsonlFile(candidate.file, { previousCommittedOffset: cursor.committedOffset, rewritten: true, projectId: projectKey, projectRoots });
+      }
+      for (const item of parsed.warnings) warn(`${item.file ?? candidate.file}:${item.range.start}-${item.range.end}: ${item.message}`);
+      const episodes = segmentSession(parsed);
+      for (const episode of episodes) {
+        const packet = createPacket(episode, { projectKey, entries });
+        if (!packet) continue;
+        packets++;
+        curator ??= await getCurator(options, root, global.model);
+        curatorCalls++;
+        const outcome = normalizeCuratorOutcome(await curator.curate(packet), packet);
+        if (outcome.schemaInvalid || !outcome.response) {
+          warn(`Packet ${packet.id} was terminally skipped after schema validation failed${outcome.warning ? `: ${outcome.warning}` : ""}`);
+          continue;
+        }
+        for (const curated of outcome.response.entries) {
+          const result = applyCuratedEntry(entries, curatedInput(curated, sourceFor(packet, selectedEvidence(packet, curated)), sessionDate), projectKey);
+          entries = result.entries;
+          if (result.changed) {
+            entriesWritten++;
+            await renderAndStore(knowledgeFile, entries);
+          }
+        }
+      }
+      projectState.files[candidate.file] = {
+        sessionId: parsed.sessionId,
+        committedOffset: parsed.completeOffset,
+        observedSize: candidate.size,
+        mtimeMs: candidate.mtimeMs,
+        prefixSha256: parsed.completeSha256,
+      };
+      const committed = projectState.files[candidate.file]!;
+      await updateProjectState(env, projectKey, (project) => ({ ...project, files: { ...project.files, [candidate.file]: committed } }));
+    }
+    return { root, projectKey, changedFiles: scan.changed.length, curatorCalls, packets, entriesWritten, prunedCursors, warnings, staleLockRecovered: lock.staleRecovered, deadlineExceeded };
+  } finally { await lock.release(); }
+}
+
+async function renderAndStore(knowledgeFile: string, entries: KnowledgeEntry[]): Promise<void> {
+  await atomicWrite(knowledgeFile, renderKnowledgeMarkdown(entries));
+}
+
+export interface ProjectStatus {
+  root: string;
+  projectKey: string;
+  inputs: string[];
+  missingInputs: string[];
+  discoveredFiles: number;
+  entries: number;
+  skipped: ScanWarning[];
+  knowledgeFile: string;
+  lastRun?: RunRecord;
+}
+
+export async function projectStatus(root?: string, env: NodeJS.ProcessEnv = process.env): Promise<ProjectStatus> {
+  const projectRoot = root ? path.resolve(root) : await discoverGitRoot();
+  if (!projectRoot) throw new Error("cheatcodes requires a Git repository; run it inside a project");
+  const global = await loadGlobalConfig(env);
+  if (!global) throw new Error(`No global config at ${globalConfigPath(env)}`);
+  const projectKey = await deriveProjectKey(projectRoot);
+  const inputs = resolveGlobalInputs(global, env);
+  const projectRoots = resolveProjectRoots(global, projectRoot, projectKey);
+  const projectState = (await loadGlobalState(env)).projects[projectKey] ?? { files: {} };
+  const scan = await scanInputs(inputs, projectRoots, projectState.files);
+  let entries = 0;
+  try {
+    entries = parseKnowledgeMarkdown(await readFile(knowledgeFilePath(projectRoot, global.knowledgeFile), "utf8")).length;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  return {
+    root: projectRoot,
+    projectKey,
+    inputs,
+    missingInputs: scan.missing,
+    discoveredFiles: scan.changed.length + scan.unchanged.length,
+    entries,
+    skipped: scan.skipped,
+    knowledgeFile: knowledgeFilePath(projectRoot, global.knowledgeFile),
+    lastRun: projectState.lastRun,
+  };
+}
+
+const MAX_RECORDED_WARNINGS = 20;
+
+export type WorkerOutcome = "success" | "failed" | "coalesced" | "skipped" | "timeout";
+
+export interface WorkerResult {
+  outcome: WorkerOutcome;
+  invocationId: string;
+  root?: string;
+  projectKey?: string;
+  reason?: string;
+  warnings: string[];
+  run?: RunResult;
+}
+
+function makeRecord(invocationId: string, outcome: RunOutcome, startedAt: Date, finishedAt: Date, extra: Partial<RunRecord> = {}): RunRecord {
+  return {
+    version: 1,
+    invocationId,
+    pid: process.pid,
+    startedAt: startedAt.toISOString(),
+    finishedAt: finishedAt.toISOString(),
+    outcome,
+    ...extra,
+  };
+}
+
+export async function runWorker(options: RunOptions = {}): Promise<WorkerResult> {
+  const env = options.env ?? process.env;
+  const now = options.now ?? (() => new Date());
+  const invocationId = randomUUID();
+  const startedAt = now();
+  const root = options.root ? path.resolve(options.root) : await discoverGitRoot(options.cwd);
+  if (!root) return { outcome: "skipped", invocationId, reason: "outside a Git repository", warnings: [] };
+  const hints = readLauncherHints(env);
+  let global = await loadGlobalConfig(env);
+  if (!global) {
+    const model = hintModel(hints);
+    if (!model) return { outcome: "skipped", invocationId, reason: `no global config at ${globalConfigPath(env)}`, warnings: [] };
+    global = emptyGlobalConfig(model);
+    await saveGlobalConfig(global, env);
+  }
+  const projectKey = await deriveProjectKey(root);
+  const lock = await acquireProjectLock(env, projectKey, { coalesce: true });
+  if (lock.coalesced) {
+    await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "coalesced", startedAt, now()) }));
+    return { outcome: "coalesced", invocationId, root, projectKey, warnings: [] };
+  }
+  const deadlineMs = global.workerTimeoutMinutes * 60_000;
+  const deadline = Date.now() + deadlineMs;
+  let timer: NodeJS.Timeout | undefined;
+  if (!options.curator && !options.curatorFactory) {
+    timer = setTimeout(() => {
+      rmSync(lock.path, { force: true });
+      process.exit(1);
+    }, deadlineMs);
+  }
+  try {
+    const run = await runProject({
+      ...options,
+      root,
+      env,
+      lock,
+      extraInputs: [...(options.extraInputs ?? []), ...hintInputs(hints)],
+      shouldStop: options.shouldStop ?? (() => Date.now() >= deadline),
+    });
+    const finishedAt = now();
+    const stats = { changedFiles: run.changedFiles, curatorCalls: run.curatorCalls, entriesWritten: run.entriesWritten, warnings: run.warnings.slice(0, MAX_RECORDED_WARNINGS) };
+    if (run.deadlineExceeded) {
+      await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "timeout", startedAt, finishedAt, stats) }));
+      return { outcome: "timeout", invocationId, root, projectKey, warnings: run.warnings, run };
+    }
+    await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "success", startedAt, finishedAt, stats) }));
+    return { outcome: "success", invocationId, root, projectKey, warnings: run.warnings, run };
+  } catch (error) {
+    const reason = (error as Error).message;
+    try {
+      await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "failed", startedAt, now(), { reason }) }));
+    } catch {
+      // Recording the failure must not mask the original error.
+    }
+    return { outcome: "failed", invocationId, root, projectKey, reason, warnings: [] };
+  } finally {
+    if (timer) clearTimeout(timer);
+    await lock.release();
+  }
+}
 ```
 
 ## `src/scan.ts`
 
 ```typescript
-import { open, readdir, stat } from "node:fs/promises";import path from "node:path";
-import type { ProducerState } from "./state.js";
+import { open, readdir, stat } from "node:fs/promises";
+import path from "node:path";
+import type { FileCursor } from "./state.js";
 
 export interface SessionCandidate {
   file: string;
   size: number;
   mtimeMs: number;
-  header: { id: string; cwd: string; version: number };
-  matchedRoot: string;
 }
 
 export interface ScanWarning { file: string; message: string }
@@ -2518,8 +1857,8 @@ function matchProjectRoot(cwd: string, roots: string[]): string | undefined {
     .sort((a, b) => b.length - a.length)[0];
 }
 
-export async function scanInputs(inputs: string[], projectRoots: string[], state: ProducerState): Promise<ScanResult> {
-  const files: string[] = [];
+export async function scanInputs(inputs: string[], projectRoots: string[], files: Record<string, FileCursor>): Promise<ScanResult> {
+  const discovered: string[] = [];
   const skipped: ScanWarning[] = [];
   const missing: string[] = [];
   for (const input of [...new Set(inputs.map((value) => path.resolve(value)))].sort()) {
@@ -2529,22 +1868,21 @@ export async function scanInputs(inputs: string[], projectRoots: string[], state
       skipped.push({ file: input, message: `Cannot scan input: ${(error as Error).message}` });
       continue;
     }
-    if (metadata.isDirectory()) await discoverJsonl(input, files, skipped);
-    else if (input.endsWith(".jsonl")) files.push(input);
+    if (metadata.isDirectory()) await discoverJsonl(input, discovered, skipped);
+    else if (input.endsWith(".jsonl")) discovered.push(input);
     else skipped.push({ file: input, message: "Input is neither a directory nor a .jsonl file" });
   }
   const changed: SessionCandidate[] = [];
   const unchanged: string[] = [];
-  for (const file of [...new Set(files)].sort()) {
+  for (const file of [...new Set(discovered)].sort()) {
     let metadata;
     try { metadata = await stat(file); } catch (error) { skipped.push({ file, message: `Cannot stat session: ${(error as Error).message}` }); continue; }
-    const cursor = state.files[file];
+    const cursor = files[file];
     if (cursor && cursor.observedSize === metadata.size && cursor.mtimeMs === metadata.mtimeMs) { unchanged.push(file); continue; }
     try {
       const header = await readHeader(file);
-      const matchedRoot = matchProjectRoot(header.cwd, projectRoots);
-      if (!matchedRoot) { skipped.push({ file, message: "Session cwd is outside configured project roots" }); continue; }
-      changed.push({ file, size: metadata.size, mtimeMs: metadata.mtimeMs, header, matchedRoot });
+      if (!matchProjectRoot(header.cwd, projectRoots)) { skipped.push({ file, message: "Session cwd is outside configured project roots" }); continue; }
+      changed.push({ file, size: metadata.size, mtimeMs: metadata.mtimeMs });
     } catch (error) { skipped.push({ file, message: `Cannot read session header: ${(error as Error).message}` }); }
   }
   return { changed, unchanged, skipped, missing };
@@ -2555,10 +1893,9 @@ export async function scanInputs(inputs: string[], projectRoots: string[], state
 
 ```typescript
 import { createHash } from "node:crypto";
-import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { open, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
-import { parseConceptMarkdown } from "./concept.js";
-import { localDir } from "./config.js";
 
 export interface FileCursor {
   sessionId: string;
@@ -2568,428 +1905,249 @@ export interface FileCursor {
   prefixSha256: string;
 }
 
-export interface ProducerState { version: 1; files: Record<string, FileCursor> }
+export type RunOutcome = "success" | "failed" | "coalesced" | "timeout";
 
-export interface OperationWrite {
-  relativePath: string;
-  expected: "absent" | string;
-  contentBase64: string;
-  intendedSha256: string;
-}
-
-export interface MutationOperation {
+export interface RunRecord {
   version: 1;
-  packetId: string;
-  sourceFile: string;
-  sourceCommittedOffset?: number;
-  writes: OperationWrite[];
-  terminal: "success" | "no-op" | "schema-invalid";
+  invocationId: string;
+  pid: number;
+  startedAt: string;
+  finishedAt: string;
+  outcome: RunOutcome;
+  reason?: string;
+  changedFiles?: number;
+  curatorCalls?: number;
+  entriesWritten?: number;
+  warnings?: string[];
 }
 
-export interface ProjectLock { coalesced: boolean; staleRecovered: boolean; release(): Promise<void> }
-
-export interface LockOptions { coalesce?: boolean }
-
-export const EMPTY_STATE: ProducerState = { version: 1, files: {} };
-export const sha256 = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
-
-export async function loadState(root: string): Promise<ProducerState> {
-  try {
-    const value = JSON.parse(await readFile(path.join(localDir(root), "state.json"), "utf8")) as unknown;
-    if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1) throw new Error("Unsupported state version");
-    const files = (value as { files?: unknown }).files;
-    if (!files || typeof files !== "object" || Array.isArray(files)) throw new Error("Invalid state.files");
-    return value as ProducerState;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return structuredClone(EMPTY_STATE);
-    throw error;
-  }
+export interface ProjectState {
+  files: Record<string, FileCursor>;
+  lastRun?: RunRecord;
 }
 
-async function atomicWrite(file: string, bytes: string | Buffer): Promise<void> {
+export interface GlobalState {
+  version: 1;
+  projects: Record<string, ProjectState>;
+}
+
+export const EMPTY_PROJECT_STATE: ProjectState = { files: {} };
+
+export const EMPTY_GLOBAL_STATE: GlobalState = { version: 1, projects: {} };
+
+export function globalStatePath(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.CHEATCODES_STATE?.trim();
+  if (override) return path.resolve(override);
+  const xdg = env.XDG_STATE_HOME?.trim();
+  const base = xdg ? xdg : path.join(homedir(), ".local", "state");
+  return path.join(base, "cheatcodes", "state.json");
+}
+
+export function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export async function atomicWrite(file: string, bytes: Uint8Array | string): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.tmp-${process.pid}-${Date.now()}`;
   await writeFile(temporary, bytes, { flag: "wx" });
   await rename(temporary, file);
 }
 
-export async function writeState(root: string, state: ProducerState): Promise<void> {
-  const ordered: ProducerState = { version: 1, files: Object.fromEntries(Object.entries(state.files).sort(([a], [b]) => a.localeCompare(b))) };
-  await atomicWrite(path.join(localDir(root), "state.json"), `${JSON.stringify(ordered, null, 2)}\n`);
+export function orderState(state: GlobalState): GlobalState {
+  const projects: Record<string, ProjectState> = {};
+  for (const key of Object.keys(state.projects).sort()) {
+    const project = state.projects[key]!;
+    const files: Record<string, FileCursor> = {};
+    for (const file of Object.keys(project.files).sort()) files[file] = project.files[file]!;
+    const ordered: ProjectState = { files };
+    if (project.lastRun) ordered.lastRun = project.lastRun;
+    projects[key] = ordered;
+  }
+  return { version: 1, projects };
+}
+
+function requireObject(value: unknown, message: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(message);
+  return value as Record<string, unknown>;
+}
+
+function validateCursor(value: unknown, source: string): FileCursor {
+  const raw = requireObject(value, `${source} must be an object`);
+  for (const field of ["sessionId", "committedOffset", "observedSize", "mtimeMs", "prefixSha256"]) {
+    if (!(field in raw)) throw new Error(`${source}.${field} is required`);
+  }
+  if (typeof raw.sessionId !== "string" || !raw.sessionId) throw new Error(`${source}.sessionId must be a non-empty string`);
+  if (typeof raw.prefixSha256 !== "string") throw new Error(`${source}.prefixSha256 must be a string`);
+  for (const field of ["committedOffset", "observedSize", "mtimeMs"]) {
+    const numeric = raw[field];
+    if (typeof numeric !== "number" || !Number.isFinite(numeric) || numeric < 0) throw new Error(`${source}.${field} must be a non-negative number`);
+  }
+  return {
+    sessionId: raw.sessionId,
+    committedOffset: raw.committedOffset as number,
+    observedSize: raw.observedSize as number,
+    mtimeMs: raw.mtimeMs as number,
+    prefixSha256: raw.prefixSha256,
+  };
+}
+
+const OUTCOMES = new Set<string>(["success", "failed", "coalesced", "timeout"]);
+
+function validateRunRecord(value: unknown, source: string): RunRecord {
+  const raw = requireObject(value, `${source} must be an object`);
+  if (raw.version !== 1) throw new Error(`${source}.version must be 1`);
+  for (const field of ["invocationId", "startedAt", "finishedAt"]) {
+    if (typeof raw[field] !== "string" || !(raw[field] as string)) throw new Error(`${source}.${field} must be a non-empty string`);
+  }
+  if (typeof raw.pid !== "number" || !Number.isInteger(raw.pid)) throw new Error(`${source}.pid must be an integer`);
+  if (typeof raw.outcome !== "string" || !OUTCOMES.has(raw.outcome)) throw new Error(`${source}.outcome must be one of success, failed, coalesced, timeout`);
+  const record: RunRecord = {
+    version: 1,
+    invocationId: raw.invocationId as string,
+    pid: raw.pid,
+    startedAt: raw.startedAt as string,
+    finishedAt: raw.finishedAt as string,
+    outcome: raw.outcome as RunOutcome,
+  };
+  if (raw.reason !== undefined) {
+    if (typeof raw.reason !== "string") throw new Error(`${source}.reason must be a string`);
+    record.reason = raw.reason;
+  }
+  for (const field of ["changedFiles", "curatorCalls", "entriesWritten"] as const) {
+    if (raw[field] === undefined) continue;
+    if (typeof raw[field] !== "number" || !Number.isInteger(raw[field]) || (raw[field] as number) < 0) throw new Error(`${source}.${field} must be a non-negative integer`);
+    record[field] = raw[field];
+  }
+  if (raw.warnings !== undefined) {
+    if (!Array.isArray(raw.warnings) || !raw.warnings.every((item) => typeof item === "string")) throw new Error(`${source}.warnings must be a list of strings`);
+    record.warnings = raw.warnings;
+  }
+  return record;
+}
+
+export async function loadGlobalState(env: NodeJS.ProcessEnv = process.env): Promise<GlobalState> {
+  const file = globalStatePath(env);
+  let text: string;
+  try {
+    text = await readFile(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY_GLOBAL_STATE, projects: {} };
+    throw error;
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${file} is not valid JSON: ${(error as Error).message}`);
+  }
+  const root = requireObject(raw, `${file} must be an object`);
+  if (root.version !== 1) throw new Error(`${file}.version must be 1`);
+  const projectsRaw = requireObject(root.projects, `${file}.projects must be an object`);
+  const projects: Record<string, ProjectState> = {};
+  for (const [key, value] of Object.entries(projectsRaw)) {
+    const project = requireObject(value, `${file}.projects.${key} must be an object`);
+    const filesRaw = requireObject(project.files, `${file}.projects.${key}.files must be an object`);
+    const files: Record<string, FileCursor> = {};
+    for (const [name, cursor] of Object.entries(filesRaw)) files[name] = validateCursor(cursor, `${file}.projects.${key}.files.${name}`);
+    const state: ProjectState = { files };
+    if (project.lastRun !== undefined) state.lastRun = validateRunRecord(project.lastRun, `${file}.projects.${key}.lastRun`);
+    projects[key] = state;
+  }
+  return { version: 1, projects };
+}
+
+export interface FileLock {
+  path: string;
+  coalesced: boolean;
+  staleRecovered: boolean;
+  release(): Promise<void>;
 }
 
 function processAlive(pid: number): boolean {
-  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
-  try { process.kill(pid, 0); return true; } catch (error) { return (error as NodeJS.ErrnoException).code === "EPERM"; }
+  if (pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
 }
 
-export async function acquireProjectLock(root: string, options: LockOptions = {}): Promise<ProjectLock> {
-  const lockFile = path.join(localDir(root), "run.lock");
-  await mkdir(path.dirname(lockFile), { recursive: true });
+async function acquireLock(file: string, options: { coalesce?: boolean; waitMs?: number } = {}): Promise<FileLock> {
+  await mkdir(path.dirname(file), { recursive: true });
+  let coalesced = false;
   let staleRecovered = false;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const waitsUntil = options.waitMs ? Date.now() + options.waitMs : 0;
+  for (;;) {
     try {
-      const handle = await open(lockFile, "wx", 0o600);
-      await handle.writeFile(`${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`);
-      let released = false;
-      return {
-        coalesced: false,
-        staleRecovered,
-        async release() {
-          if (released) return;
-          released = true;
-          await handle.close();
-          try {
-            const owner = JSON.parse(await readFile(lockFile, "utf8")) as { pid?: number };
-            if (owner.pid === process.pid) await rm(lockFile, { force: true });
-          } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-        },
-      };
+      const handle = await open(file, "wx", 0o600);
+      try {
+        await handle.writeFile(`${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`);
+      } finally {
+        await handle.close();
+      }
+      break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      let ownerPid = 0;
-      try { ownerPid = (JSON.parse(await readFile(lockFile, "utf8")) as { pid?: number }).pid ?? 0; } catch {  }
-      if (processAlive(ownerPid)) {
-        if (options.coalesce) return { coalesced: true, staleRecovered: false, async release() {  } };
-        throw new Error(`Another cheatcodes writer is running (pid ${ownerPid})`);
+      if (waitsUntil && Date.now() < waitsUntil) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        continue;
       }
-      await rm(lockFile, { force: true });
-      staleRecovered = true;
+      let ownerPid = 0;
+      try {
+        ownerPid = (JSON.parse(await readFile(file, "utf8")) as { pid?: unknown }).pid as number ?? 0;
+      } catch {
+        ownerPid = 0;
+      }
+      if (!processAlive(ownerPid)) {
+        staleRecovered = true;
+        await rm(file, { force: true });
+        continue;
+      }
+      if (!options.coalesce) throw new Error(`Another cheatcodes run is active (lock: ${file})`);
+      coalesced = true;
+      break;
     }
   }
-  throw new Error("Could not acquire project lock");
-}
-
-export function operationPath(root: string, packetId: string): string {
-  if (!/^[A-Za-z0-9._-]+$/.test(packetId)) throw new Error("Invalid packet ID");
-  return path.join(localDir(root), "operations", `${packetId}.json`);
-}
-
-export async function readOperation(root: string, packetId: string): Promise<MutationOperation | undefined> {
-  try { return JSON.parse(await readFile(operationPath(root, packetId), "utf8")) as MutationOperation; }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined; throw error; }
-}
-
-export async function listOperations(root: string): Promise<MutationOperation[]> {
-  const directory = path.join(root, ".cheatcodes", "operations");
-  let names: string[];
-  try { names = (await readdir(directory)).filter((name) => name.endsWith(".json")).sort(); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
-  return Promise.all(names.map(async (name) => JSON.parse(await readFile(path.join(directory, name), "utf8")) as MutationOperation));
-}
-
-export async function writeOperation(root: string, operation: MutationOperation): Promise<void> {
-  const file = operationPath(root, operation.packetId);
-  const existing = await readOperation(root, operation.packetId);
-  const rendered = `${JSON.stringify(operation, null, 2)}\n`;
-  if (existing) {
-    if (`${JSON.stringify(existing, null, 2)}\n` !== rendered) throw new Error(`Operation ${operation.packetId} already exists with different content`);
-    return;
-  }
-  await atomicWrite(file, rendered);
-}
-
-function safeTarget(curatedRoot: string, relativePath: string): string {
-  if (path.isAbsolute(relativePath) || relativePath.includes("\0")) throw new Error("Unsafe operation target");
-  const target = path.resolve(curatedRoot, relativePath);
-  const relative = path.relative(curatedRoot, target);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Operation target escapes curated concepts");
-  return target;
-}
-
-async function currentHash(file: string): Promise<string | undefined> {
-  try { return sha256(await readFile(file)); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined; throw error; }
-}
-
-export async function applyOperation(root: string, operation: MutationOperation): Promise<void> {
-  const curated = path.join(root, ".cheatcodes", "curated", "concepts");
-  const ids = new Set<string>();
-  for (const write of operation.writes) {
-    const target = safeTarget(curated, write.relativePath);
-    const bytes = Buffer.from(write.contentBase64, "base64");
-    if (sha256(bytes) !== write.intendedSha256) throw new Error(`Corrupt intended bytes for ${write.relativePath}`);
-    const intended = parseConceptMarkdown(bytes.toString("utf8"));
-    const id = path.basename(write.relativePath, ".md");
-    if (write.relativePath !== `${id}.md` || intended.frontmatter.cheatcodes_id !== id) throw new Error(`Operation identity mismatch for ${write.relativePath}`);
-    if (ids.has(id)) throw new Error(`Duplicate operation target ${id}`);
-    ids.add(id);
-    const actual = await currentHash(target);
-    if (actual === write.intendedSha256) continue;
-    if (write.expected === "absent" ? actual !== undefined : actual !== write.expected) throw new Error(`Operation conflict for ${write.relativePath}`);
-    if (actual !== undefined) {
-      const current = parseConceptMarkdown((await readFile(target)).toString("utf8"));
-      if (current.frontmatter.cheatcodes_id !== id || current.frontmatter.type !== intended.frontmatter.type) throw new Error(`Operation target identity or type mismatch for ${write.relativePath}`);
-    }
-  }
-  for (const write of operation.writes) {
-    const target = safeTarget(curated, write.relativePath);
-    if (await currentHash(target) === write.intendedSha256) continue;
-    await atomicWrite(target, Buffer.from(write.contentBase64, "base64"));
-  }
-}
-
-export async function deleteOperation(root: string, packetId: string): Promise<void> {
-  await rm(operationPath(root, packetId), { force: true });
-}
-
-export async function fileMetadata(file: string): Promise<{ size: number; mtimeMs: number }> {
-  const value = await stat(file);
-  return { size: value.size, mtimeMs: value.mtimeMs };
-}
-```
-
-## `src/worker.ts`
-
-```typescript
-import { randomUUID } from "node:crypto";
-import { appendFileSync, rmSync } from "node:fs";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import path from "node:path";
-import {
-  discoverGitRoot, emptyGlobalConfig, initializeProject, loadGlobalConfig, loadProjectIdentity,
-  localDir, resolveGlobalInputs, saveGlobalConfig,
-} from "./config.js";
-import { runProject, type RunOptions, type RunResult } from "./cli.js";
-import { acquireProjectLock } from "./state.js";
-import type { Curator } from "./curate.js";
-
-
-
-export interface LauncherHints {
-  launcher?: string;
-  launcherVersion?: string;
-  sessionFile?: string;
-  previousSessionFile?: string;
-  model?: string;
-  thinking?: string;
-}
-
-function optional(env: NodeJS.ProcessEnv, name: string): string | undefined {
-  const value = env[name]?.trim();
-  return value ? value : undefined;
-}
-
-export function readLauncherHints(env: NodeJS.ProcessEnv = process.env): LauncherHints {
   return {
-    launcher: optional(env, "CHEATCODES_LAUNCHER"),
-    launcherVersion: optional(env, "CHEATCODES_LAUNCHER_VERSION"),
-    sessionFile: optional(env, "CHEATCODES_PI_SESSION_FILE"),
-    previousSessionFile: optional(env, "CHEATCODES_PI_PREVIOUS_SESSION_FILE"),
-    model: optional(env, "CHEATCODES_PI_MODEL"),
-    thinking: optional(env, "CHEATCODES_PI_THINKING"),
+    path: file,
+    coalesced,
+    staleRecovered,
+    release: async () => { await rm(file, { force: true }); },
   };
 }
 
-export function hintModel(hints: LauncherHints): string | undefined {
-  if (!hints.model) return undefined;
-  return hints.thinking ? `${hints.model}:${hints.thinking}` : hints.model;
+export function stateLockPath(env: NodeJS.ProcessEnv = process.env): string {
+  return path.join(path.dirname(globalStatePath(env)), "state.lock");
 }
 
-export function hintInputs(hints: LauncherHints): string[] {
-  const directories: string[] = [];
-  if (hints.sessionFile) directories.push(path.dirname(hints.sessionFile));
-  if (hints.previousSessionFile) directories.push(path.dirname(hints.previousSessionFile));
-  return [...new Set(directories)];
+export function projectLockPath(env: NodeJS.ProcessEnv = process.env, projectKey: string): string {
+  const safe = projectKey.replace(/[^A-Za-z0-9._-]/g, "_");
+  return path.join(path.dirname(globalStatePath(env)), "locks", `${safe}.lock`);
 }
 
-
-
-export type WorkerOutcome = "success" | "failed" | "coalesced" | "skipped" | "timeout";
-
-export interface WorkerRecord {
-  version: 1;
-  invocationId: string;
-  pid: number;
-  project?: string;
-  projectId?: string;
-  startedAt: string;
-  finishedAt: string;
-  outcome: WorkerOutcome;
-  reason?: string;
-  changedFiles?: number;
-  curatorCalls?: number;
-  conceptsWritten?: number;
-  warnings?: string[];
+export async function acquireStateLock(env: NodeJS.ProcessEnv = process.env): Promise<FileLock> {
+  return acquireLock(stateLockPath(env), { waitMs: 10_000 });
 }
 
-export async function readLastRun(root: string): Promise<WorkerRecord | undefined> {
+export async function acquireProjectLock(env: NodeJS.ProcessEnv, projectKey: string, options: { coalesce?: boolean } = {}): Promise<FileLock> {
+  return acquireLock(projectLockPath(env, projectKey), options);
+}
+
+export async function updateProjectState(
+  env: NodeJS.ProcessEnv,
+  projectKey: string,
+  mutate: (project: ProjectState) => ProjectState,
+): Promise<GlobalState> {
+  const lock = await acquireStateLock(env);
   try {
-    const value = JSON.parse(await readFile(path.join(localDir(root), "last-run.json"), "utf8")) as unknown;
-    if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1) throw new Error("Unsupported last-run version");
-    return value as WorkerRecord;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-}
-
-export async function readWorkerLog(root: string, limit = 50): Promise<WorkerRecord[]> {
-  let text: string;
-  try { text = await readFile(path.join(localDir(root), "worker.jsonl"), "utf8"); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
-  const records: WorkerRecord[] = [];
-  for (const line of text.split("\n")) {
-    if (!line.trim()) continue;
-    try { records.push(JSON.parse(line) as WorkerRecord); } catch {  }
-  }
-  return records.slice(-limit);
-}
-
-const WORKER_LOG_MAX_BYTES = 512 * 1024;
-const WORKER_LOG_KEEP = 200;
-const MAX_RECORDED_WARNINGS = 20;
-
-async function appendWorkerRecord(root: string, record: WorkerRecord): Promise<void> {
-  const file = path.join(localDir(root), "worker.jsonl");
-  await mkdir(localDir(root), { recursive: true });
-  try {
-    const metadata = await stat(file);
-    if (metadata.size > WORKER_LOG_MAX_BYTES) {
-      const history = await readWorkerLog(root, WORKER_LOG_KEEP);
-      const temporary = `${file}.tmp-${process.pid}`;
-      await writeFile(temporary, history.map((item) => JSON.stringify(item)).join("\n") + "\n", "utf8");
-      await rename(temporary, file);
-    }
-  } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-  await writeFile(file, `${JSON.stringify(record)}\n`, { flag: "a" });
-}
-
-async function writeLastRun(root: string, record: WorkerRecord): Promise<void> {
-  const file = path.join(localDir(root), "last-run.json");
-  await mkdir(localDir(root), { recursive: true });
-  const temporary = `${file}.tmp-${process.pid}`;
-  await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, "utf8");
-  await rename(temporary, file);
-}
-
-
-
-export interface AutoOptions {
-  root?: string;
-  cwd?: string;
-  env?: NodeJS.ProcessEnv;
-  now?: () => Date;
-  curator?: Curator;
-  curatorFactory?: (model: string) => Promise<Curator>;
-  onWarning?: (message: string) => void;
-}
-
-export interface AutoResult {
-  outcome: WorkerOutcome;
-  invocationId: string;
-  reason?: string;
-  root?: string;
-  projectId?: string;
-  run?: RunResult;
-  warnings?: string[];
-}
-
-function recordFor(options: AutoOptions, base: { invocationId: string; startedAt: string; root?: string; projectId?: string }): WorkerRecord {
-  return {
-    version: 1,
-    invocationId: base.invocationId,
-    pid: process.pid,
-    project: base.root,
-    projectId: base.projectId,
-    startedAt: base.startedAt,
-    finishedAt: (options.now ?? (() => new Date()))().toISOString(),
-    outcome: "skipped",
-  };
-}
-
-export async function runAuto(options: AutoOptions = {}): Promise<AutoResult> {
-  const env = options.env ?? process.env;
-  const now = options.now ?? (() => new Date());
-  const invocationId = randomUUID();
-  const startedAt = now().toISOString();
-
-  const root = options.root ? path.resolve(options.root) : await discoverGitRoot(options.cwd);
-  if (!root) return { outcome: "skipped", invocationId, reason: "outside a Git repository" };
-
-  const base = { invocationId, startedAt, root };
-  const hints = readLauncherHints(env);
-  let global = await loadGlobalConfig(env);
-  if (!global) {
-    const model = hintModel(hints);
-    if (!model) return { outcome: "failed", invocationId, reason: "no global config exists and no model hint was provided" };
-    global = emptyGlobalConfig(model);
-    await saveGlobalConfig(global, env);
-  }
-  if (!global.automation.enabled) return { outcome: "skipped", invocationId, reason: "automation is disabled" };
-
-  let identity = await loadProjectIdentity(root);
-  if (!identity) {
-    if (!global.automation.setupMissingProjects) return { outcome: "skipped", invocationId, reason: "project is not set up and setupMissingProjects is false" };
-    try {
-      const initialized = await initializeProject({ root }, env);
-      identity = { version: 1, projectId: initialized.projectId };
-    } catch (error) {
-      const reason = `setup failed: ${(error as Error).message}`;
-      try { await writeLastRun(root, { ...recordFor(options, base), outcome: "failed", reason }); } catch {  }
-      return { outcome: "failed", invocationId, reason, root };
-    }
-  }
-  const projectId = identity.projectId;
-
-  const warnings: string[] = [];
-  const onWarning = (message: string): void => {
-    warnings.push(message);
-    options.onWarning?.(message);
-  };
-  const finish = async (outcome: WorkerOutcome, reason?: string, run?: RunResult): Promise<AutoResult> => {
-    const record: WorkerRecord = {
-      ...recordFor(options, { ...base, projectId }),
-      outcome,
-      ...(reason ? { reason } : {}),
-      ...(run ? { changedFiles: run.changedFiles, curatorCalls: run.curatorCalls, conceptsWritten: run.conceptsWritten } : {}),
-      ...(warnings.length ? { warnings: warnings.slice(0, MAX_RECORDED_WARNINGS) } : {}),
-    };
-    try {
-      await writeLastRun(root, record);
-      await appendWorkerRecord(root, record);
-    } catch {  }
-    return { outcome, invocationId, reason, root, projectId, run, warnings };
-  };
-
-  const lock = await acquireProjectLock(root, { coalesce: true });
-  if (lock.coalesced) return finish("coalesced", "another cheatcodes worker is already running for this project");
-  try {
-    if (lock.staleRecovered) onWarning("Recovered a stale project mutation lock");
-    const deadlineMs = global.workerTimeoutMinutes * 60_000;
-    const deadline = now().getTime() + deadlineMs;
-    const shouldStop = (): boolean => now().getTime() >= deadline;
-    let hardTimer: NodeJS.Timeout | undefined;
-    if (!options.curator && !options.curatorFactory) {
-      hardTimer = setTimeout(() => {
-        try {
-          const record: WorkerRecord = { ...recordFor(options, { ...base, projectId }), outcome: "timeout", reason: "worker deadline exceeded" };
-          appendFileSync(path.join(localDir(root), "worker.jsonl"), `${JSON.stringify(record)}\n`);
-        } catch {  }
-        try { rmSync(path.join(localDir(root), "run.lock"), { force: true }); } catch {  }
-        process.exit(1);
-      }, deadlineMs);
-      hardTimer.unref();
-    }
-    let run: RunResult;
-    try {
-      run = await runProject({
-        root,
-        env,
-        now,
-        onWarning,
-        shouldStop,
-        extraInputs: hintInputs(hints),
-        lock,
-        curator: options.curator,
-        curatorFactory: options.curatorFactory ? () => options.curatorFactory!(global.model) : undefined,
-      });
-    } catch (error) {
-      return await finish("failed", (error as Error).message);
-    } finally {
-      if (hardTimer) clearTimeout(hardTimer);
-    }
-    if (run.deadlineExceeded) return await finish("timeout", "worker deadline exceeded", run);
-    return await finish("success", undefined, run);
+    const state = await loadGlobalState(env);
+    const current = state.projects[projectKey] ?? EMPTY_PROJECT_STATE;
+    state.projects[projectKey] = mutate(structuredClone(current));
+    const ordered = orderState(state);
+    await atomicWrite(globalStatePath(env), `${JSON.stringify(ordered, null, 2)}\n`);
+    return ordered;
   } finally {
     await lock.release();
   }
@@ -3000,17 +2158,26 @@ export async function runAuto(options: AutoOptions = {}): Promise<AutoResult> {
 
 ```typescript
 import assert from "node:assert/strict";
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import test from "node:test";
-import { findProjectRoot, globalConfigPath, initializeProject, loadGlobalConfig, validateGlobalConfig } from "../src/config.js";
+import { deriveProjectKey, emptyGlobalConfig, globalConfigPath, loadGlobalConfig, validateGlobalConfig } from "../src/config.js";
 import type { Curator } from "../src/curate.js";
-import { main, projectStatus, runProject } from "../src/cli.js";
-import { acquireProjectLock } from "../src/state.js";
-import { readLastRun, runAuto } from "../src/worker.js";
+import { main } from "../src/cli.js";
+import { projectStatus, runWorker, type RunOptions } from "../src/run.js";
+import {
+  acquireProjectLock,
+  globalStatePath,
+  loadGlobalState,
+  projectLockPath,
+  updateProjectState,
+} from "../src/state.js";
 import { temporary, writeGlobalConfig } from "./helpers.js";
 
+const execFileAsync = promisify(execFile);
 function line(value: unknown): string { return `${JSON.stringify(value)}\n`; }
 
 function fixture(root: string, sessionId = "session-1"): string {
@@ -3024,15 +2191,23 @@ function fixture(root: string, sessionId = "session-1"): string {
 function fakeCurator(calls: { count: number }): Curator {
   return { async curate(packet) {
     calls.count++;
-    return { concepts: [{ action: "create", type: "Decision", title: "Use the repository adapter", description: "Repository access uses the adapter.", tags: ["repository"], evidenceRefs: [packet.evidence[0]!.id], content: { answer: "Use the repository adapter.", rationale: "The direct approach violates project architecture." } }] };
+    return { entries: [{ action: "create", title: "Use the repository adapter", summary: "Repository access uses the adapter.", body: "The repository adapter is the only persistence boundary.", tags: ["repository"], evidenceRefs: [packet.evidence[0]!.id] }] };
   } };
 }
 
-async function sessionsWithFixture(root: string): Promise<string> {
+async function sessionsWithFixture(root: string, sessionId = "session-1"): Promise<string> {
   const sessions = path.join(root, "sessions");
   await mkdir(sessions, { recursive: true });
-  await writeFile(path.join(sessions, "one.jsonl"), fixture(root));
+  await writeFile(path.join(sessions, "one.jsonl"), fixture(root, sessionId));
   return sessions;
+}
+
+async function gitInit(root: string): Promise<void> {
+  await execFileAsync("git", ["init", "-q", root]);
+}
+
+function withCurator(options: RunOptions, curator: Curator): RunOptions {
+  return { ...options, curator };
 }
 
 test("global config path honors the environment, XDG, and home fallbacks", () => {
@@ -3041,23 +2216,50 @@ test("global config path honors the environment, XDG, and home fallbacks", () =>
   assert.equal(globalConfigPath({}), path.join(homedir(), ".config", "cheatcodes", "config.json"));
 });
 
-test("global config validation rejects unknown versions and invalid fields", () => {
-  assert.throws(() => validateGlobalConfig({ version: 2 }), /version must be 1/);
-  assert.throws(() => validateGlobalConfig({ version: 1, surprise: true }), /not a recognized field/);
-  assert.throws(() => validateGlobalConfig(fullConfigWith({ model: undefined })), /config\.model/);
-  assert.throws(() => validateGlobalConfig(fullConfigWith({ automation: { enabled: "yes" } })), /automation.enabled/);
-  assert.throws(() => validateGlobalConfig(fullConfigWith({ workerTimeoutMinutes: 0 })), /workerTimeoutMinutes/);
-  function fullConfigWith(patch: Record<string, unknown>): Record<string, unknown> {
-    return { version: 1, model: "fake/model", inputs: [], automation: { enabled: true, setupMissingProjects: true }, workerTimeoutMinutes: 10, projectAliases: {}, ...patch };
-  }
+test("global state path honors the override, XDG, and home fallbacks", () => {
+  assert.equal(globalStatePath({ CHEATCODES_STATE: "/tmp/state.json" }), path.resolve("/tmp/state.json"));
+  assert.equal(globalStatePath({ XDG_STATE_HOME: "/xdg-state" }), path.join("/xdg-state", "cheatcodes", "state.json"));
+  assert.equal(globalStatePath({}), path.join(homedir(), ".local", "state", "cheatcodes", "state.json"));
 });
 
-test("auto outside a Git repository exits without writes", async () => {
+test("global config validation enforces the version 2 shape", () => {
+  assert.throws(() => validateGlobalConfig({ version: 1, model: "m", inputs: [], workerTimeoutMinutes: 1, projectAliases: {} }), /config version 2 removed "automation"/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), automation: { enabled: true, setupMissingProjects: true } }), /automation is not a recognized field/);
+  assert.throws(() => validateGlobalConfig({ version: 3 }), /version must be 2/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), surprise: true }), /not a recognized field/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig(undefined) }), /model/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), workerTimeoutMinutes: 0 }), /workerTimeoutMinutes/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: "/tmp/out.md" }), /repository-relative/);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: "../escape.md" }), /repository-relative/);
+  const configured = validateGlobalConfig({ ...emptyGlobalConfig("m"), knowledgeFile: ".pi-files/CHEATCODES.md" });
+  assert.equal(configured.knowledgeFile, ".pi-files/CHEATCODES.md");
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), contextPointer: "yes" }), /contextPointer must be a boolean/);
+  assert.equal(validateGlobalConfig({ ...emptyGlobalConfig("m"), contextPointer: false }).contextPointer, false);
+  const valid = validateGlobalConfig(emptyGlobalConfig("m"));
+  assert.equal(valid.version, 2);
+});
+
+test("project keys derive from the normalized remote and fall back to the real path", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const pathKey = await deriveProjectKey(root);
+    assert.match(pathKey, /^path:[0-9a-f]{64}$/);
+    const again = await deriveProjectKey(root);
+    assert.equal(again, pathKey);
+    await execFileAsync("git", ["-C", root, "remote", "add", "origin", "git@GitHub.com:Example/Org.Repo.git"], { cwd: root });
+    const remoteKey = await deriveProjectKey(root);
+    assert.match(remoteKey, /^git:[0-9a-f]{64}$/);
+    assert.notEqual(remoteKey, pathKey);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("run outside a Git repository is skipped without writes", async () => {
   const cwd = await temporary();
   const configDir = await temporary("cheatcodes-config-");
   try {
-    const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json") };
-    const result = await runAuto({ cwd, env });
+    const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
+    const result = await runWorker({ cwd, env });
     assert.equal(result.outcome, "skipped");
     assert.match(result.reason!, /outside a Git repository/);
     assert.deepEqual(await readdir(cwd), []);
@@ -3068,102 +2270,168 @@ test("auto outside a Git repository exits without writes", async () => {
   }
 });
 
-test("auto skips when automation is disabled", async () => {
-  const root = await temporary();
-  try {
-    const { env } = await writeGlobalConfig({ automation: { enabled: false } });
-    const result = await runAuto({ root, env });
-    assert.equal(result.outcome, "skipped");
-    assert.match(result.reason!, /automation is disabled/);
-    await assert.rejects(stat(path.join(root, ".cheatcodes", "project.json")));
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test("auto sets up and runs a missing project by default", async () => {
-  const root = await temporary();
-  try {
-    const sessions = await sessionsWithFixture(root);
-    const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    const calls = { count: 0 };
-    const result = await runAuto({ root, env, curator: fakeCurator(calls) });
-    assert.equal(result.outcome, "success");
-    assert.equal(result.run!.changedFiles, 1);
-    assert.equal(calls.count, 1);
-    const identity = JSON.parse(await readFile(path.join(root, ".cheatcodes", "project.json"), "utf8"));
-    assert.match(identity.projectId, /^local:/);
-    const last = await readLastRun(root);
-    assert.equal(last!.outcome, "success");
-    await stat(path.join(root, ".cheatcodes", "local", "worker.jsonl"));
-    await stat(path.join(root, ".cheatcodes", "knowledge", "index.md"));
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test("auto uses a Pi model hint only to create a missing global config", async () => {
+test("run skips when no config exists and no model hint is available", async () => {
   const root = await temporary();
   const configDir = await temporary("cheatcodes-config-");
   try {
-    const sessions = await sessionsWithFixture(root);
-    const env: NodeJS.ProcessEnv = {
-      CHEATCODES_CONFIG: path.join(configDir, "config.json"),
-      CHEATCODES_PI_MODEL: "prov/m1",
-      CHEATCODES_PI_THINKING: "high",
-    };
-    const calls = { count: 0 };
-    const result = await runAuto({ root, env, curator: fakeCurator(calls) });
-    assert.equal(result.outcome, "success");
-    const global = await loadGlobalConfig(env);
-    assert.equal(global!.model, "prov/m1:high");
-    assert.deepEqual(global!.inputs, []);
-    assert.equal(result.run!.changedFiles, 0);
+    await gitInit(root);
+    const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
+    const result = await runWorker({ root, env });
+    assert.equal(result.outcome, "skipped");
+    assert.match(result.reason!, /no global config/);
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(configDir, { recursive: true, force: true });
   }
 });
 
-test("an existing global model is never overwritten by a Pi model hint", async () => {
+test("a model hint creates a missing version 2 config and never overwrites an existing model", async () => {
+  const root = await temporary();
+  const configDir = await temporary("cheatcodes-config-");
+  try {
+    await gitInit(root);
+    const env: NodeJS.ProcessEnv = {
+      CHEATCODES_CONFIG: path.join(configDir, "config.json"),
+      CHEATCODES_STATE: path.join(configDir, "state.json"),
+      CHEATCODES_PI_MODEL: "prov/m1",
+      CHEATCODES_PI_THINKING: "high",
+    };
+    const result = await runWorker({ root, env, curator: fakeCurator({ count: 0 }) });
+    assert.equal(result.outcome, "success");
+    const created = await loadGlobalConfig(env);
+    assert.equal(created!.model, "prov/m1:thinking");
+    assert.deepEqual(created!.inputs, []);
+    const { env: existingEnv } = await writeGlobalConfig({ dir: configDir, model: "fake/model" });
+    const envWithHint = { ...existingEnv, CHEATCODES_PI_MODEL: "other/model" };
+    await runWorker({ root, env: envWithHint, curator: fakeCurator({ count: 0 }) });
+    assert.equal((await loadGlobalConfig(envWithHint))!.model, "fake/model");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(configDir, { recursive: true, force: true });
+  }
+});
+
+test("run creates the knowledge file and global state but no repository-local runtime data", async () => {
   const root = await temporary();
   try {
+    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
-    const { env } = await writeGlobalConfig({ model: "fake/model", inputs: [sessions] });
-    const envWithHint = { ...env, CHEATCODES_PI_MODEL: "other/model" };
-    const calls = { count: 0 };
-    await runAuto({ root, env: envWithHint, curator: fakeCurator(calls) });
-    assert.equal((await loadGlobalConfig(envWithHint))!.model, "fake/model");
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
+    assert.equal(result.outcome, "success");
+    await stat(path.join(root, "CHEATCODES.md"));
+    const entries = await readdir(root);
+    assert.equal(entries.includes(".cheatcodes"), false);
+    assert.equal(entries.includes("worker.jsonl"), false);
+    const state = await loadGlobalState(env);
+    const project = state.projects[result.projectKey!]!;
+    assert.equal(Object.keys(project.files).length, 1);
+    assert.equal(project.lastRun!.outcome, "success");
+    assert.equal(project.lastRun!.changedFiles, 1);
+    await assert.rejects(stat(path.join(root, "last-run.json")));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("direct session-file and session-directory hints are scanned", async () => {
+test("contextPointer false creates the knowledge file without touching AGENTS.md", async () => {
   const root = await temporary();
   try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
+    const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
+    assert.equal(result.outcome, "success");
+    await stat(path.join(root, "CHEATCODES.md"));
+    await assert.rejects(stat(path.join(root, "AGENTS.md")), /ENOENT/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("contextPointer false leaves an existing AGENTS.md untouched", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    await writeFile(path.join(root, "AGENTS.md"), "# Existing agents notes\n");
+    const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
+    const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
+    assert.equal(result.outcome, "success");
+    assert.equal(await readFile(path.join(root, "AGENTS.md"), "utf8"), "# Existing agents notes\n");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+test("knowledgeFile config moves the knowledge file and the AGENTS pointer", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const { env } = await writeGlobalConfig({ inputs: [sessions], knowledgeFile: ".pi-files/CHEATCODES.md" });
+    const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
+    assert.equal(result.outcome, "success");
+    await stat(path.join(root, ".pi-files", "CHEATCODES.md"));
+    await assert.rejects(stat(path.join(root, "CHEATCODES.md")), /ENOENT/);
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.match(agents, /Start with `\.pi-files\/CHEATCODES\.md`\./);
+    const status = await projectStatus(root, env);
+    assert.equal(status.entries, 1);
+    assert.match(status.knowledgeFile, /\.pi-files\/CHEATCODES\.md$/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("direct session-file hints are scanned as extra inputs", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [] });
     const envWithHints = { ...env, CHEATCODES_PI_SESSION_FILE: path.join(sessions, "one.jsonl") };
     const calls = { count: 0 };
-    const result = await runAuto({ root, env: envWithHints, curator: fakeCurator(calls) });
+    const result = await runWorker(withCurator({ root, env: envWithHints }, fakeCurator(calls)));
     assert.equal(result.outcome, "success");
     assert.equal(result.run!.changedFiles, 1);
     assert.equal(calls.count, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("a second auto worker coalesces under the project lock", async () => {
+test("a second run coalesces under the project lock and records the outcome", async () => {
   const root = await temporary();
   try {
+    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    await acquireProjectLock(root);
+    const projectKey = await deriveProjectKey(root);
+    await acquireProjectLock(env, projectKey);
     const calls = { count: 0 };
-    const result = await runAuto({ root, env, curator: fakeCurator(calls) });
+    const result = await runWorker(withCurator({ root, env }, fakeCurator(calls)));
     assert.equal(result.outcome, "coalesced");
     assert.equal(calls.count, 0);
-    assert.equal((await readLastRun(root))!.outcome, "coalesced");
+    const state = await loadGlobalState(env);
+    assert.equal(state.projects[projectKey]!.lastRun!.outcome, "coalesced");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("worker timeout aborts work, records failure, and releases the lock", async () => {
+test("a stale lock is recovered automatically", async () => {
+  const root = await temporary();
+  const configDir = await temporary("cheatcodes-config-");
+  try {
+    await gitInit(root);
+    const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
+    const projectKey = await deriveProjectKey(root);
+    const lockFile = projectLockPath(env, projectKey);
+    await mkdir(path.dirname(lockFile), { recursive: true });
+    const dead = spawn(process.execPath, ["-e", ""]);
+    await new Promise<void>((resolve) => dead.on("exit", () => resolve()));
+    await writeFile(lockFile, `${JSON.stringify({ pid: dead.pid, startedAt: "2026-01-01T00:00:00Z" })}\n`);
+    const lock = await acquireProjectLock(env, projectKey);
+    assert.equal(lock.staleRecovered, true);
+    await lock.release();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(configDir, { recursive: true, force: true });
+  }
+});
+
+test("worker timeout aborts work, records the timeout, and releases the lock", async () => {
   const root = await temporary();
   try {
+    await gitInit(root);
     const sessions = path.join(root, "sessions");
     await mkdir(sessions);
     await writeFile(path.join(sessions, "one.jsonl"), fixture(root, "s1"));
@@ -3175,124 +2443,330 @@ test("worker timeout aborts work, records failure, and releases the lock", async
       await new Promise((resolve) => setTimeout(resolve, 80));
       return fakeCurator(calls).curate(packet);
     } };
-    const result = await runAuto({ root, env, curator: sleepyCurator });
+    const result = await runWorker({ root, env, curator: sleepyCurator });
     assert.equal(result.outcome, "timeout");
     assert.equal(result.run!.deadlineExceeded, true);
-    const last = await readLastRun(root);
-    assert.equal(last!.outcome, "timeout");
-    await assert.rejects(stat(path.join(root, ".cheatcodes", "local", "run.lock")));
+    const state = await loadGlobalState(env);
+    assert.equal(state.projects[result.projectKey!]!.lastRun!.outcome, "timeout");
+    await assert.rejects(stat(projectLockPath(env, result.projectKey!)));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("status reports current inputs and the last worker result", async () => {
+test("status reports one entry count and the latest global run result", async () => {
   const root = await temporary();
   try {
+    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    await runAuto({ root, env, curator: fakeCurator({ count: 0 }) });
+    await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
     const status = await projectStatus(root, env);
     assert.equal(status.discoveredFiles, 1);
+    assert.equal(status.entries, 1);
     assert.equal(status.lastRun!.outcome, "success");
     assert.deepEqual(status.missingInputs, []);
+    assert.match(status.projectKey, /^(git|path):[0-9a-f]{64}$/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("removed inputs prune obsolete cursors safely", async () => {
+test("removed inputs prune obsolete cursors from global state", async () => {
   const root = await temporary();
   try {
+    await gitInit(root);
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    await initializeProject({ root }, env);
-    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
     await rm(sessions, { recursive: true });
-    const result = await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
-    assert.equal(result.prunedCursors, 1);
-    const state = JSON.parse(await readFile(path.join(root, ".cheatcodes", "local", "state.json"), "utf8"));
-    assert.deepEqual(state.files, {});
+    const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
+    assert.equal(result.run!.prunedCursors, 1);
+    const state = await loadGlobalState(env);
+    assert.deepEqual(state.projects[result.projectKey!]!.files, {});
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("legacy config and state migrate byte-safely and idempotently", async () => {
-  const root = await temporary();
+test("two projects keep isolated entries in one global state file", async () => {
   const configDir = await temporary("cheatcodes-config-");
+  const rootA = await temporary();
+  const rootB = await temporary();
   try {
-    const sessions = await sessionsWithFixture(root);
-    const cheatcodes = path.join(root, ".cheatcodes");
-    await mkdir(path.join(cheatcodes, "operations"), { recursive: true });
-    const legacyState = `{"version":1,"files":{"${sessions}/one.jsonl":{"sessionId":"session-1","committedOffset":5,"observedSize":10,"mtimeMs":1,"prefixSha256":"abc"}}}\n`;
-    await writeFile(path.join(cheatcodes, "state.json"), legacyState);
-    await writeFile(path.join(cheatcodes, "operations", "op-1.json"), "{}\n");
-    const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json") };
-    await writeFile(path.join(cheatcodes, "config.json"), JSON.stringify({
-      projectId: "legacy/project",
-      model: "legacy/model",
-      inputs: [sessions],
-      projectRoots: [".", "/elsewhere"],
-    }));
-    const migrated = await findProjectRoot(root, env);
-    assert.equal(migrated, root);
-    const global = await loadGlobalConfig(env);
-    assert.equal(global!.model, "legacy/model");
-    assert.deepEqual(global!.inputs, [path.resolve(sessions)]);
-    assert.deepEqual(global!.projectAliases["legacy/project"], ["/elsewhere"]);
-    assert.equal(await readFile(path.join(cheatcodes, "local", "state.json"), "utf8"), legacyState);
-    await stat(path.join(cheatcodes, "local", "operations", "op-1.json"));
-    await stat(path.join(cheatcodes, "project.json"));
-    await assert.rejects(stat(path.join(cheatcodes, "config.json")));
-    await stat(path.join(cheatcodes, "knowledge", "index.md"));
-    
-    const before = await readFile(path.join(cheatcodes, "local", "state.json"));
-    const again = await findProjectRoot(root, env);
-    assert.equal(again, root);
-    assert.deepEqual(await readFile(path.join(cheatcodes, "local", "state.json")), before);
+    await gitInit(rootA);
+    await gitInit(rootB);
+    const sessionsA = await sessionsWithFixture(rootA, "a-1");
+    const sessionsB = await sessionsWithFixture(rootB, "b-1");
+    const { env } = await writeGlobalConfig({ dir: configDir, inputs: [sessionsA, sessionsB] });
+    const [a, b] = await Promise.all([
+      runWorker(withCurator({ root: rootA, env }, fakeCurator({ count: 0 }))),
+      runWorker(withCurator({ root: rootB, env }, fakeCurator({ count: 0 }))),
+    ]);
+    assert.notEqual(a.projectKey, b.projectKey);
+    const state = await loadGlobalState(env);
+    assert.equal(Object.keys(state.projects).length, 2);
+    assert.equal(state.projects[a.projectKey!]!.lastRun!.outcome, "success");
+    assert.equal(state.projects[b.projectKey!]!.lastRun!.outcome, "success");
   } finally {
-    await rm(root, { recursive: true, force: true });
+    await rm(rootA, { recursive: true, force: true });
+    await rm(rootB, { recursive: true, force: true });
     await rm(configDir, { recursive: true, force: true });
   }
 });
 
-test("a model conflict preserves the global model and records a warning", async () => {
+test("concurrent state updates to different projects are merged", async () => {
+  const configDir = await temporary("cheatcodes-config-");
+  try {
+    const env: NodeJS.ProcessEnv = { CHEATCODES_CONFIG: path.join(configDir, "config.json"), CHEATCODES_STATE: path.join(configDir, "state.json") };
+    const cursor = { sessionId: "s", committedOffset: 1, observedSize: 1, mtimeMs: 1, prefixSha256: "abc" };
+    await Promise.all([
+      updateProjectState(env, "git:aaa", (project) => ({ ...project, files: { ...project.files, "a.jsonl": cursor } })),
+      updateProjectState(env, "git:bbb", (project) => ({ ...project, files: { ...project.files, "b.jsonl": cursor } })),
+    ]);
+    const state = await loadGlobalState(env);
+    assert.deepEqual(Object.keys(state.projects).sort(), ["git:aaa", "git:bbb"]);
+  } finally { await rm(configDir, { recursive: true, force: true }); }
+});
+
+test("failed runs record the failure and return a failed outcome", async () => {
   const root = await temporary();
   try {
-    const cheatcodes = path.join(root, ".cheatcodes");
-    await mkdir(cheatcodes, { recursive: true });
-    const { env } = await writeGlobalConfig({ model: "global/model" });
-    await writeFile(path.join(cheatcodes, "config.json"), JSON.stringify({
-      projectId: "legacy/project",
-      model: "legacy/model",
-      inputs: [path.join(root, "sessions")],
-      projectRoots: ["."],
-    }));
-    await assert.equal((await findProjectRoot(root, env)), root);
-    const global = await loadGlobalConfig(env);
-    assert.equal(global!.model, "global/model");
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const failingCurator: Curator = { async curate() { throw new Error("curator exploded"); } };
+    const result = await runWorker({ root, env, curator: failingCurator });
+    assert.equal(result.outcome, "failed");
+    assert.match(result.reason!, /curator exploded/);
+    const state = await loadGlobalState(env);
+    assert.equal(state.projects[result.projectKey!]!.lastRun!.outcome, "failed");
+    await stat(path.join(root, "CHEATCODES.md"));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("a failed migration leaves the complete legacy layout usable", async () => {
-  const root = await temporary();
-  try {
-    const cheatcodes = path.join(root, ".cheatcodes");
-    await mkdir(cheatcodes, { recursive: true });
-    const legacyConfig = path.join(cheatcodes, "config.json");
-    await writeFile(legacyConfig, "{ not json");
-    await writeFile(path.join(cheatcodes, "state.json"), "{}\n");
-    const env = { CHEATCODES_CONFIG: path.join(root, "global.json") };
-    await assert.rejects(findProjectRoot(root, env), /config\.json/);
-    await stat(legacyConfig);
-    await stat(path.join(cheatcodes, "state.json"));
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test("unknown commands and options fail with exit code 2", async () => {
+test("unknown commands including init and publish fail with exit code 2", async () => {
   const original = process.exitCode;
   try {
     await main(["bogus"]);
     assert.equal(process.exitCode, 2);
     process.exitCode = original;
+    await main(["init"]);
+    assert.equal(process.exitCode, 2);
+    process.exitCode = original;
+    await main(["publish"]);
+    assert.equal(process.exitCode, 2);
+    process.exitCode = original;
     await main(["run", "--model", "x"]);
     assert.equal(process.exitCode, 2);
   } finally { process.exitCode = original; }
+});
+```
+
+## `test/concept.test.ts`
+
+```typescript
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  applyCuratedEntry,
+  deriveEntryId,
+  KnowledgeValidationError,
+  parseKnowledgeMarkdown,
+  renderKnowledgeMarkdown,
+  validateEntry,
+  type KnowledgeEntry,
+} from "../src/concept.js";
+
+function entry(overrides: Partial<KnowledgeEntry> = {}): KnowledgeEntry {
+  return {
+    id: "cc-aaaaaaaaaaaaaaaaaaaaaaaa",
+    title: "Use repository adapter",
+    summary: "All persistence goes through the repository adapter.",
+    body: "The repository adapter is the only persistence boundary.",
+    ...overrides,
+  };
+}
+
+test("date metadata is normalized and round trips", () => {
+  const stamped = entry({ date: "2026-08-29T18:39:05Z" });
+  const markdown = renderKnowledgeMarkdown([stamped]);
+  assert.match(markdown, /"date":"2026-08-29T18:39:05\.000Z"/);
+  assert.deepEqual(parseKnowledgeMarkdown(markdown), [{ ...stamped, date: "2026-08-29T18:39:05.000Z" }]);
+  const plain = renderKnowledgeMarkdown([entry()]);
+  assert.equal(plain.includes('"date"'), false);
+});
+
+test("invalid date metadata is rejected", () => {
+  assert.throws(() => validateEntry(entry({ date: "not-a-date" })), KnowledgeValidationError);
+  assert.throws(() => validateEntry(entry({ date: 42 })), KnowledgeValidationError);
+});
+
+test("parse and render round trip", () => {
+  const entries = [entry(), entry({ id: "cc-bbbbbbbbbbbbbbbbbbbbbbbb", title: "Zebra entry", body: "Second body." })];
+  const parsed = parseKnowledgeMarkdown(renderKnowledgeMarkdown(entries));
+  assert.deepEqual(parsed, entries);
+});
+
+test("render is deterministic and sorts by normalized title then id", () => {
+  const entries = [
+    entry({ id: "cc-2", title: "Same title" }),
+    entry({ id: "cc-1", title: "Same title", body: "Other." }),
+    entry({ id: "cc-0", title: "ALPHA TITLE", summary: "Case folding." }),
+  ];
+  const first = renderKnowledgeMarkdown(entries);
+  const second = renderKnowledgeMarkdown([...entries].reverse());
+  assert.equal(first, second);
+  const order = parseKnowledgeMarkdown(first).map((item) => item.id);
+  assert.deepEqual(order, ["cc-0", "cc-1", "cc-2"]);
+});
+
+test("unchanged entries render identical bytes", () => {
+  const rendered = renderKnowledgeMarkdown([entry()]);
+  const reparsed = parseKnowledgeMarkdown(rendered);
+  assert.equal(renderKnowledgeMarkdown(reparsed), rendered);
+});
+
+test("empty document renders a heading only", () => {
+  assert.equal(renderKnowledgeMarkdown([]), "# CHEATCODES\n");
+  assert.deepEqual(parseKnowledgeMarkdown("# CHEATCODES\n"), []);
+});
+
+test("malformed metadata is rejected", () => {
+  const broken = "# CHEATCODES\n\n<!-- cheatcodes-entry {not json} -->\n## T\n\nS\n\nB\n\n<!-- /cheatcodes-entry -->\n";
+  assert.throws(() => parseKnowledgeMarkdown(broken), KnowledgeValidationError, /valid JSON/);
+});
+
+test("unterminated entries are rejected", () => {
+  const broken = "# CHEATCODES\n\n<!-- cheatcodes-entry {} -->\nno closing marker";
+  assert.throws(() => parseKnowledgeMarkdown(broken), KnowledgeValidationError);
+});
+
+function renderBlockFor(item: KnowledgeEntry): string {
+  const document = renderKnowledgeMarkdown([item]);
+  return document.slice("# CHEATCODES\n\n".length).trimEnd();
+}
+
+test("duplicate ids are rejected", () => {
+  const rendered = [
+    "# CHEATCODES",
+    "",
+    renderBlockFor(entry()),
+    renderBlockFor(entry({ body: "Different body." })),
+  ].join("\n");
+  assert.throws(() => parseKnowledgeMarkdown(rendered), KnowledgeValidationError, /duplicate entry id/);
+});
+
+test("reserved delimiters are rejected", () => {
+  assert.throws(
+    () => renderKnowledgeMarkdown([entry({ body: "text <!-- /cheatcodes-entry --> more" })]),
+    KnowledgeValidationError,
+  );
+  assert.throws(() => renderKnowledgeMarkdown([entry({ summary: "uses --> inside" })]), KnowledgeValidationError);
+});
+
+test("validation requires non-empty strict fields", () => {
+  assert.throws(() => renderKnowledgeMarkdown([entry({ title: "   " })]), KnowledgeValidationError);
+  assert.throws(() => renderKnowledgeMarkdown([{ ...entry(), summary: 42 }]), KnowledgeValidationError);
+  assert.throws(() => renderKnowledgeMarkdown([entry({ id: "bad id!" })]), KnowledgeValidationError);
+});
+
+test("tags and sources are sorted and deduplicated", () => {
+  const rendered = renderKnowledgeMarkdown([
+    entry({ tags: ["b", "a", "b"], sources: ["s2", "s1", "s2"] }),
+  ]);
+  const parsed = parseKnowledgeMarkdown(rendered)[0]!;
+  assert.deepEqual(parsed.tags, ["a", "b"]);
+  assert.deepEqual(parsed.sources, ["s1", "s2"]);
+});
+
+test("line endings and trailing whitespace are normalized", () => {
+  const rendered = renderKnowledgeMarkdown([entry({ body: "line one  \r\nline two\t\r\n" })]);
+  const parsed = parseKnowledgeMarkdown(rendered)[0]!;
+  assert.equal(parsed.body, "line one\nline two");
+});
+
+test("deriveEntryId is deterministic and title-normalized", () => {
+  const base = deriveEntryId("git:abc", "Use  The Adapter");
+  assert.equal(base, deriveEntryId("git:abc", "use the adapter"));
+  assert.match(base, /^cc-[0-9a-f]{24}$/);
+  assert.notEqual(base, deriveEntryId("git:def", "Use The Adapter"));
+  assert.notEqual(base, deriveEntryId("git:abc", "Other title"));
+});
+
+test("create is idempotent on replay and merges sources", () => {
+  const projectKey = "git:abc";
+  const first = applyCuratedEntry([], {
+    action: "create",
+    title: "Use repository adapter",
+    summary: "One.",
+    body: "Body one.",
+    sources: ["session:s1#records=r1"],
+  }, projectKey);
+  assert.equal(first.changed, true);
+  const second = applyCuratedEntry(first.entries, {
+    action: "create",
+    title: "Use repository adapter",
+    summary: "One.",
+    body: "Body one.",
+    sources: ["session:s1#records=r1", "session:s2#records=r9"],
+  }, projectKey);
+  assert.equal(second.changed, true);
+  assert.deepEqual(second.entries[0]!.sources, ["session:s1#records=r1", "session:s2#records=r9"]);
+  const third = applyCuratedEntry(second.entries, {
+    action: "create",
+    title: "Use repository adapter",
+    summary: "One.",
+    body: "Body one.",
+    sources: ["session:s1#records=r1", "session:s2#records=r9"],
+  }, projectKey);
+  assert.equal(third.changed, false);
+  assert.deepEqual(third.entries, second.entries);
+});
+
+test("create id collision with a different normalized title fails", () => {
+  const projectKey = "git:abc";
+  const title = "Shared prefix";
+  const first = applyCuratedEntry([], { action: "create", title, summary: "S", body: "B" }, projectKey);
+  const handEdited = entry({
+    id: first.id,
+    title: "Different title",
+    summary: "Hand-edited.",
+    body: "Hand-edited body.",
+  });
+  assert.throws(
+    () => applyCuratedEntry([handEdited], { action: "create", title, summary: "S", body: "B" }, projectKey),
+    (error: unknown) => error instanceof KnowledgeValidationError && /already belongs/.test(error.message),
+  );
+});
+
+test("update replaces the complete entry and preserves the id", () => {
+  const projectKey = "git:abc";
+  const created = applyCuratedEntry([], {
+    action: "create",
+    title: "Old title",
+    summary: "Old summary.",
+    body: "Old body with obsolete text and addenda.",
+    tags: ["old"],
+    sources: ["session:s1#records=r1"],
+  }, projectKey);
+  const id = created.id;
+  const updated = applyCuratedEntry(created.entries, {
+    action: "update",
+    targetEntryId: id,
+    title: "New title",
+    summary: "New summary.",
+    body: "Complete replacement body.",
+    tags: ["new"],
+  }, projectKey);
+  assert.equal(updated.changed, true);
+  assert.equal(updated.entries[0]!.id, id);
+  assert.equal(updated.entries.length, 1);
+  const text = renderKnowledgeMarkdown(updated.entries);
+  assert.equal(text.includes("obsolete"), false);
+  assert.equal(text.includes("New title"), true);
+  assert.deepEqual(updated.entries[0]!.tags, ["new", "old"]);
+});
+
+test("update requires an existing target", () => {
+  assert.throws(
+    () => applyCuratedEntry([], { action: "update", targetEntryId: "cc-missing", title: "T", summary: "S", body: "B" }, "git:abc"),
+    KnowledgeValidationError,
+  );
 });
 ```
 
@@ -3311,18 +2785,20 @@ export interface GlobalConfigOptions {
   dir?: string;
   model?: string;
   inputs?: string[];
-  automation?: { enabled?: boolean; setupMissingProjects?: boolean };
   workerTimeoutMinutes?: number;
+  knowledgeFile?: string;
+  contextPointer?: boolean;
   projectAliases?: Record<string, string[]>;
 }
 
 export function globalConfigObject(options: GlobalConfigOptions = {}): Record<string, unknown> {
   return {
-    version: 1,
+    version: 2,
     model: options.model ?? "fake/model",
     inputs: options.inputs ?? [],
-    automation: { enabled: true, setupMissingProjects: true, ...options.automation },
     workerTimeoutMinutes: options.workerTimeoutMinutes ?? 10,
+    ...(options.knowledgeFile !== undefined ? { knowledgeFile: options.knowledgeFile } : {}),
+    ...(options.contextPointer !== undefined ? { contextPointer: options.contextPointer } : {}),
     projectAliases: options.projectAliases ?? {},
   };
 }
@@ -3331,130 +2807,19 @@ export async function writeGlobalConfig(options: GlobalConfigOptions = {}): Prom
   const dir = options.dir ?? await temporary("cheatcodes-config-");
   const file = path.join(dir, "config.json");
   await writeFile(file, JSON.stringify(globalConfigObject(options), null, 2));
-  return { file, env: { CHEATCODES_CONFIG: file } };
-}
-
-export function envForMissingConfig(): Promise<NodeJS.ProcessEnv> {
-  return temporary("cheatcodes-missing-").then((dir) => ({ CHEATCODES_CONFIG: path.join(dir, "config.json") }));
+  return { file, env: { CHEATCODES_CONFIG: file, CHEATCODES_STATE: path.join(dir, "state.json") } };
 }
 ```
 
-## `test/mvp.test.ts`
+## `test/live/smoke.live.test.ts`
 
 ```typescript
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { promisify } from "node:util";
-import test from "node:test";
-import { initializeProject } from "../src/config.js";
-import type { Curator } from "../src/curate.js";
-import { publishProject, runProject } from "../src/cli.js";
-import { temporary, writeGlobalConfig } from "./helpers.js";
-
-const execFileAsync = promisify(execFile);
-function line(value: unknown): string { return `${JSON.stringify(value)}\n`; }
-
-function fixture(root: string): string {
-  return [
-    { type: "session", version: 3, id: "session-1", timestamp: "2026-01-01T00:00:00Z", cwd: root },
-    { type: "message", id: "u1", parentId: null, timestamp: "2026-01-01T00:00:01Z", message: { role: "user", content: [{ type: "text", text: "No, that is wrong. We must use the repository adapter instead." }] } },
-    { type: "message", id: "a1", parentId: "u1", timestamp: "2026-01-01T00:00:02Z", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "Understood. The repository adapter is required." }] } },
-  ].map(line).join("");
-}
-
-test("init runs at the Git top level, publishes an empty bundle, and is idempotent", async () => {
-  const root = await temporary();
-  const originalCwd = process.cwd();
-  try {
-    await execFileAsync("git", ["init", "-q", root]);
-    const nested = path.join(root, "packages", "app");
-    await mkdir(nested, { recursive: true });
-    const sessions = path.join(root, "sessions");
-    await mkdir(sessions);
-    const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    process.chdir(nested);
-    const first = await initializeProject({}, env);
-    assert.equal(first.root, root);
-    const second = await initializeProject({}, env);
-    assert.equal(second.projectId, first.projectId);
-    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
-    await readFile(path.join(root, ".cheatcodes", "project.json"), "utf8");
-    await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md"), "utf8");
-  } finally {
-    process.chdir(originalCwd);
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("init requires a valid global config", async () => {
-  const root = await temporary();
-  try {
-    const env = { CHEATCODES_CONFIG: path.join(root, "missing", "config.json") };
-    await assert.rejects(initializeProject({ root }, env), /No global config/);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test("init and deterministic incremental run", async () => {
-  const root = await temporary();
-  try {
-    const sessions = path.join(root, "sessions");
-    await mkdir(sessions);
-    const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    await initializeProject({ root }, env);
-    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
-    await writeFile(path.join(sessions, "one.jsonl"), fixture(root));
-    let calls = 0;
-    const curator: Curator = { async curate(packet) {
-      calls++;
-      return { concepts: [{ action: "create", type: "Decision", title: "Use the repository adapter", description: "Repository access uses the adapter.", tags: ["repository"], evidenceRefs: [packet.evidence[0]!.id], content: { answer: "Use the repository adapter.", rationale: "The direct approach violates project architecture." } }] };
-    } };
-    const first = await runProject({ root, curator, env, now: () => new Date("2026-01-01T00:00:00Z") });
-    assert.equal(first.curatorCalls, 1);
-    assert.equal(calls, 1);
-    const stateBefore = await readFile(path.join(root, ".cheatcodes", "local", "state.json"));
-    const knowledgeBefore = await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md"));
-    const second = await runProject({ root, curator, env });
-    assert.equal(second.curatorCalls, 0);
-    assert.equal(calls, 1);
-    assert.deepEqual(await readFile(path.join(root, ".cheatcodes", "local", "state.json")), stateBefore);
-    assert.deepEqual(await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md")), knowledgeBefore);
-    await rm(path.join(root, ".cheatcodes", "knowledge"), { recursive: true });
-    await publishProject(root);
-    assert.deepEqual(await readFile(path.join(root, ".cheatcodes", "knowledge", "index.md")), knowledgeBefore);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test("partial final line remains uncommitted", async () => {
-  const root = await temporary();
-  try {
-    const sessions = path.join(root, "sessions"); await mkdir(sessions);
-    const { env } = await writeGlobalConfig({ inputs: [sessions] });
-    await initializeProject({ root }, env);
-    const complete = line({ type: "session", version: 3, id: "s", cwd: root });
-    await writeFile(path.join(sessions, "one.jsonl"), `${complete}{"type":"message"`);
-    const curator: Curator = { async curate() { throw new Error("must not call"); } };
-    await runProject({ root, curator, env });
-    const state = JSON.parse(await readFile(path.join(root, ".cheatcodes", "local", "state.json"), "utf8"));
-    assert.equal(state.files[path.join(sessions, "one.jsonl")].committedOffset, Buffer.byteLength(complete));
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-```
-
-## `test/smoke.live.test.ts`
-
-```typescript
-import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { initializeProject } from "../src/config.js";
-import { runProject } from "../src/cli.js";
+import { runProject } from "../src/run.js";
 import { writeGlobalConfig } from "./helpers.js";
 
 const model = process.env.CHEATCODES_LIVE_MODEL;
@@ -3487,22 +2852,19 @@ test("live model smoke test", { timeout: 300_000, skip: !model || process.env.CI
     const sessions = path.join(root, "sessions");
     await mkdir(sessions);
     const { env } = await writeGlobalConfig({ model: model!, inputs: [sessions] });
-    await initializeProject({ root }, env);
     await writeFile(path.join(sessions, "smoke.jsonl"), fixture(root));
     const result = await runProject({ root, env });
     console.log("run result:", JSON.stringify(result, null, 2));
     assert.equal(result.curatorCalls, 1);
-    assert.ok(result.conceptsWritten >= 1, "expected at least one concept write");
-    const concepts = (await readdir(path.join(root, ".cheatcodes", "curated", "concepts"))).filter((name) => name.endsWith(".md"));
-    assert.ok(concepts.length >= 1);
-    for (const name of concepts) {
-      console.log(`--- curated/${name} ---`);
-      console.log(await readFile(path.join(root, ".cheatcodes", "curated", "concepts", name), "utf8"));
-    }
-    const knowledge = await readFile(path.join(root, ".cheatcodes", "knowledge", "concepts", "index.md"), "utf8");
-    console.log("--- knowledge/concepts/index.md ---");
+    assert.ok(result.entriesWritten >= 1, "expected at least one entry write");
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    console.log("--- CHEATCODES.md ---");
     console.log(knowledge);
-    assert.match(knowledge, /## (Decision|Gotcha|Runbook)/);
+    assert.match(knowledge, /^# CHEATCODES\n/);
+    assert.match(knowledge, /## /);
+    assert.equal(knowledge.includes("smoke-session"), false);
+    const entries = await readdir(root);
+    assert.equal(entries.includes(".cheatcodes"), false);
     for (const warning of result.warnings) console.log(`warning: ${warning}`);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -3510,270 +2872,270 @@ test("live model smoke test", { timeout: 300_000, skip: !model || process.env.CI
 });
 ```
 
-## `.cheatcodes/project.json`
+## `test/mvp.test.ts`
 
-```json
-{
-  "version": 1,
-  "projectId": "local:e42d44d0-d178-4740-abe7-70c716483ba0"
+```typescript
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { promisify } from "node:util";
+import test from "node:test";
+import type { Curator } from "../src/curate.js";
+import { runProject } from "../src/run.js";
+import { loadGlobalState } from "../src/state.js";
+import { normalizeRepositoryPath, parseJsonlBytes, redactSecrets } from "../src/jsonl.js";
+import { parseKnowledgeMarkdown } from "../src/concept.js";
+import { temporary, writeGlobalConfig } from "./helpers.js";
+
+const execFileAsync = promisify(execFile);
+function line(value: unknown): string { return `${JSON.stringify(value)}\n`; }
+
+function fixture(root: string, sessionId = "session-1"): string {
+  return [
+    { type: "session", version: 3, id: sessionId, timestamp: "2026-01-01T00:00:00Z", cwd: root },
+    { type: "message", id: "u1", parentId: null, timestamp: "2026-01-01T00:00:01Z", message: { role: "user", content: [{ type: "text", text: "No, that is wrong. We must use the repository adapter instead." }] } },
+    { type: "message", id: "a1", parentId: "u1", timestamp: "2026-01-01T00:00:02Z", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "Understood. The repository adapter is required." }] } },
+  ].map(line).join("");
 }
-```
-
-## `.cheatcodes/knowledge/concepts/2fad95eef7.md`
-
-```markdown
----
-cheatcodes_id: 2fad95eef7
-type: Decision
-title: Use global configuration with an optionless automatic entry point
-description: Store user settings globally and give launchers a stable command that checks, initializes, and runs Cheatcodes for a repository.
-tags:
-  - configuration
-  - global-settings
-  - cli
-  - migration
-  - pi-extension
-status: draft
-generated:
-  by: cheatcodes/0.2.0
-  at: 2026-08-29T18:39:05.212Z
-sources:
-  - id: session-6312cc6cc0be5460
-    resource: session:01a04b3e-3031-7d12-a443-adff4f9e320a#entries=6014e840,ff206fac,fce45fec,baaafbe6
-    title: Session evidence
----
-
-# Answer
-
-Move user settings to ~/.config/cheatcodes/config.json, keep only project identity and durable knowledge in repositories, and add an optionless cheatcodes auto command for Pi or other launchers. By default, auto should initialize and run in trusted Git repositories when Cheatcodes is absent.
-
-# Why
-
-Global settings avoid per-repository duplication, while a single automatic entry point keeps the Pi shim simple. Existing repository configuration and state must be migrated without data loss so the boundary change does not discard project knowledge.
-
-# Evidence
-
-- [evidence-05eb61361e1e4f18c59eaa28] Analyze this project along with: [ABSOLUTE PATH]
-I want to keep the two boundari
-[truncated]
-- [evidence-2e3028ecd05401c9aef4ed40] read | repo://local:e42d44d0-d178-4740-abe7-70c716483ba0/src/cli.ts | 5660f5d95e
-[truncated]
-- [evidence-edbf3c2a31f5a27992df1b03] read | repo://local:e42d44d0-d178-4740-abe7-70c716483ba0/src/config.ts | 7451ab2
-[truncated]
-- [evidence-0de52dcd134d0fa3500465c6] read | repo://local:e42d44d0-d178-4740-abe7-70c716483ba0/src/state.ts | 8f58970d
-[truncated]
-```
-
-## `.cheatcodes/knowledge/concepts/4fa2bab553.md`
-
-````markdown
----
-cheatcodes_id: 4fa2bab553
-type: Runbook
-title: Run the opt-in live model smoke test
-description: Run the live smoke test with the Azure Responses GPT-5.6 Luna model while keeping it out of CI-required test suites.
-tags:
-  - smoke-test
-  - live-model
-  - azure
-  - testing
-status: draft
-generated:
-  by: cheatcodes/0.1.0
-  at: 2026-08-29T18:39:05.212Z
-sources:
-  - id: session-0d2cf23672f54b3a
-    resource: session:01a04abf-8917-724c-a678-ee0c8112f8a6#entries=d40c476b,4ccf40ad
-    title: Session evidence
-  - id: session-312d479d8777cee1
-    resource: session:01a04b3e-3031-7d12-a443-adff4f9e320a#entries=9655d315,f268fd9e
-    title: Session evidence
----
-
-# Purpose
-
-Verify the live curator flow with azure-gateway-responses/gpt-5.6-luna at high thinking without enabling the test by default or running it in CI.
-
-# Steps
-
-1. Ensure the smoke test is present at test/smoke.live.test.ts.
-2. Run CHEATCODES_LIVE_MODEL="azure-gateway-responses/gpt-5.6-luna:high" npm test.
-3. Keep CI=true unset because the smoke test refuses to run in CI.
-
-# Evidence
-
-- [evidence-ff28bf73e43dcb4e6bfdd69e] write | repo://local:e42d44d0-d178-4740-abe7-70c716483ba0/test/smoke.live.test.ts | 3308e3e1458344caf6b59b73f75871e52be9c508a4c58e3eff2b8fac149d219e
-- [evidence-1f5d5672d9dc80ab0b9e28f2] Live smoke test passed with `azure-gateway-responses/gpt-5.6-luna:high` (~80s, high thinking).
-
-Results:
-
-- 1 packet harvested, 1 curator call, 1 concept written
-- Model returned a strict-schema `Decision` with only valid evidence references
-- Concept rendered at `.cheatcodes/curated/concepts/c0c9867e72.md` with provenance `session:smoke-session#entries=u2,t2,t3,a4`
-- OKF v0.2 bundle published; `concepts/index.md` lists it as `[draft]`
-- No warnings
-
-The smoke test lives in `test/smoke.live.test.ts`. It stays skipped unless you opt in:
-
-```sh
-CHEATCODES_LIVE_MODEL="azure-gateway-responses/gpt-5.6-luna:high" npm test
-```
 
-It also refuses to run when `CI=true`, matching the plan's requirement to keep it out of required suites.
-
-Note: `z-ai-openai/gpt-5.6-luna` would correctly fail — that provider only registers GLM models, and the plan requires fallback warnings to fail before the first model call.
-
-# Updates
-
-## Addendum
-
-### Purpose
-
-Verify the live curator flow with azure-gateway-responses/gpt-5.6-luna at high thinking without enabling the test by default or including it in required CI suites.
-
-### Steps
-
-1. Ensure the smoke test is present at test/smoke.live.test.ts.
-2. Run CHEATCODES_LIVE_MODEL="azure-gateway-responses/gpt-5.6-luna:high" npm test.
-3. Leave CI=true unset because the smoke test is intended to remain outside CI-required test suites.
-
-### Evidence
-
-- [evidence-e58ab8ff28ef2921afbe12af] read | repo://local:e42d44d0-d178-4740-abe7-70c716483ba0/test/mvp.test.ts | bc2b
-[truncated]
-- [evidence-acc42940dc4825185848a478] read | repo://local:e42d44d0-d178-4740-abe7-70c716483ba0/test/smoke.live.test.ts
-[truncated]
-````
-
-## `.cheatcodes/knowledge/concepts/6cf7bf3342.md`
-
-```markdown
----
-cheatcodes_id: 6cf7bf3342
-type: Decision
-title: Keep the Pi extension as a detached one-way launcher
-description: The Pi extension should launch Cheatcodes without synchronous back-and-forth communication or foreground work during Pi startup.
-tags:
-  - pi-extension
-  - fire-and-forget
-  - integration
-  - startup
-status: draft
-generated:
-  by: cheatcodes/0.2.0
-  at: 2026-08-29T18:39:05.212Z
-sources:
-  - id: session-f85b12113d91161c
-    resource: session:01a04b3e-3031-7d12-a443-adff4f9e320a#entries=6014e840,bb0959fe
-    title: Session evidence
----
-
-# Answer
-
-Make the Pi extension a detached, one-way launcher. It should not use foreground Cheatcodes commands, widgets, JSONL scanning, or pi.exec() communication while Pi is loading.
-
-# Why
-
-Separating the extension boundary from the standalone CLI prevents Cheatcodes processing from blocking Pi startup and keeps the extension responsible only for triggering the tool.
-
-# Evidence
-
-- [evidence-05eb61361e1e4f18c59eaa28] Analyze this project along with: [ABSOLUTE PATH]
-I want to keep the two boundari
-[truncated]
-- [evidence-3ce1f474c827fe75234f42c2] read | 48be5992e60eec647aa86d29ed35c743ef460dcba74df4264099600e874144f8
-```
-
-## `.cheatcodes/knowledge/concepts/7fa22339ce.md`
-
-````markdown
----
-cheatcodes_id: 7fa22339ce
-type: Gotcha
-title: Use the Azure Responses provider for GPT-5.6 Luna
-description: gpt-5.6-luna is registered under azure-gateway-responses, not z-ai-openai.
-tags:
-  - providers
-  - model-routing
-  - azure
-  - z-ai-openai
-status: draft
-generated:
-  by: cheatcodes/0.1.0
-  at: 2026-08-29T00:25:14.239Z
-sources:
-  - id: session-c76ae4d946d2befb
-    resource: session:01a04abf-8917-724c-a678-ee0c8112f8a6#entries=61eb19fa,4ccf40ad
-    title: Session evidence
----
-
-# Symptom
-
-Using z-ai-openai/gpt-5.6-luna for the smoke test fails before the first model call.
-
-# Cause
-
-The z-ai-openai provider registers GLM models, while gpt-5.6-luna is registered under azure-gateway-responses.
-
-# Fix
-
-Use azure-gateway-responses/gpt-5.6-luna:high for the smoke test.
-
-# Evidence
-
-- [evidence-24c398fbb139af18f6a32cb5] azure-gateway -> gpt-5.4-mini, gpt-5-nano-2, o3, DeepSeek-V4-Pro, DeepSeek-V4-Flash, Kimi-K2.6-1
-azure-gateway-responses -> gpt-5.6-terra, gpt-5.6-sol, gpt-5.6-luna
-azure-anthropic-gateway -> claude-fable-5, claude-opus-5, claude-opus-4-8, claude-sonnet-5, claude-sonnet-4-6, claude-haiku-4-5
-z-ai-openai -> glm-5.3, GLM-5-Turbo, GLM-4.5-air, glm-5.3-flash
-- [evidence-1f5d5672d9dc80ab0b9e28f2] Live smoke test passed with `azure-gateway-responses/gpt-5.6-luna:high` (~80s, high thinking).
-
-Results:
-
-- 1 packet harvested, 1 curator call, 1 concept written
-- Model returned a strict-schema `Decision` with only valid evidence references
-- Concept rendered at `.cheatcodes/curated/concepts/c0c9867e72.md` with provenance `session:smoke-session#entries=u2,t2,t3,a4`
-- OKF v0.2 bundle published; `concepts/index.md` lists it as `[draft]`
-- No warnings
-
-The smoke test lives in `test/smoke.live.test.ts`. It stays skipped unless you opt in:
-
-```sh
-CHEATCODES_LIVE_MODEL="azure-gateway-responses/gpt-5.6-luna:high" npm test
-```
-
-It also refuses to run when `CI=true`, matching the plan's requirement to keep it out of required suites.
-
-Note: `z-ai-openai/gpt-5.6-luna` would correctly fail — that provider only registers GLM models, and the plan requires fallback warnings to fail before the first model call.
-````
-
-## `.cheatcodes/knowledge/concepts/index.md`
-
-```markdown
-# Concepts
-
-## Decision
-
-- [Keep the Pi extension as a detached one-way launcher](6cf7bf3342.md) [draft] - The Pi extension should launch Cheatcodes without synchronous back-and-forth communication or foreground work during Pi startup.
-- [Use global configuration with an optionless automatic entry point](2fad95eef7.md) [draft] - Store user settings globally and give launchers a stable command that checks, initializes, and runs Cheatcodes for a repository.
-
-## Gotcha
-
-- [Use the Azure Responses provider for GPT-5.6 Luna](7fa22339ce.md) [draft] - gpt-5.6-luna is registered under azure-gateway-responses, not z-ai-openai.
-
-## Runbook
-
-- [Run the opt-in live model smoke test](4fa2bab553.md) [draft] - Run the live smoke test with the Azure Responses GPT-5.6 Luna model while keeping it out of CI-required test suites.
-```
-
-## `.cheatcodes/knowledge/index.md`
-
-```markdown
----
-okf_version: "0.2"
----
-
-# Project knowledge
-
-- [Concepts](concepts/) - Curated decisions, gotchas, and runbooks.
+function fakeCurator(calls: { count: number }): Curator {
+  return { async curate(packet) {
+    calls.count++;
+    return { entries: [{ action: "create", title: "Use the repository adapter", summary: "Repository access uses the adapter.", body: "The repository adapter is the only persistence boundary.", tags: ["repository"], evidenceRefs: [packet.evidence[0]!.id] }] };
+  } };
+}
+
+async function sessionsWithFixture(root: string, sessionId = "session-1"): Promise<string> {
+  const sessions = path.join(root, "sessions");
+  await mkdir(sessions, { recursive: true });
+  await writeFile(path.join(sessions, "one.jsonl"), fixture(root, sessionId));
+  return sessions;
+}
+
+async function gitInit(root: string): Promise<void> {
+  await execFileAsync("git", ["init", "-q", root]);
+}
+
+test("first run discovers the Git root from a nested directory and creates one knowledge file", async () => {
+  const root = await temporary();
+  const originalCwd = process.cwd();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const nested = path.join(root, "packages", "app");
+    await mkdir(nested, { recursive: true });
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    process.chdir(nested);
+    const calls = { count: 0 };
+    const result = await runProject({ env, curator: fakeCurator(calls) });
+    assert.equal(result.root, root);
+    assert.equal(result.changedFiles, 1);
+    assert.equal(calls.count, 1);
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    assert.match(knowledge, /^# CHEATCODES\n/);
+    assert.match(knowledge, /## Use the repository adapter\n/);
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.match(agents, /## Project knowledge/);
+    assert.match(agents, /`CHEATCODES\.md`/);
+    const entries = await readdir(root);
+    assert.equal(entries.includes(".cheatcodes"), false);
+  } finally {
+    process.chdir(originalCwd);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("run requires a global config", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const env = { CHEATCODES_CONFIG: path.join(root, "missing", "config.json"), CHEATCODES_STATE: path.join(root, "state.json") };
+    await assert.rejects(runProject({ root, env }), /No global config/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("run outside a Git repository fails", async () => {
+  const cwd = await temporary();
+  try {
+    const { env } = await writeGlobalConfig();
+    await assert.rejects(runProject({ cwd, env }), /Git repository/);
+  } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+test("runs are deterministic and incremental with global state cursors", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const calls = { count: 0 };
+    const first = await runProject({ root, env, curator: fakeCurator(calls) });
+    assert.equal(first.curatorCalls, 1);
+    assert.equal(first.entriesWritten, 1);
+    const knowledgeFile = path.join(root, "CHEATCODES.md");
+    const knowledgeAfterFirst = await readFile(knowledgeFile, "utf8");
+    const stateAfterFirst = await loadGlobalState(env);
+    const key = first.projectKey;
+    const files = Object.keys(stateAfterFirst.projects[key]!.files);
+    assert.equal(files.length, 1);
+    assert.equal(files[0]!.startsWith(sessions), true);
+    const second = await runProject({ root, env, curator: fakeCurator(calls) });
+    assert.equal(second.curatorCalls, 0);
+    assert.equal(await readFile(knowledgeFile, "utf8"), knowledgeAfterFirst);
+    assert.deepEqual(await loadGlobalState(env), stateAfterFirst);
+    await writeFile(path.join(sessions, "one.jsonl"), fixture(root) + '{"type":"message","id":"u2"');
+    const third = await runProject({ root, env, curator: fakeCurator(calls) });
+    assert.equal(third.curatorCalls, 0);
+    assert.equal(await readFile(knowledgeFile, "utf8"), knowledgeAfterFirst);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("a rewritten source file is reconsidered without duplicating entries", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root, "session-1");
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const calls = { count: 0 };
+    await runProject({ root, env, curator: fakeCurator(calls) });
+    await writeFile(path.join(sessions, "one.jsonl"), fixture(root, "session-2"));
+    const warnings: string[] = [];
+    const second = await runProject({ root, env, curator: fakeCurator(calls), onWarning: (message) => warnings.push(message) });
+    assert.equal(warnings.some((message) => /source was rewritten/.test(message)), true);
+    assert.equal(second.curatorCalls, 1);
+    assert.equal(second.entriesWritten, 1);
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    assert.equal(knowledge.match(/## Use the repository adapter/g)?.length, 1);
+    assert.match(knowledge, /session:session-1#records=/);
+    assert.match(knowledge, /session:session-2#records=/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("durable output contains no evidence excerpts", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    assert.equal(knowledge.includes("No, that is wrong"), false);
+    assert.equal(knowledge.includes("repository adapter is required"), false);
+    assert.equal(knowledge.includes("cheatcodes/"), false);
+    assert.match(knowledge, /session:session-1#records=/);
+    const parsed = parseKnowledgeMarkdown(knowledge);
+    const stamp = new Date((await stat(path.join(sessions, "one.jsonl"))).mtimeMs).toISOString();
+    assert.equal(parsed[0]!.date, stamp);
+    const tempFiles = (await readdir(root)).filter((name) => name.includes(".tmp-"));
+    assert.deepEqual(tempFiles, []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("the knowledge pointer is appended once and replaces the legacy pointer", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    const legacy = "## Project knowledge\n\nStart with `.cheatcodes/knowledge/index.md`. Check concept status before relying on a draft.";
+    await writeFile(path.join(root, "AGENTS.md"), `# Agents\n\n${legacy}\n`);
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.equal(agents.includes(".cheatcodes/knowledge"), false);
+    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    assert.equal((await readFile(path.join(root, "AGENTS.md"), "utf8")), agents);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+test("an existing AGENTS.md keeps its content and gains the pointer exactly once", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    await writeFile(path.join(root, "AGENTS.md"), "# My project\n\nBe nice to the code.\n");
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.equal(agents.startsWith("# My project\n\nBe nice to the code.\n"), true);
+    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    assert.equal(await readFile(path.join(root, "AGENTS.md"), "utf8"), agents);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("secret redaction covers common credential shapes", () => {
+  const redacted = redactSecrets([
+    "token Bearer abc.def.ghi-jk",
+    "key sk_live_ABCDEFGHIJKLmnop",
+    "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ12",
+    "AKIAIOSFODNN7EXAMPLE",
+    "https://user:hunter2@example.com/repo",
+    "MY_API_KEY = super-secret-value",
+    "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----",
+  ].join("\n"));
+  assert.equal(redacted.includes("Bearer abc"), false);
+  assert.equal(redacted.includes("sk_live_ABCDEFGHIJKLmnop"), false);
+  assert.equal(redacted.includes("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ12"), false);
+  assert.equal(redacted.includes("AKIAIOSFODNN7EXAMPLE"), false);
+  assert.equal(redacted.includes("hunter2"), false);
+  assert.equal(redacted.includes("super-secret-value"), false);
+  assert.equal(redacted.includes("PRIVATE KEY-----\nabc"), false);
+});
+
+test("repository path normalization scopes paths to the project and redacts outside paths", () => {
+  const root = "/repo";
+  assert.equal(normalizeRepositoryPath("src/a.ts", "key", [root], root), "repo://key/src/a.ts");
+  assert.equal(normalizeRepositoryPath("/repo/src/a.ts", "key", [root], root), "repo://key/src/a.ts");
+  assert.equal(normalizeRepositoryPath("/etc/passwd", "key", [root], root), undefined);
+  assert.equal(normalizeRepositoryPath("", "key", [root], root), undefined);
+});
+
+test("partial final JSONL lines are not committed until complete", () => {
+  const complete = fixture("/repo", "s9");
+  const parsed = parseJsonlBytes(Buffer.from(complete + `{"type":"message","id":"u2"`, { file: "f.jsonl" }));
+  assert.equal(parsed.sessionId, "s9");
+  assert.equal(parsed.records.some((record) => record.id === "u2"), false);
+  assert.equal(complete.includes("u2"), false);
+  const reparsed = parseJsonlBytes(Buffer.from(complete), { file: "f.jsonl" });
+  assert.equal(reparsed.completeOffset, parsed.completeOffset);
+  assert.equal(reparsed.completeSha256, parsed.completeSha256);
+});
+
+test("branch reconstruction follows parent chains across versions", () => {
+  const record = (id: string, parentId: string | null, role: string) =>
+    line({ type: "message", id, parentId, timestamp: "2026-01-01T00:00:00Z", message: { role, stopReason: "stop", content: [{ type: "text", text: `substantive message text for ${id}` }] } });
+  const v1 = parseJsonlBytes(Buffer.from([
+    line({ type: "session", id: "s", cwd: "/repo" }),
+    record("a", null, "user"),
+    record("b", undefined, "assistant"),
+  ].join("")), { file: "v1.jsonl" });
+  assert.equal(v1.branches.length, 1);
+  assert.equal(v1.branches[0]!.length, 2);
+  assert.equal(v1.branches[0]![1]!.parentId, v1.branches[0]![0]!.id);
+
+  const v3 = parseJsonlBytes(Buffer.from([
+    line({ type: "session", version: 3, id: "s", cwd: "/repo" }),
+    record("a", null, "user"),
+    record("b", "a", "assistant"),
+    record("c", "b", "user"),
+  ].join("")), { file: "v3.jsonl" });
+  assert.equal(v3.branches.length, 1);
+  assert.deepEqual(v3.branches[0]!.map((item) => item.id), ["a", "b", "c"]);
+});
+
+test("repository-boundary filtering skips sessions from other roots", async () => {
+  const root = await temporary();
+  try {
+    await gitInit(root);
+    const sessions = await sessionsWithFixture(root);
+    await writeFile(path.join(sessions, "foreign.jsonl"), fixture("/elsewhere", "foreign-1"));
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const calls = { count: 0 };
+    const result = await runProject({ root, env, curator: fakeCurator(calls) });
+    assert.equal(result.changedFiles, 1);
+    await stat(path.join(root, "CHEATCODES.md"));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 ```
 
