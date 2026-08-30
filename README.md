@@ -90,6 +90,44 @@ Global config lives at `~/.config/cheatcodes/config.json` (override with `CHEATC
 
 Run state (cursors, last-run record) lives at `~/.local/state/cheatcodes/state.json` (override with `CHEATCODES_STATE`).
 
+## Bring your own API
+
+cheatcodes resolves your `model` string through a model registry at
+`~/.config/cheatcodes/models.json`. It seeds this file on first run: it copies
+your Pi registry (`~/.pi/agent/models.json`) when one exists, otherwise it
+writes a scaffold. It never overwrites the file afterwards. Delete it to
+re-seed.
+
+Claude-only users edit the file directly. A minimal provider looks like this:
+
+```json
+{
+  "providers": {
+    "example": {
+      "baseUrl": "https://api.example.com/v1",
+      "api": "openai-completions",
+      "apiKey": "$EXAMPLE_API_KEY",
+      "models": [
+        { "id": "example-model", "name": "Example Model", "reasoning": false,
+          "contextWindow": 128000, "maxTokens": 8192 }
+      ]
+    }
+  }
+}
+```
+
+Rules:
+
+- Set `model` in the global config to `example/example-model`.
+- `apiKey` accepts a literal, an environment reference (`$VAR`), or a command
+  (`!cmd`). Prefer `$VAR`.
+- Four API types exist: `openai-completions`, `openai-responses`,
+  `anthropic-messages`, and `google-generative-ai`. Custom providers need a
+  `baseUrl`. Google requires one.
+- A run skips when the configured model does not resolve in this registry.
+
+See the Pi `models.json` documentation for the full schema.
+
 ## Commands
 
 | Command | Effect |

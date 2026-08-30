@@ -68,7 +68,7 @@ function finalAssistantText(messages: readonly unknown[]): string {
   }).join("");
 }
 
-export interface PiCuratorOptions { projectRoot: string; model: string; modelRuntime?: ModelRuntime }
+export interface PiCuratorOptions { projectRoot: string; model: string; modelRuntime?: ModelRuntime; modelsPath?: string }
 
 export class PiCurator implements Curator {
   private constructor(
@@ -81,7 +81,7 @@ export class PiCurator implements Curator {
   ) {}
 
   static async create(options: PiCuratorOptions): Promise<PiCurator> {
-    const runtime = options.modelRuntime ?? await ModelRuntime.create();
+    const runtime = options.modelRuntime ?? await ModelRuntime.create({ modelsPath: options.modelsPath });
     const resolved = resolveCliModel({ cliModel: options.model, modelRuntime: runtime });
     if (resolved.error || !resolved.model) throw new Error(resolved.error ?? `Model not found: ${options.model}`);
     if (resolved.warning) throw new Error(resolved.warning);

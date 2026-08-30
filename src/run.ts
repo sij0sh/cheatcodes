@@ -18,6 +18,7 @@ import { applyCuratedEntry, parseKnowledgeMarkdown, renderKnowledgeMarkdown, typ
 import { normalizeCuratorOutcome, PiCurator, type Curator, type CuratedEntry } from "./curate.js";
 import { createPacket, segmentSession, type EvidenceItem, type HarvestPacket } from "./harvest.js";
 import { parseJsonlFile } from "./jsonl.js";
+import { ensureModelsFile } from "./models.js";
 import { scanInputs, type ScanWarning } from "./scan.js";
 import {
   acquireProjectLock,
@@ -87,10 +88,16 @@ export interface RunResult {
 
 function warningText(warning: ScanWarning): string { return `${warning.file}: ${warning.message}`; }
 
-async function getCurator(options: RunOptions, root: string, model: string): Promise<Curator> {
+async function getCurator(options: RunOptions, root: string, model: string, env: NodeJS.ProcessEnv): Promise<Curator> {
   if (options.curator) return options.curator;
   if (options.curatorFactory) return options.curatorFactory();
-  return PiCurator.create({ projectRoot: root, model });
+  let modelsPath: string | undefined;
+  try {
+    modelsPath = await ensureModelsFile(env);
+  } catch (error) {
+    options.onWarning?.(`models registry unavailable, falling back to the Pi default: ${(error as Error).message}`);
+  }
+  return PiCurator.create({ projectRoot: root, model, modelsPath });
 }
 
 function selectedEvidence(packet: HarvestPacket, entry: CuratedEntry): EvidenceItem[] {
@@ -186,7 +193,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
         const packet = createPacket(episode, { projectKey, entries });
         if (!packet) continue;
         packets++;
-        curator ??= await getCurator(options, root, global.model);
+        curator ??= await getCurator(options, root, global.model, env);
         curatorCalls++;
         const outcome = normalizeCuratorOutcome(await curator.curate(packet), packet);
         if (outcome.schemaInvalid || !outcome.response) {

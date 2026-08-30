@@ -4,6 +4,10 @@
 
 Breaking simplification: one repo artifact, global config and state.
 
+### Added
+
+- cheatcodes now owns a model registry at `~/.config/cheatcodes/models.json` next to the global config. The first run seeds it: it copies the Pi registry when present and otherwise writes a scaffold. Existing files are never overwritten. The curator resolves the configured `model` against this registry.
+
 ### Changed
 
 - `CHEATCODES.md` at the project root is now the only project artifact. It holds all curated entries in a self-describing markdown format; `.cheatcodes/` is no longer created or read. Back up and delete any existing `.cheatcodes/` tree after migrating anything you want to keep.
