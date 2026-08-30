@@ -1,6 +1,6 @@
 import { open, readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { sessionHeaderFromRecord } from "./jsonl.js";
+import { WORKER_ORIGIN, sessionHeaderFromRecord, type SessionOrigin } from "./jsonl.js";
 import type { FileCursor } from "./state.js";
 
 export interface SessionCandidate {
@@ -27,7 +27,7 @@ async function discoverJsonl(directory: string, output: string[], warnings: Scan
   }
 }
 
-async function readHeader(file: string): Promise<{ id: string; cwd: string; version: number }> {
+async function readHeader(file: string): Promise<{ id: string; cwd: string; version: number; origin?: SessionOrigin }> {
   const handle = await open(file, "r");
   try {
     let bytes = Buffer.alloc(4096);
@@ -43,7 +43,7 @@ async function readHeader(file: string): Promise<{ id: string; cwd: string; vers
         const header = sessionHeaderFromRecord(value);
         if (header) {
           if (!header.cwd) throw new Error("invalid session metadata");
-          return { id: header.id, cwd: header.cwd, version: header.version };
+          return { id: header.id, cwd: header.cwd, version: header.version, origin: header.origin };
         }
         parsedThrough = newline + 1;
       }
@@ -88,6 +88,7 @@ export async function scanInputs(inputs: string[], projectRoots: string[], files
     if (cursor && cursor.observedSize === metadata.size && cursor.mtimeMs === metadata.mtimeMs) { unchanged.push(file); continue; }
     try {
       const header = await readHeader(file);
+      if (header.origin === WORKER_ORIGIN) { skipped.push({ file, message: "cheatcodes-worker session excluded from harvest" }); continue; }
       if (!matchProjectRoot(header.cwd, projectRoots)) { skipped.push({ file, message: "Session cwd is outside configured project roots" }); continue; }
       changed.push({ file, size: metadata.size, mtimeMs: metadata.mtimeMs });
     } catch (error) { skipped.push({ file, message: `Cannot read session header: ${(error as Error).message}` }); }

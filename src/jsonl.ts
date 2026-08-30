@@ -12,9 +12,12 @@ export interface SessionHeader {
   id: string;
   timestamp?: string;
   cwd?: string;
+  origin?: SessionOrigin;
 }
 export type NormalizedRecordKind = "user" | "assistant" | "tool" | "bash" | "workflow";
 export type ValidationState = "passed" | "failed" | "ambiguous" | "none";
+export const WORKER_ORIGIN = "cheatcodes-worker";
+export type SessionOrigin = "user-session" | "cheatcodes-worker";
 
 export interface ToolReceipt {
   toolCallId?: string;
@@ -46,6 +49,11 @@ export interface NormalizedRecord {
   role?: string;
   text?: string;
   receipt?: ToolReceipt;
+  turnId?: string;
+  toolCallId?: string;
+  assistantStopReason?: string;
+  branchLeafId?: string;
+  origin?: SessionOrigin;
   isNew: boolean;
   // Raw payloads are intentionally omitted from normalized records.
 }
@@ -65,6 +73,7 @@ export interface ParsedSession {
   sessionId: string;
   records: NormalizedRecord[];
   branches: NormalizedRecord[][];
+  origin: SessionOrigin;
   warnings: JsonlWarning[];
   completeOffset: number;
   completeSha256: string;
@@ -93,12 +102,13 @@ export function sessionHeaderFromRecord(value: unknown): SessionHeader | undefin
       id: asString(raw.id)!,
       timestamp: asString(raw.timestamp),
       cwd: asString(raw.cwd),
+      origin: asString(raw.origin) === WORKER_ORIGIN ? "cheatcodes-worker" : undefined,
     };
   }
   const id = asString(raw.sessionId);
   const cwd = asString(raw.cwd);
   if (!id || !cwd) return undefined;
-  return { type: "session", version: 3, id, timestamp: asString(raw.timestamp), cwd };
+  return { type: "session", version: 3, id, timestamp: asString(raw.timestamp), cwd, origin: asString(raw.origin) === WORKER_ORIGIN ? "cheatcodes-worker" : undefined };
 }
 
 
@@ -247,9 +257,39 @@ function substantiveUser(text: string): boolean {
   return clean.length >= 8 && !/^(?:continue workflow|continue the workflow|run completion|<dcp-|\/?compact\b)/i.test(clean);
 }
 
+function recordIdFor(line: RawLine, header: SessionHeader, version: number): string {
+  const synthetic = `v1-${sha256(`${header.id}:${line.range.start}:${line.range.end}:${line.hash}`).slice(0, 24)}`;
+  return version <= 1 ? synthetic : sourceRecordId(line.value) ?? synthetic;
+}
+
+// Turn ids derive deterministically from the assistant message that initiates each turn.
+function turnInitiatorIds(lines: RawLine[], header: SessionHeader, version: number): Map<number, string> {
+  const initiators = new Map<number, string>();
+  const userLines = new Set<number>();
+  let current: string | undefined;
+  for (const line of lines) {
+    const message = asObject(line.value.message);
+    const role = asString(message?.role);
+    if (role === "user") {
+      if (substantiveUser(textContent(message?.content))) { userLines.add(line.index); current = undefined; }
+    } else if (role === "assistant" && !current) {
+      current = recordIdFor(line, header, version);
+    }
+    if (current) initiators.set(line.index, current);
+  }
+  let next: string | undefined;
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const line = lines[index]!;
+    if (initiators.has(line.index)) next = initiators.get(line.index);
+    if (userLines.has(line.index) && next) initiators.set(line.index, next);
+  }
+  return initiators;
+}
+
 function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: ParseJsonlOptions): NormalizedRecord[] {
   const version = header.version || 1;
   const calls = new Map<string, { tool: string; args: Record<string, unknown> }>();
+  const turnInitiators = turnInitiatorIds(lines, header, version);
   for (const line of lines) {
     const message = asObject(line.value.message);
     if (message?.role !== "assistant" || !Array.isArray(message.content)) continue;
@@ -267,14 +307,15 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
     const raw = line.value;
     const message = asObject(raw.message);
     const role = asString(message?.role);
-    const sourceId = sourceRecordId(raw);
-    const id = version <= 1 || !sourceId
-      ? `v1-${sha256(`${header.id}:${line.range.start}:${line.range.end}:${line.hash}`).slice(0, 24)}`
-      : sourceId;
+    const id = recordIdFor(line, header, version);
     const base = {
       id, parentId: null, sourceParentId: sourceParentId(raw) ?? null, sessionId: header.id,
       timestamp: asString(raw.timestamp), range: line.range, byteHash: line.hash,
       isNew: options.rewritten === true || line.range.end > (options.previousCommittedOffset ?? 0),
+    };
+    const linkage: Pick<NormalizedRecord, "turnId" | "origin"> = {
+      turnId: turnInitiators.get(line.index),
+      ...(header.origin === WORKER_ORIGIN || asString(raw.origin) === WORKER_ORIGIN ? { origin: WORKER_ORIGIN } : {}),
     };
     const isMessage = raw.type === "message" || raw.type === "user" || raw.type === "assistant";
     const toolResults = Array.isArray(message?.content)
@@ -294,20 +335,22 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
         const recordId = retainedTools === 0 ? id : `${id}:tool:${retainedTools}`;
         retained.push({
           ...base,
+          ...linkage,
           id: recordId,
           sourceParentId: retainedTools === 0 ? base.sourceParentId : id,
           kind: tool === "workflow_transition" ? "workflow" : "tool",
           role,
+          toolCallId: callId,
           receipt,
         });
         retainedTools++;
       }
     } else if (isMessage && role === "user") {
       const text = normalizePossiblePaths(textContent(message?.content), options).trim();
-      if (substantiveUser(text)) retained.push({ ...base, kind: "user", role, text });
+      if (substantiveUser(text)) retained.push({ ...base, ...linkage, kind: "user", role, text });
     } else if (isMessage && role === "assistant" && ["stop", "end_turn"].includes(asString(message?.stopReason) ?? asString(message?.stop_reason) ?? "")) {
       const text = normalizePossiblePaths(textContent(message?.content), options).trim();
-      if (text) retained.push({ ...base, kind: "assistant", role, text: compactExcerpt(text, 4_000) });
+      if (text) retained.push({ ...base, ...linkage, kind: "assistant", role, text: compactExcerpt(text, 4_000), assistantStopReason: asString(message?.stopReason) ?? asString(message?.stop_reason) });
     } else if (raw.type === "message" && role === "toolResult") {
       const callId = asString(message?.toolCallId);
       const call = callId ? calls.get(callId) : undefined;
@@ -318,11 +361,11 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
       
       if (message?.isError === true && /^(?:read|ls|list|find)$/i.test(tool)) continue;
       if (/^(?:ls|list|find|grep|search)$/i.test(tool)) continue;
-      retained.push({ ...base, kind: tool === "workflow_transition" ? "workflow" : "tool", role, receipt });
+      retained.push({ ...base, ...linkage, kind: tool === "workflow_transition" ? "workflow" : "tool", role, toolCallId: callId, receipt });
     } else if (raw.type === "message" && role === "bashExecution") {
       const command = asString(message?.command) ?? "";
       const receipt = makeReceipt("bash", { command }, message, options);
-      retained.push({ ...base, kind: "bash", role, receipt });
+      retained.push({ ...base, ...linkage, kind: "bash", role, receipt });
     }
   }
   return projectParents(retained, lines, version);
@@ -362,7 +405,18 @@ export function buildBranches(records: readonly NormalizedRecord[]): NormalizedR
     list.push(record.id);
     children.set(record.parentId, list);
   }
-  const leaves = records.filter((record) => !(children.get(record.id)?.length));
+  // Synthetic tool-result continuations ("<id>:tool:<n>") belong to their base record's
+  // episode: they never fork competing branches and are stitched into the chain instead.
+  const continuations = new Map<string, NormalizedRecord[]>();
+  for (const record of records) {
+    const match = /:tool:\d+$/.exec(record.id);
+    if (!match) continue;
+    const base = record.id.slice(0, match.index);
+    const list = continuations.get(base) ?? [];
+    list.push(record);
+    continuations.set(base, list);
+  }
+  const leaves = records.filter((record) => !(children.get(record.id)?.length) && !/:tool:\d+$/.test(record.id));
   return leaves.map((leaf) => {
     const branch: NormalizedRecord[] = [];
     const seen = new Set<string>();
@@ -371,7 +425,13 @@ export function buildBranches(records: readonly NormalizedRecord[]): NormalizedR
       branch.push(current); seen.add(current.id);
       current = current.parentId ? byId.get(current.parentId) : undefined;
     }
-    return branch.reverse();
+    const stitched: NormalizedRecord[] = [];
+    for (const record of branch.reverse()) {
+      stitched.push(record);
+      for (const continuation of continuations.get(record.id) ?? []) stitched.push(continuation);
+    }
+    for (const record of stitched) record.branchLeafId ??= leaf.id;
+    return stitched;
   });
 }
 
@@ -405,9 +465,12 @@ export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlO
   if (!header) throw new Error(`${options.file ?? "JSONL"}: missing valid Pi or Claude session metadata`);
   const entryLines = headerLine ? lines.filter((line) => line !== headerLine) : lines;
   const records = normalizedFromRaw(entryLines, header, { ...options, cwd: options.cwd ?? header.cwd });
+  const origin: SessionOrigin = header.origin === WORKER_ORIGIN || records.some((record) => record.origin === WORKER_ORIGIN)
+    ? "cheatcodes-worker"
+    : "user-session";
   const previous = Math.max(0, Math.min(options.previousCommittedOffset ?? 0, buffer.length));
   return {
-    header, version: header.version, sessionId: header.id, records, branches: buildBranches(records), warnings,
+    header, version: header.version, sessionId: header.id, records, branches: buildBranches(records), origin, warnings,
     completeOffset, completeSha256: sha256(buffer.subarray(0, completeOffset)),
     previousPrefixSha256: sha256(buffer.subarray(0, previous)),
   };

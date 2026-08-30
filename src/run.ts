@@ -17,7 +17,7 @@ import {
 import { applyCuratedEntry, parseKnowledgeMarkdown, renderKnowledgeMarkdown, type KnowledgeEntry } from "./concept.js";
 import { normalizeCuratorOutcome, PiCurator, type Curator, type CuratedEntry } from "./curate.js";
 import { createPacket, segmentSession, type EvidenceItem, type HarvestPacket } from "./harvest.js";
-import { parseJsonlFile } from "./jsonl.js";
+import { WORKER_ORIGIN, parseJsonlFile } from "./jsonl.js";
 import { ensureModelsFile } from "./models.js";
 import { scanInputs, type ScanWarning } from "./scan.js";
 import {
@@ -81,6 +81,7 @@ export interface RunResult {
   packets: number;
   entriesWritten: number;
   prunedCursors: number;
+  unresolvedFiles: number;
   warnings: string[];
   staleLockRecovered: boolean;
   deadlineExceeded: boolean;
@@ -138,6 +139,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
   let packets = 0;
   let entriesWritten = 0;
   let prunedCursors = 0;
+  let unresolvedFiles = 0;
   let deadlineExceeded = false;
   try {
     if (lock.staleRecovered) warn("Recovered a stale project mutation lock");
@@ -188,7 +190,12 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
         parsed = await parseJsonlFile(candidate.file, { previousCommittedOffset: cursor.committedOffset, rewritten: true, projectId: projectKey, projectRoots });
       }
       for (const item of parsed.warnings) warn(`${item.file ?? candidate.file}:${item.range.start}-${item.range.end}: ${item.message}`);
+      if (parsed.origin === WORKER_ORIGIN) {
+        warn(`${candidate.file}: cheatcodes-worker session excluded from harvest`);
+        continue;
+      }
       const episodes = segmentSession(parsed);
+      let fileUnresolved = false;
       for (const episode of episodes) {
         const packet = createPacket(episode, { projectKey, entries });
         if (!packet) continue;
@@ -197,8 +204,10 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
         curatorCalls++;
         const outcome = normalizeCuratorOutcome(await curator.curate(packet), packet);
         if (outcome.schemaInvalid || !outcome.response) {
-          warn(`Packet ${packet.id} was terminally skipped after schema validation failed${outcome.warning ? `: ${outcome.warning}` : ""}`);
-          continue;
+          // Fail closed (guide 0.7): park the file and keep its cursor so the next run retries.
+          warn(`Packet ${packet.id} failed schema validation after retries; parking ${candidate.file} until the next run${outcome.warning ? `: ${outcome.warning}` : ""}`);
+          fileUnresolved = true;
+          break;
         }
         for (const curated of outcome.response.entries) {
           const result = applyCuratedEntry(entries, curatedInput(curated, sourceFor(packet, selectedEvidence(packet, curated)), sessionDate), projectKey);
@@ -209,6 +218,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
           }
         }
       }
+      if (fileUnresolved) { unresolvedFiles++; continue; }
       projectState.files[candidate.file] = {
         sessionId: parsed.sessionId,
         committedOffset: parsed.completeOffset,
@@ -219,7 +229,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
       const committed = projectState.files[candidate.file]!;
       await updateProjectState(env, projectKey, (project) => ({ ...project, files: { ...project.files, [candidate.file]: committed } }));
     }
-    return { root, projectKey, changedFiles: scan.changed.length, curatorCalls, packets, entriesWritten, prunedCursors, warnings, staleLockRecovered: lock.staleRecovered, deadlineExceeded };
+    return { root, projectKey, changedFiles: scan.changed.length, curatorCalls, packets, entriesWritten, prunedCursors, unresolvedFiles, warnings, staleLockRecovered: lock.staleRecovered, deadlineExceeded };
   } finally { await lock.release(); }
 }
 
@@ -344,6 +354,11 @@ export async function runWorker(options: RunOptions = {}): Promise<WorkerResult>
     if (run.deadlineExceeded) {
       await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "timeout", startedAt, finishedAt, stats) }));
       return { outcome: "timeout", invocationId, root, projectKey, warnings: run.warnings, run };
+    }
+    if (run.unresolvedFiles > 0) {
+      const reason = `${run.unresolvedFiles} source file(s) parked after unresolved curation; cursors not advanced`;
+      await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "failed", startedAt, finishedAt, { ...stats, reason }) }));
+      return { outcome: "failed", invocationId, root, projectKey, reason, warnings: run.warnings, run };
     }
     await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "success", startedAt, finishedAt, stats) }));
     return { outcome: "success", invocationId, root, projectKey, warnings: run.warnings, run };
