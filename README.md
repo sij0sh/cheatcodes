@@ -17,10 +17,10 @@ Coding agents repeat solved mistakes. Session transcripts pile up and nothing ex
 A session correction becomes a curated entry:
 
 ```markdown
-<!-- cheatcodes-entry {"id":"cc-4e5f...","title":"Use the Azure Responses provider for GPT-5.6 Luna","summary":"gpt-5.6-luna is registered under azure-gateway-responses, not z-ai-openai.","date":"2026-08-29T00:25:14.239Z","tags":["azure","model-routing"],"sources":["session:01a04abf-...#records=61eb19fa"]}-->
-## Use the Azure Responses provider for GPT-5.6 Luna
+<!-- cheatcodes-entry {"id":"cc-4e5f...","title":"Use the OpenAI Codex provider for GPT-5.6 Luna","summary":"gpt-5.6-luna is registered under openai-codex, not z-ai-openai.","date":"2026-08-29T00:25:14.239Z","tags":["azure","model-routing"],"sources":["session:01a04abf-...#records=61eb19fa"]}-->
+## Use the OpenAI Codex provider for GPT-5.6 Luna
 
-gpt-5.6-luna is registered under azure-gateway-responses, not z-ai-openai.
+gpt-5.6-luna is registered under openai-codex, not z-ai-openai.
 
 Using z-ai-openai/gpt-5.6-luna fails before the first model call.
 <!-- /cheatcodes-entry -->
