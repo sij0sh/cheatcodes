@@ -53,9 +53,11 @@ export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+let atomicWriteSequence = 0;
+
 export async function atomicWrite(file: string, bytes: Uint8Array | string): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
-  const temporary = `${file}.tmp-${process.pid}-${Date.now()}`;
+  const temporary = `${file}.tmp-${process.pid}-${Date.now()}-${atomicWriteSequence++}`;
   await writeFile(temporary, bytes, { flag: "wx" });
   await rename(temporary, file);
 }

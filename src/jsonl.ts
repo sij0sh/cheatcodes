@@ -80,6 +80,27 @@ const asString = (value: unknown): string | undefined => typeof value === "strin
 const asBoolean = (value: unknown): boolean | undefined => typeof value === "boolean" ? value : undefined;
 const asNumber = (value: unknown): number | undefined => typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
+const sourceRecordId = (value: Record<string, unknown>): string | undefined => asString(value.id) ?? asString(value.uuid);
+const sourceParentId = (value: Record<string, unknown>): string | undefined => asString(value.parentId) ?? asString(value.parentUuid);
+
+export function sessionHeaderFromRecord(value: unknown): SessionHeader | undefined {
+  const raw = asObject(value);
+  if (!raw) return undefined;
+  if (raw.type === "session" && asString(raw.id)) {
+    return {
+      type: "session",
+      version: asNumber(raw.version) ?? 1,
+      id: asString(raw.id)!,
+      timestamp: asString(raw.timestamp),
+      cwd: asString(raw.cwd),
+    };
+  }
+  const id = asString(raw.sessionId);
+  const cwd = asString(raw.cwd);
+  if (!id || !cwd) return undefined;
+  return { type: "session", version: 3, id, timestamp: asString(raw.timestamp), cwd };
+}
+
 
 export function textContent(value: unknown): string {
   if (typeof value === "string") return value;
@@ -138,7 +159,7 @@ function compactExcerpt(value: string, limit = RECEIPT_EXCERPT_LIMIT): string {
 }
 
 function firstPath(args: Record<string, unknown>): string | undefined {
-  for (const key of ["path", "file", "filePath", "target", "cwd"]) {
+  for (const key of ["path", "file", "filePath", "file_path", "target", "cwd"]) {
     if (typeof args[key] === "string") return args[key] as string;
   }
   return undefined;
@@ -184,7 +205,7 @@ function makeReceipt(tool: string, args: Record<string, unknown>, result: Record
   const resultText = textContent(result?.content);
   const details = asObject(result?.details);
   const exitCode = asNumber(result?.exitCode) ?? asNumber(details?.exitCode) ?? asNumber(asObject(details?.ptcValue)?.exitCode);
-  const isError = asBoolean(result?.isError);
+  const isError = asBoolean(result?.isError) ?? asBoolean(result?.is_error);
   const rawPath = firstPath(args);
   const normalizedPath = rawPath && options.projectId && options.projectRoots
     ? normalizeRepositoryPath(rawPath, options.projectId, options.projectRoots, options.cwd)
@@ -234,7 +255,7 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
     if (message?.role !== "assistant" || !Array.isArray(message.content)) continue;
     for (const item of message.content) {
       const block = asObject(item);
-      if (!block || !["toolCall", "tool_call", "functionCall"].includes(String(block.type))) continue;
+      if (!block || !["toolCall", "tool_call", "functionCall", "tool_use"].includes(String(block.type))) continue;
       const id = asString(block.id) ?? asString(block.toolCallId);
       const tool = asString(block.name) ?? asString(block.toolName);
       if (id && tool) calls.set(id, { tool, args: asObject(block.arguments) ?? asObject(block.input) ?? {} });
@@ -246,20 +267,46 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
     const raw = line.value;
     const message = asObject(raw.message);
     const role = asString(message?.role);
-    const sourceId = asString(raw.id);
+    const sourceId = sourceRecordId(raw);
     const id = version <= 1 || !sourceId
       ? `v1-${sha256(`${header.id}:${line.range.start}:${line.range.end}:${line.hash}`).slice(0, 24)}`
       : sourceId;
     const base = {
-      id, parentId: null, sourceParentId: asString(raw.parentId) ?? null, sessionId: header.id,
+      id, parentId: null, sourceParentId: sourceParentId(raw) ?? null, sessionId: header.id,
       timestamp: asString(raw.timestamp), range: line.range, byteHash: line.hash,
       isNew: options.rewritten === true || line.range.end > (options.previousCommittedOffset ?? 0),
     };
-    if (raw.type === "message" && role === "user") {
+    const isMessage = raw.type === "message" || raw.type === "user" || raw.type === "assistant";
+    const toolResults = Array.isArray(message?.content)
+      ? message.content.map(asObject).filter((item): item is Record<string, unknown> => item?.type === "tool_result")
+      : [];
+    if (isMessage && role === "user" && toolResults.length > 0) {
+      let retainedTools = 0;
+      for (const result of toolResults) {
+        const callId = asString(result.tool_use_id) ?? asString(result.toolCallId);
+        const call = callId ? calls.get(callId) : undefined;
+        const tool = asString(result.toolName) ?? call?.tool;
+        if (!tool) continue;
+        const receipt = makeReceipt(tool, call?.args ?? {}, result, options);
+        receipt.toolCallId = callId;
+        if (receipt.isError === true && /^(?:read|ls|list|find)$/i.test(tool)) continue;
+        if (/^(?:ls|list|find|glob|grep|search)$/i.test(tool)) continue;
+        const recordId = retainedTools === 0 ? id : `${id}:tool:${retainedTools}`;
+        retained.push({
+          ...base,
+          id: recordId,
+          sourceParentId: retainedTools === 0 ? base.sourceParentId : id,
+          kind: tool === "workflow_transition" ? "workflow" : "tool",
+          role,
+          receipt,
+        });
+        retainedTools++;
+      }
+    } else if (isMessage && role === "user") {
       const text = normalizePossiblePaths(textContent(message?.content), options).trim();
       if (substantiveUser(text)) retained.push({ ...base, kind: "user", role, text });
-    } else if (raw.type === "message" && role === "assistant" && message?.stopReason === "stop") {
-      const text = normalizePossiblePaths(textContent(message.content), options).trim();
+    } else if (isMessage && role === "assistant" && ["stop", "end_turn"].includes(asString(message?.stopReason) ?? asString(message?.stop_reason) ?? "")) {
+      const text = normalizePossiblePaths(textContent(message?.content), options).trim();
       if (text) retained.push({ ...base, kind: "assistant", role, text: compactExcerpt(text, 4_000) });
     } else if (raw.type === "message" && role === "toolResult") {
       const callId = asString(message?.toolCallId);
@@ -289,8 +336,8 @@ function projectParents(records: NormalizedRecord[], lines: RawLine[], version: 
   }
   const sourceParents = new Map<string, string | null>();
   for (const line of lines) {
-    const id = asString(line.value.id);
-    if (id) sourceParents.set(id, asString(line.value.parentId) ?? null);
+    const id = sourceRecordId(line.value);
+    if (id) sourceParents.set(id, sourceParentId(line.value) ?? null);
   }
   const retainedIds = new Set(records.map((record) => record.id));
   for (const record of records) {
@@ -353,12 +400,10 @@ export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlO
     start = end;
   }
   const headerLine = lines.find((line) => line.value.type === "session");
-  if (!headerLine || typeof headerLine.value.id !== "string") throw new Error(`${options.file ?? "JSONL"}: missing valid session header`);
-  const header: SessionHeader = {
-    type: "session", version: asNumber(headerLine.value.version) ?? 1, id: headerLine.value.id as string,
-    timestamp: asString(headerLine.value.timestamp), cwd: asString(headerLine.value.cwd),
-  };
-  const entryLines = lines.filter((line) => line !== headerLine);
+  const metadataLine = headerLine ?? lines.find((line) => sessionHeaderFromRecord(line.value));
+  const header = metadataLine ? sessionHeaderFromRecord(metadataLine.value) : undefined;
+  if (!header) throw new Error(`${options.file ?? "JSONL"}: missing valid Pi or Claude session metadata`);
+  const entryLines = headerLine ? lines.filter((line) => line !== headerLine) : lines;
   const records = normalizedFromRaw(entryLines, header, { ...options, cwd: options.cwd ?? header.cwd });
   const previous = Math.max(0, Math.min(options.previousCommittedOffset ?? 0, buffer.length));
   return {
