@@ -304,6 +304,7 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
       const tool = asString(block.name) ?? asString(block.toolName);
       if (id && tool) calls.set(id, { tool, args: asObject(block.arguments) ?? {} });
     }
+  }
 
   const retained: NormalizedRecord[] = [];
   for (const line of lines) {
