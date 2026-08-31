@@ -61,6 +61,42 @@ test("buildManifest produces a content-addressed immutable manifest and commits 
   } finally { await clean(); }
 });
 
+async function correctionArcSession(file: string, marker: string): Promise<string> {
+  const arc = (tag: string) => [
+    line({ type: "message", id: `u-${tag}`, parentId: null, timestamp: `2026-01-01T00:0${tag}:00Z`.replace(":000", "0:00"), message: { role: "user", content: [{ type: "text", text: `Batch the ${marker} ${tag} export by fiscal quarter or reconciliation fails.` }] } }),
+    line({ type: "message", id: `a-${tag}`, parentId: `u-${tag}`, timestamp: `2026-01-01T00:0${tag}:01Z`, message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: `c-${tag}`, name: "bash", arguments: { command: "npm test" } }] } }),
+    line({ type: "message", id: `t-${tag}`, parentId: `a-${tag}`, timestamp: `2026-01-01T00:0${tag}:02Z`, message: { role: "toolResult", toolCallId: `c-${tag}`, toolName: "bash", content: [{ type: "text", text: "2 failing" }], isError: false, exitCode: 1, details: {} } }),
+    line({ type: "message", id: `v-${tag}`, parentId: `t-${tag}`, timestamp: `2026-01-01T00:0${tag}:03Z`, message: { role: "user", content: [{ type: "text", text: `No, for ${marker} ${tag} batch quarters before the export runs.` }] } }),
+    line({ type: "message", id: `b-${tag}`, parentId: `v-${tag}`, timestamp: `2026-01-01T00:0${tag}:04Z`, message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: `d-${tag}`, name: "edit", arguments: { path: `src/${marker}-${tag}.ts`, patch: "batch quarters" } }] } }),
+    line({ type: "message", id: `w-${tag}`, parentId: `b-${tag}`, timestamp: `2026-01-01T00:0${tag}:05Z`, message: { role: "toolResult", toolCallId: `d-${tag}`, toolName: "edit", content: [{ type: "text", text: "Edited" }], isError: false, details: {} } }),
+    line({ type: "message", id: `x-${tag}`, parentId: `w-${tag}`, timestamp: `2026-01-01T00:0${tag}:06Z`, message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: `Done. ${marker} ${tag} batches quarters before export; tests pass.` }] } }),
+  ];
+  return [
+    line({ type: "session", version: 3, id: file, timestamp: "2026-01-01T00:00:00Z", cwd: file }),
+    ...arc("1"), ...arc("2"),
+  ].join("");
+}
+
+test("buildManifest leaves truncated files uncommitted so capped episodes rescan", async () => {
+  const root = await temporary();
+  try {
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    for (let index = 1; index <= 5; index++) {
+      await writeFile(path.join(sessions, `s${index}.jsonl`), await correctionArcSession(`cap-${index}`, `widget${index}`));
+    }
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const first = await buildManifest({ root, env });
+    assert.ok(first.manifest, "manifest built");
+    assert.equal(first.manifest.packets.length, 8, "cap bounds the packet count");
+    assert.equal(Object.keys(first.manifest.cursors).length, 4, "only fully evaluated files commit cursors");
+    await commitManifestCursors({ root, env, manifest: first.manifest });
+    const second = await buildManifest({ root, env });
+    assert.ok(second.manifest, "truncated files are re-evaluated after commit");
+    assert.equal(second.manifest.packets.length, 2, "remaining episodes are curated next");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("workflow tools resolve evidence, search, inspect, verify, and stage", async () => {
   const { root, env, clean } = await fixtureProject();
   try {

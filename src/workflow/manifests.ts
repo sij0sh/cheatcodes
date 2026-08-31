@@ -79,6 +79,7 @@ export async function buildManifest(options: { root?: string; env?: NodeJS.Proce
     const packets: HarvestPacket[] = [];
     const cursors: Record<string, FileCursor> = {};
     for (const candidate of scan.changed) {
+      if (packets.length >= MAX_MANIFEST_PACKETS) break;
       const cursor = projectState.files[candidate.file];
       const parsed = await parseJsonlFile(candidate.file, {
         previousCommittedOffset: cursor?.committedOffset ?? 0,
@@ -90,11 +91,14 @@ export async function buildManifest(options: { root?: string; env?: NodeJS.Proce
         warnings.push(`${candidate.file}: cheatcodes-worker session excluded from harvest`);
         continue;
       }
+      let truncated = false;
       for (const episode of segmentSession(parsed)) {
-        if (packets.length >= MAX_MANIFEST_PACKETS) break;
+        if (packets.length >= MAX_MANIFEST_PACKETS) { truncated = true; break; }
         const packet = createPacket(episode, { projectKey, entries });
         if (packet) packets.push(packet);
       }
+      // A truncated file keeps its cursor: unevaluated episodes must rescan.
+      if (truncated) continue;
       cursors[candidate.file] = {
         sessionId: parsed.sessionId,
         committedOffset: parsed.completeOffset,
