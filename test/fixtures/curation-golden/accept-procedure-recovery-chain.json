@@ -1,0 +1,93 @@
+{
+  "name": "accept-procedure-recovery-chain",
+  "packet": {
+    "id": "pkt-golden-05",
+    "userIntent": "The repository adapter tests fail after your change.",
+    "finalAssistantSummary": "Fixed the empty-cache case; all adapter tests pass.",
+    "signals": [
+      "resolved-failure",
+      "procedure"
+    ],
+    "closure": "workflow-terminal",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "tool",
+        "excerpt": "1 failing test: adapter returns undefined for empty repository cache",
+        "recordIds": [
+          "t1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "tool",
+        "excerpt": "edited src/adapter.ts: handle empty cache before lookup",
+        "recordIds": [
+          "t2"
+        ]
+      },
+      {
+        "id": "ev-3",
+        "kind": "tool",
+        "excerpt": "$ npm run check -- adapter\n24 passing",
+        "recordIds": [
+          "t3"
+        ]
+      },
+      {
+        "id": "ev-4",
+        "kind": "message",
+        "excerpt": "The empty repository cache must short-circuit before the index lookup; verified with the full adapter suite.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-05",
+        "verdict": "accept",
+        "kind": "procedure",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The adapter must handle an empty repository cache before the index lookup or lookups return undefined.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2",
+              "ev-3",
+              "ev-4"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "Short-circuit empty adapter caches",
+          "summary": "Empty repository caches must be handled before index lookup.",
+          "body": "The adapter returns undefined when the repository cache is empty and the index lookup runs first. Guard the empty cache before the lookup and cover it with the adapter suite.",
+          "tags": [
+            "adapter",
+            "verification"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "procedure",
+    "notes": "Failure kept together with its verified fix; recovery chain ends successfully."
+  }
+}

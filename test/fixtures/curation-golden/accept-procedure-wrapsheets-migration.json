@@ -1,0 +1,88 @@
+{
+  "name": "accept-procedure-wrapsheets-migration",
+  "packet": {
+    "id": "pkt-golden-01",
+    "userIntent": "Run the WrapSheets v1 database migration and make it stick.",
+    "finalAssistantSummary": "The WrapSheets v1 migration is applied and verified.",
+    "signals": [
+      "procedure"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "Run the WrapSheets v1 migration; the last attempt failed halfway.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "tool",
+        "excerpt": "$ npm run migrate:v1 -- --batch 200\napplied 412 rows in 3 batches",
+        "recordIds": [
+          "t1"
+        ]
+      },
+      {
+        "id": "ev-3",
+        "kind": "message",
+        "excerpt": "Migration verified: schema_version=1, row counts match. The batch flag was required; the default batch size deadlocks.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-01",
+        "verdict": "accept",
+        "kind": "procedure",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The WrapSheets v1 migration must run with --batch 200; the default batch size deadlocks.",
+            "evidenceRefs": [
+              "ev-2",
+              "ev-3"
+            ]
+          },
+          {
+            "text": "Success is verified by schema_version=1 plus matching row counts.",
+            "evidenceRefs": [
+              "ev-3"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "Run the WrapSheets v1 migration",
+          "summary": "WrapSheets v1 migration needs --batch 200 and verification by schema version and row counts.",
+          "body": "1. Run `npm run migrate:v1 -- --batch 200`. The default batch size deadlocks.\n2. Verify schema_version=1 and that row counts match pre-migration expectations.",
+          "tags": [
+            "database",
+            "migration"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "procedure",
+    "notes": "Verified operational procedure with its recovery-relevant parameter; guide positive example."
+  }
+}

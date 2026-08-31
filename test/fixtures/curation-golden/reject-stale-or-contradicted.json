@@ -1,0 +1,65 @@
+{
+  "name": "reject-stale-or-contradicted",
+  "packet": {
+    "id": "pkt-golden-15",
+    "userIntent": "Write the checkpoint payload gotcha to memory.",
+    "finalAssistantSummary": "Rejected the incorrect checkpoint gotcha.",
+    "signals": [
+      "correction"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "Earlier attempt: the checkpoint gotcha said payload data must never be used.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "No - that is wrong. The payload must ride under checkpoint.data; only top-level payload fields were rejected.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-15",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "fail",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "fail",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "fail"
+        },
+        "claims": [
+          {
+            "text": "Checkpoint payload data must never be used in structured output.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          }
+        ],
+        "rejectionReasons": [
+          "stale-or-contradicted"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "The guide's incorrect checkpoint gotcha; superseded by the correction."
+  }
+}

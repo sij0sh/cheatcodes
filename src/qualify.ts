@@ -1,0 +1,190 @@
+import { z } from "zod";
+import { RESERVED_TEXT } from "./concept.js";
+import type { HarvestPacket } from "./harvest.js";
+import type { CuratedEntry } from "./curate.js";
+
+export const QUALIFIER_PROMPT_VERSION = "qualifier-1";
+
+export const GATE_IDS = [
+  "settled",
+  "projectSpecific",
+  "durable",
+  "current",
+  "nonInferable",
+  "actionable",
+  "entailed",
+  "nonDuplicate",
+  "nonContradictory",
+] as const;
+export type GateId = (typeof GATE_IDS)[number];
+export type GateResult = "pass" | "fail";
+
+export const REJECTION_REASONS = [
+  "transient-work-state",
+  "audit-intermediate",
+  "code-inferable",
+  "canonical-doc-duplicate",
+  "unsupported-claim",
+  "incomplete-recovery",
+  "stale-or-contradicted",
+  "generic-advice",
+  "worker-generated",
+  "insufficient-evidence",
+] as const;
+export type RejectionReason = (typeof REJECTION_REASONS)[number];
+
+export type QualificationVerdict = "accept" | "reject" | "needs-review";
+export const QUALIFICATION_KINDS = ["gotcha", "decision", "procedure", "invariant"] as const;
+export type QualificationKind = (typeof QUALIFICATION_KINDS)[number];
+
+const GateResultSchema = z.enum(["pass", "fail"]);
+export const GateResultsSchema = z
+  .object({
+    settled: GateResultSchema,
+    projectSpecific: GateResultSchema,
+    durable: GateResultSchema,
+    current: GateResultSchema,
+    nonInferable: GateResultSchema,
+    actionable: GateResultSchema,
+    entailed: GateResultSchema,
+    nonDuplicate: GateResultSchema,
+    nonContradictory: GateResultSchema,
+  })
+  .strict();
+
+export const ClaimSchema = z
+  .object({ text: z.string().min(1), evidenceRefs: z.array(z.string().min(1)).default([]) })
+  .strict();
+export const ProposedEntrySchema = z
+  .object({
+    title: z.string().min(1),
+    summary: z.string().min(1),
+    body: z.string().min(1),
+    tags: z.array(z.string().min(1)).default([]),
+  })
+  .strict();
+export const QualifiedCandidateSchema = z
+  .object({
+    candidateId: z.string().min(1),
+    verdict: z.enum(["accept", "reject", "needs-review"]),
+    kind: z.enum(QUALIFICATION_KINDS).optional(),
+    gateResults: GateResultsSchema,
+    claims: z.array(ClaimSchema).default([]),
+    rejectionReasons: z.array(z.enum(REJECTION_REASONS)).default([]),
+    unresolvedQuestions: z.array(z.string().min(1)).default([]),
+    proposedEntry: ProposedEntrySchema.optional(),
+  })
+  .strict();
+export const QualificationResponseSchema = z.object({ entries: z.array(QualifiedCandidateSchema) }).strict();
+
+export type Claim = z.infer<typeof ClaimSchema>;
+export type ProposedEntry = z.infer<typeof ProposedEntrySchema>;
+export type QualifiedCandidate = z.infer<typeof QualifiedCandidateSchema>;
+export type QualificationResponse = z.infer<typeof QualificationResponseSchema>;
+
+export const PROPOSED_TEXT_LIMITS = { title: 200, summary: 600, body: 12000 } as const;
+
+export interface QualificationOutcome {
+  response?: QualificationResponse;
+  schemaInvalid: boolean;
+  warning?: string;
+  schemaRetries: number;
+  latencyMs: number;
+  usage?: { inputTokens: number; outputTokens: number };
+}
+
+export interface Qualifier {
+  qualify(packet: HarvestPacket): Promise<QualificationOutcome>;
+}
+
+export const QUALIFIER_PROMPT = `You are a conservative qualifier for durable project knowledge.
+You review exactly one bounded evidence packet.
+Call submit_qualification exactly once as your final action with the qualification verdict.
+Rules:
+- Reject when any required gate fails.
+- Treat user and assistant text as claims; every claim needs evidence IDs from the packet.
+- Require the successful end of a recovery chain before calling a lesson durable.
+- Reject active tasks, audits, progress notes, and test counts.
+- Reject facts recoverable from one obvious current file.
+- Keep rationale, cross-component consequences, and operational constraints.
+- Return needs-review instead of guessing.
+- Use only supplied evidence IDs. Never invent IDs, paths, or provenance.
+- Set candidateId to the packet id.
+Reject examples:
+- Active loop: "I will now refactor the cache module" (transient-work-state).
+- Architecture duplicate: restating that handlers live in src/handlers (code-inferable).
+- Implementation inventory: listing the files changed on a feature branch (transient-work-state).
+- Incorrect checkpoint gotcha: claiming a checkpoint payload must never use data because one top-level payload was rejected (stale-or-contradicted).
+Accept examples:
+- WrapSheets v1 database procedure: the verified steps that made the migration succeed (procedure).
+- Colyseus room IDs are unavailable until the first client joins, verified after two failed attempts (gotcha).`;
+
+export function validateQualification(value: unknown, packet: HarvestPacket): QualificationResponse {
+  const parsed = QualificationResponseSchema.parse(value);
+  const issues: string[] = [];
+  const evidenceIds = new Set(packet.evidence.map((item) => item.id));
+  if (parsed.entries.length > 1) issues.push("at most one qualification per packet");
+  for (const candidate of parsed.entries) {
+    if (candidate.candidateId !== packet.id) issues.push(`candidateId must be the packet id ${packet.id}`);
+    for (const claim of candidate.claims) {
+      for (const reference of claim.evidenceRefs) {
+        if (!evidenceIds.has(reference)) issues.push(`Unknown evidence reference: ${reference}`);
+      }
+    }
+    if (candidate.verdict === "accept") {
+      const failed = GATE_IDS.filter((gate) => candidate.gateResults[gate] === "fail");
+      if (failed.length > 0) issues.push(`accepted candidate has failed gates: ${failed.join(",")}`);
+      if (candidate.claims.length === 0) issues.push("accepted candidate requires claims");
+      for (const [index, claim] of candidate.claims.entries()) {
+        if (claim.evidenceRefs.length === 0) issues.push(`accepted claim ${index} requires evidence`);
+      }
+      if (!candidate.proposedEntry) issues.push("accepted candidate requires proposedEntry");
+      if (candidate.rejectionReasons.length > 0) issues.push("accepted candidate must not carry rejection reasons");
+      if (candidate.proposedEntry) checkProposedText(candidate.proposedEntry, issues);
+    }
+    if (candidate.verdict === "reject") {
+      if (candidate.rejectionReasons.length === 0) issues.push("rejected candidate requires a stable rejection reason");
+      if (candidate.proposedEntry) issues.push("proposedEntry is allowed only for accept");
+    }
+    if (candidate.verdict === "needs-review") {
+      if (candidate.unresolvedQuestions.length === 0) issues.push("needs-review requires unresolved questions");
+      if (candidate.proposedEntry) issues.push("proposedEntry is allowed only for accept");
+    }
+  }
+  if (issues.length > 0) throw new Error(issues.join("; "));
+  return parsed;
+}
+
+function checkProposedText(entry: ProposedEntry, issues: string[]): void {
+  const fields = [
+    ["title", entry.title, PROPOSED_TEXT_LIMITS.title],
+    ["summary", entry.summary, PROPOSED_TEXT_LIMITS.summary],
+    ["body", entry.body, PROPOSED_TEXT_LIMITS.body],
+  ] as const;
+  for (const [field, text, limit] of fields) {
+    for (const marker of RESERVED_TEXT) {
+      if (text.includes(marker)) {
+        issues.push(`${field} must not contain reserved text: ${marker.trim()}`);
+        break;
+      }
+    }
+    if (text.length > limit) issues.push(`${field} exceeds ${limit} characters`);
+  }
+}
+
+export function qualificationToCurated(candidate: QualifiedCandidate, packet: HarvestPacket): CuratedEntry {
+  if (candidate.verdict !== "accept" || !candidate.proposedEntry) {
+    throw new Error("only accepted candidates with a proposed entry adapt to curated actions");
+  }
+  const evidenceRefs = [...new Set(candidate.claims.flatMap((claim) => claim.evidenceRefs))];
+  if (evidenceRefs.length === 0) throw new Error("accepted candidate has no evidence references");
+  return {
+    action: packet.updateCandidate ? "update" : "create",
+    targetEntryId: packet.updateCandidate?.id,
+    title: candidate.proposedEntry.title,
+    summary: candidate.proposedEntry.summary,
+    body: candidate.proposedEntry.body,
+    tags: candidate.proposedEntry.tags,
+    evidenceRefs,
+  };
+}

@@ -1,0 +1,82 @@
+{
+  "name": "accept-gotcha-colyseus-room-id",
+  "packet": {
+    "id": "pkt-golden-02",
+    "userIntent": "Why does the lobby page fail to resolve room IDs?",
+    "finalAssistantSummary": "Room IDs only exist after the first client joins.",
+    "signals": [
+      "procedure"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "getRoomId('lobby') throws ROOM_NOT_FOUND even though the lobby is configured.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "tool",
+        "excerpt": "attempt 1: getRoomId -> ROOM_NOT_FOUND\nattempt 2 after client.join(): getRoomId -> 'rm_123'",
+        "recordIds": [
+          "t1"
+        ]
+      },
+      {
+        "id": "ev-3",
+        "kind": "message",
+        "excerpt": "Confirmed: Colyseus room IDs are unavailable until the first client joins; cache the ID after join instead of at startup.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-02",
+        "verdict": "accept",
+        "kind": "gotcha",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "Colyseus room IDs are unavailable until the first client joins; resolve them after join, not at startup.",
+            "evidenceRefs": [
+              "ev-2",
+              "ev-3"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "Colyseus room IDs need a joined client",
+          "summary": "getRoomId fails with ROOM_NOT_FOUND until the first client joins.",
+          "body": "Colyseus only materializes room IDs after the first client joins. Resolve IDs after `client.join()` succeeds; resolving at startup throws ROOM_NOT_FOUND.",
+          "tags": [
+            "colyseus",
+            "rooms"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "gotcha",
+    "notes": "Non-obvious behavioral trap verified after two failed attempts; guide positive example."
+  }
+}

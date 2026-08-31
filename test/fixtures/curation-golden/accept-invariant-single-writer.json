@@ -1,0 +1,83 @@
+{
+  "name": "accept-invariant-single-writer",
+  "packet": {
+    "id": "pkt-golden-08",
+    "userIntent": "Two harvest runs corrupted the knowledge file yesterday.",
+    "finalAssistantSummary": "A project lock now serializes mutations.",
+    "signals": [
+      "resolved-failure"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "Concurrent runs interleaved writes and lost entries.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "tool",
+        "excerpt": "acquireProjectLock -> locks/<project>.lock held for the whole mutation section",
+        "recordIds": [
+          "t1"
+        ]
+      },
+      {
+        "id": "ev-3",
+        "kind": "message",
+        "excerpt": "Only one writer may mutate a project: every mutation path must hold the project lock for the entire read-modify-write.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-08",
+        "verdict": "accept",
+        "kind": "invariant",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "Knowledge mutations require holding the project lock across the whole read-modify-write section.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2",
+              "ev-3"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "One writer per project",
+          "summary": "Project mutations must hold the project lock for the entire read-modify-write.",
+          "body": "Interleaved writers lose entries. Every mutation path acquires the project lock before reading state and releases it only after the atomic write completes.",
+          "tags": [
+            "concurrency",
+            "invariant"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "invariant",
+    "notes": "Operational constraint with a verified mechanism; durable and actionable."
+  }
+}

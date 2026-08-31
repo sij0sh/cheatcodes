@@ -1,0 +1,55 @@
+{
+  "name": "reject-worker-generated",
+  "packet": {
+    "id": "pkt-golden-17",
+    "userIntent": "Worker follow-up: retry the failed harvest.",
+    "finalAssistantSummary": "Worker session retried the harvest.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "Worker note: the harvest retry succeeded and the cursor advanced.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-17",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "fail",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "fail",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The worker retry succeeded and the cursor advanced.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          }
+        ],
+        "rejectionReasons": [
+          "worker-generated"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Worker-origin content never qualifies regardless of form."
+  }
+}

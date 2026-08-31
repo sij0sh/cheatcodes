@@ -1,0 +1,72 @@
+{
+  "name": "accept-decision-cross-component",
+  "packet": {
+    "id": "pkt-golden-07",
+    "userIntent": "Where do we track run cursors and why there?",
+    "finalAssistantSummary": "Cursors live in project state, updated transactionally.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "Keep the per-file cursor in project state, not in the knowledge file: the knowledge file is generated output, and cursors must survive regeneration.",
+        "recordIds": [
+          "a1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "tool",
+        "excerpt": "src/state.ts: files[file] = { committedOffset, prefixSha256 } written via updateProjectState",
+        "recordIds": [
+          "t1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-07",
+        "verdict": "accept",
+        "kind": "decision",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "Per-file cursors live in project state because the knowledge file is regenerated and cannot hold durable progress.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "Cursors live in project state",
+          "summary": "Harvest cursors are stored in project state, never in the generated knowledge file.",
+          "body": "The knowledge file is generated output and may be regenerated or pruned at any time, so per-file harvest cursors live in project state and advance only after committed writes.",
+          "tags": [
+            "architecture",
+            "state"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "decision",
+    "notes": "Cross-component consequence (scan vs output) with explicit rationale."
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "name": "review-contradiction",
+  "packet": {
+    "id": "pkt-golden-20",
+    "userIntent": "Which adapter should handlers use?",
+    "finalAssistantSummary": "Two sessions disagree on the adapter.",
+    "signals": [
+      "correction"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "Handlers should use the queue adapter for persistence.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "Handlers must use the repository adapter; the queue adapter is only for background jobs.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-20",
+        "verdict": "needs-review",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "fail",
+          "nonDuplicate": "pass",
+          "nonContradictory": "fail"
+        },
+        "claims": [
+          {
+            "text": "Handlers were told to use the queue adapter.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          },
+          {
+            "text": "A later correction restricts the queue adapter to background jobs.",
+            "evidenceRefs": [
+              "ev-2"
+            ]
+          }
+        ],
+        "unresolvedQuestions": [
+          "Evidence ev-1 and ev-2 contradict each other; the current rule for handlers is unclear."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "needs-review",
+    "notes": "Contradiction between evidence items must surface as a review, not a guess."
+  }
+}

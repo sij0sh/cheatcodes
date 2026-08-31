@@ -35,7 +35,7 @@ const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const OPEN_MARKER = "<!-- cheatcodes-entry ";
 const CLOSE_MARKER = "<!-- /cheatcodes-entry -->";
 const DOCUMENT_HEADING = "# CHEATCODES";
-const RESERVED_TEXT = [OPEN_MARKER, CLOSE_MARKER, "-->"];
+export const RESERVED_TEXT = [OPEN_MARKER, CLOSE_MARKER, "-->"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

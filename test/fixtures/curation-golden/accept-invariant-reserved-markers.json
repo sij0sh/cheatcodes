@@ -1,0 +1,74 @@
+{
+  "name": "accept-invariant-reserved-markers",
+  "packet": {
+    "id": "pkt-golden-04",
+    "userIntent": "Knowledge entry writes keep failing validation.",
+    "finalAssistantSummary": "Reserved HTML comment markers were the cause.",
+    "signals": [
+      "resolved-failure"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "tool",
+        "excerpt": "KnowledgeValidationError: body must not contain reserved text: <!-- cheatcodes-entry",
+        "recordIds": [
+          "t1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "Entry text must never contain the reserved HTML comment markers; they delimit entry records on disk.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-04",
+        "verdict": "accept",
+        "kind": "invariant",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "Generated entry text must never contain the reserved HTML comment markers used as record delimiters.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "Never emit reserved entry markers",
+          "summary": "Entry title, summary, body, and tags must not contain the cheatcodes entry comment markers.",
+          "body": "The knowledge file delimits entries with HTML comment markers. Any generated text containing those markers corrupts parsing, so validators reject them outright.",
+          "tags": [
+            "invariant",
+            "format"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "invariant",
+    "notes": "Format invariant discovered from a real validation failure and its explanation."
+  }
+}

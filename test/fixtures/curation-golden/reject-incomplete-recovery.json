@@ -1,0 +1,65 @@
+{
+  "name": "reject-incomplete-recovery",
+  "packet": {
+    "id": "pkt-golden-14",
+    "userIntent": "The build is broken on main.",
+    "finalAssistantSummary": "Investigating the broken build.",
+    "signals": [
+      "correction"
+    ],
+    "closure": "incomplete",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "tool",
+        "excerpt": "$ npm run build\nerror TS2307: Cannot find module './state'",
+        "recordIds": [
+          "t1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "Checking whether state.ts was renamed.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-14",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "fail",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "fail",
+          "entailed": "fail",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The build breaks with TS2307 for ./state.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          }
+        ],
+        "rejectionReasons": [
+          "incomplete-recovery"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Failure without a verified successful fix; recovery chain unfinished."
+  }
+}

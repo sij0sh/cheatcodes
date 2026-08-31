@@ -1,0 +1,61 @@
+{
+  "name": "reject-audit-intermediate",
+  "packet": {
+    "id": "pkt-golden-10",
+    "userIntent": "Inspect the repository state and report what you find.",
+    "finalAssistantSummary": "Repository inspection complete.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "tool",
+        "excerpt": "$ git status\nOn branch main\nnothing to commit\n$ git log --oneline -3\na1b2c3 fix adapter"
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "The working tree is clean and the last commit was a1b2c3.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-10",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "fail",
+          "current": "pass",
+          "nonInferable": "fail",
+          "actionable": "fail",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The working tree is clean at commit a1b2c3.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2"
+            ]
+          }
+        ],
+        "rejectionReasons": [
+          "audit-intermediate"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Audit output and intermediate inspection results never qualify."
+  }
+}

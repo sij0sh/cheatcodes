@@ -1,0 +1,67 @@
+{
+  "name": "review-missing-evidence",
+  "packet": {
+    "id": "pkt-golden-19",
+    "userIntent": "Run the export migration and confirm it worked.",
+    "finalAssistantSummary": "Ran the export migration; output looked truncated.",
+    "signals": [
+      "procedure"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "tool",
+        "excerpt": "$ npm run export:migrate\napplied 100 of ... (output truncated)",
+        "recordIds": [
+          "t1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "The migration command printed success for the first batches, but the final count was cut off.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-19",
+        "verdict": "needs-review",
+        "kind": "procedure",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "fail",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "fail",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The export migration applies in batches of 100.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2"
+            ]
+          }
+        ],
+        "unresolvedQuestions": [
+          "The command output was truncated before the final batch count; completion is unverified."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "needs-review",
+    "notes": "Looks valuable but the successful end of the chain is unverified."
+  }
+}

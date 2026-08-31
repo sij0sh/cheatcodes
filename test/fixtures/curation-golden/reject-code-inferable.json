@@ -1,0 +1,55 @@
+{
+  "name": "reject-code-inferable",
+  "packet": {
+    "id": "pkt-golden-11",
+    "userIntent": "How are HTTP handlers organized?",
+    "finalAssistantSummary": "Explained the handler layout.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "HTTP request handlers live in src/handlers and each exports one function per route.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-11",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "fail",
+          "actionable": "fail",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "HTTP request handlers live in src/handlers.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          }
+        ],
+        "rejectionReasons": [
+          "code-inferable"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Recoverable from one obvious current directory listing; not knowledge."
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "name": "accept-gotcha-update-existing-entry",
+  "packet": {
+    "id": "pkt-golden-06",
+    "userIntent": "The cache adapter guidance is stale after the TTL change.",
+    "finalAssistantSummary": "Updated the cache adapter guidance for TTLs.",
+    "signals": [
+      "correction"
+    ],
+    "closure": "assistant-settled",
+    "updateCandidate": {
+      "id": "cc-cache-adapter",
+      "title": "Cache adapter",
+      "summary": "How the cache adapter is used.",
+      "score": 4,
+      "body": "The cache adapter wraps repository reads."
+    },
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "The cache adapter now enforces a 60s TTL on all reads; the old never-expire behavior is gone.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "Documented: cache adapter reads expire after 60 seconds; callers must not rely on long-lived cache values.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-06",
+        "verdict": "accept",
+        "kind": "gotcha",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "Cache adapter reads expire after 60 seconds; long-lived cache values are no longer reliable.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "Cache adapter",
+          "summary": "Cache adapter reads enforce a 60 second TTL.",
+          "body": "The cache adapter wraps repository reads and enforces a 60 second TTL on every entry. Callers must not rely on values older than the TTL window.",
+          "tags": [
+            "cache"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "gotcha",
+    "notes": "Update candidate replaces the existing entry body completely."
+  }
+}

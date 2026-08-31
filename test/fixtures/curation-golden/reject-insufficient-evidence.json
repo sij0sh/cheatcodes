@@ -1,0 +1,48 @@
+{
+  "name": "reject-insufficient-evidence",
+  "packet": {
+    "id": "pkt-golden-18",
+    "userIntent": "Something about the queue?",
+    "finalAssistantSummary": "Vague single-line session.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "ok",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-18",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "fail",
+          "durable": "fail",
+          "current": "fail",
+          "nonInferable": "fail",
+          "actionable": "fail",
+          "entailed": "fail",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [],
+        "rejectionReasons": [
+          "insufficient-evidence"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Packet carries nothing reviewable; insufficient evidence."
+  }
+}

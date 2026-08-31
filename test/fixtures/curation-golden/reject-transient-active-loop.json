@@ -1,0 +1,55 @@
+{
+  "name": "reject-transient-active-loop",
+  "packet": {
+    "id": "pkt-golden-09",
+    "userIntent": "Continue with the cache module refactor.",
+    "finalAssistantSummary": "Refactoring the cache module now.",
+    "signals": [],
+    "closure": "incomplete",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "I will now refactor the cache module and then run the checks.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-09",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "fail",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "fail",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The assistant will refactor the cache module next.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          }
+        ],
+        "rejectionReasons": [
+          "transient-work-state"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Active loop narration is transient work state, not durable knowledge."
+  }
+}

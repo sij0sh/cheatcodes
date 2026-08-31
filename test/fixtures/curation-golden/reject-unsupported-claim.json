@@ -1,0 +1,53 @@
+{
+  "name": "reject-unsupported-claim",
+  "packet": {
+    "id": "pkt-golden-13",
+    "userIntent": "Why did the deploy fail?",
+    "finalAssistantSummary": "Speculated about the deploy failure.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "The deploy failed with a 502 from the gateway.",
+        "recordIds": [
+          "t1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-13",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "fail",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "fail",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "Deploys fail because the gateway health check path is wrong.",
+            "evidenceRefs": []
+          }
+        ],
+        "rejectionReasons": [
+          "unsupported-claim"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Claim lacks a verified recovery; speculation is unsupported."
+  }
+}

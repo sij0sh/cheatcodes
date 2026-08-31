@@ -1,0 +1,72 @@
+{
+  "name": "review-possible-stale-entry",
+  "packet": {
+    "id": "pkt-golden-22",
+    "userIntent": "The storage guidance may predate the refactor.",
+    "finalAssistantSummary": "Old storage guidance might be outdated.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "shortlist": [
+      {
+        "id": "cc-storage",
+        "title": "Storage layout",
+        "summary": "How blobs are stored.",
+        "score": 3
+      }
+    ],
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "The old note says blobs live in local storage; the refactor mentioned moving to object storage.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "I did not verify where blobs live after the refactor.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-22",
+        "verdict": "needs-review",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "fail",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "fail"
+        },
+        "claims": [
+          {
+            "text": "The existing storage guidance may predate the object-storage refactor.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2"
+            ]
+          }
+        ],
+        "unresolvedQuestions": [
+          "Whether blobs moved to object storage was never verified against current code."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "needs-review",
+    "notes": "Possible stale-or-contradicted target; needs verification before touching cc-storage."
+  }
+}

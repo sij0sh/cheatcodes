@@ -1,0 +1,83 @@
+{
+  "name": "accept-decision-repository-adapter",
+  "packet": {
+    "id": "pkt-golden-03",
+    "userIntent": "No, that is wrong. Use the repository adapter instead of direct queries.",
+    "finalAssistantSummary": "All persistence goes through the repository adapter now.",
+    "signals": [
+      "correction"
+    ],
+    "closure": "assistant-settled",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "No, do not query the database from route handlers. Use the repository adapter for all persistence.",
+        "recordIds": [
+          "u1"
+        ]
+      },
+      {
+        "id": "ev-2",
+        "kind": "message",
+        "excerpt": "Understood. The repository adapter is the only persistence boundary; handlers call it and never the pool directly.",
+        "recordIds": [
+          "a1"
+        ]
+      },
+      {
+        "id": "ev-3",
+        "kind": "tool",
+        "excerpt": "edited src/repo.ts, src/routes/users.ts: removed direct pool.query calls",
+        "recordIds": [
+          "t1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-03",
+        "verdict": "accept",
+        "kind": "decision",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "All database access must go through the repository adapter; route handlers must not touch the connection pool directly.",
+            "evidenceRefs": [
+              "ev-1",
+              "ev-2",
+              "ev-3"
+            ]
+          }
+        ],
+        "proposedEntry": {
+          "title": "Persist through the repository adapter",
+          "summary": "Route handlers use the repository adapter; direct pool access is forbidden.",
+          "body": "The repository adapter is the only persistence boundary. Route handlers call adapter methods and never construct queries against the pool directly, so connection lifetime stays in one place.",
+          "tags": [
+            "architecture",
+            "database"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "accept",
+    "kind": "decision",
+    "notes": "Durable architectural decision born from a user correction; rationale kept."
+  }
+}

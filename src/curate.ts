@@ -1,14 +1,22 @@
 import {
   createAgentSession,
   DefaultResourceLoader,
+  defineTool,
   getAgentDir,
   ModelRuntime,
   resolveCliModel,
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { z } from "zod";
 import type { HarvestPacket } from "./harvest.js";
+import {
+  QUALIFIER_PROMPT,
+  validateQualification,
+  type QualificationOutcome,
+  type Qualifier,
+} from "./qualify.js";
 
 export const CuratedActionSchema = z.object({
   action: z.enum(["create", "update"]),
@@ -137,4 +145,157 @@ export function normalizeCuratorOutcome(value: CuratorOutcome | CuratorResponse,
     return value;
   }
   return { response: validateCuratorResponse(value, packet), schemaInvalid: false };
+}
+
+const GATE_SCHEMA = Type.Union([Type.Literal("pass"), Type.Literal("fail")]);
+
+const QUALIFICATION_PARAMS = Type.Object(
+  {
+    entries: Type.Array(
+      Type.Object(
+        {
+          candidateId: Type.String({ minLength: 1 }),
+          verdict: Type.Union([Type.Literal("accept"), Type.Literal("reject"), Type.Literal("needs-review")]),
+          kind: Type.Optional(
+            Type.Union([Type.Literal("gotcha"), Type.Literal("decision"), Type.Literal("procedure"), Type.Literal("invariant")]),
+          ),
+          gateResults: Type.Object(
+            {
+              settled: GATE_SCHEMA,
+              projectSpecific: GATE_SCHEMA,
+              durable: GATE_SCHEMA,
+              current: GATE_SCHEMA,
+              nonInferable: GATE_SCHEMA,
+              actionable: GATE_SCHEMA,
+              entailed: GATE_SCHEMA,
+              nonDuplicate: GATE_SCHEMA,
+              nonContradictory: GATE_SCHEMA,
+            },
+            { additionalProperties: false },
+          ),
+          claims: Type.Array(
+            Type.Object(
+              { text: Type.String({ minLength: 1 }), evidenceRefs: Type.Array(Type.String({ minLength: 1 })) },
+              { additionalProperties: false },
+            ),
+          ),
+          rejectionReasons: Type.Array(Type.String({ minLength: 1 })),
+          unresolvedQuestions: Type.Array(Type.String({ minLength: 1 })),
+          proposedEntry: Type.Optional(
+            Type.Object(
+              {
+                title: Type.String({ minLength: 1 }),
+                summary: Type.String({ minLength: 1 }),
+                body: Type.String({ minLength: 1 }),
+                tags: Type.Array(Type.String({ minLength: 1 })),
+              },
+              { additionalProperties: false },
+            ),
+          ),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+  },
+  { additionalProperties: false },
+);
+
+function submitQualificationTool(packet: HarvestPacket, capture: { value?: unknown; error?: string }) {
+  return defineTool({
+    name: "submit_qualification",
+    label: "Submit qualification",
+    description: "Submit the final qualification verdict for the reviewed evidence packet. Required as your last action.",
+    parameters: QUALIFICATION_PARAMS,
+    execute: async (_toolCallId, params) => {
+      try {
+        const response = validateQualification(params, packet);
+        capture.value = response;
+        return { content: [{ type: "text", text: "Qualification recorded." }], details: { packetId: packet.id }, terminate: true };
+      } catch (error) {
+        capture.error = (error as Error).message;
+        throw error;
+      }
+    },
+  });
+}
+
+function finalUsage(messages: readonly unknown[]): { inputTokens: number; outputTokens: number } | undefined {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index] as { role?: string; usage?: { input?: number; output?: number } } | undefined;
+    if (message?.role === "assistant" && message.usage) {
+      return { inputTokens: message.usage.input ?? 0, outputTokens: message.usage.output ?? 0 };
+    }
+  }
+  return undefined;
+}
+
+export interface PiQualifierOptions { projectRoot: string; model: string; modelRuntime?: ModelRuntime; modelsPath?: string }
+
+export class PiQualifier implements Qualifier {
+  private constructor(
+    private readonly root: string,
+    private readonly runtime: ModelRuntime,
+    private readonly model: NonNullable<ReturnType<typeof resolveCliModel>["model"]>,
+    private readonly thinkingLevel: NonNullable<ReturnType<typeof resolveCliModel>["thinkingLevel"]> | "medium",
+    private readonly settings: SettingsManager,
+    private readonly loader: DefaultResourceLoader,
+  ) {}
+
+  static async create(options: PiQualifierOptions): Promise<PiQualifier> {
+    const runtime = options.modelRuntime ?? await ModelRuntime.create({ modelsPath: options.modelsPath });
+    const resolved = resolveCliModel({ cliModel: options.model, modelRuntime: runtime });
+    if (resolved.error || !resolved.model) throw new Error(resolved.error ?? `Model not found: ${options.model}`);
+    if (resolved.warning) throw new Error(resolved.warning);
+    const settings = SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } });
+    const loader = new DefaultResourceLoader({
+      cwd: options.projectRoot,
+      agentDir: getAgentDir(),
+      noExtensions: true,
+      noSkills: true,
+      noPromptTemplates: true,
+      noThemes: true,
+      noContextFiles: true,
+      systemPrompt: QUALIFIER_PROMPT,
+      appendSystemPrompt: [],
+      settingsManager: settings,
+    });
+    await loader.reload();
+    return new PiQualifier(options.projectRoot, runtime, resolved.model, resolved.thinkingLevel ?? "medium", settings, loader);
+  }
+
+  async qualify(packet: HarvestPacket): Promise<QualificationOutcome> {
+    const startedAt = Date.now();
+    let warning = "";
+    let schemaRetries = 0;
+    let usage: { inputTokens: number; outputTokens: number } | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const capture: { value?: unknown; error?: string } = {};
+      const { session, modelFallbackMessage } = await createAgentSession({
+        cwd: this.root,
+        model: this.model,
+        thinkingLevel: this.thinkingLevel,
+        sessionManager: SessionManager.inMemory(this.root),
+        resourceLoader: this.loader,
+        modelRuntime: this.runtime,
+        settingsManager: this.settings,
+        customTools: [submitQualificationTool(packet, capture)],
+      });
+      try {
+        if (modelFallbackMessage) throw new Error(modelFallbackMessage);
+        await session.prompt(JSON.stringify(packet));
+        usage = finalUsage(session.messages) ?? usage;
+        if (capture.value !== undefined) {
+          const response = validateQualification(capture.value, packet);
+          return { response, schemaInvalid: false, schemaRetries, latencyMs: Date.now() - startedAt, usage };
+        }
+        warning = capture.error ?? "model finished without calling submit_qualification";
+      } catch (error) {
+        warning = (error as Error).message;
+      } finally {
+        session.dispose();
+      }
+      schemaRetries = attempt + 1;
+    }
+    return { schemaInvalid: true, warning, schemaRetries, latencyMs: Date.now() - startedAt, usage };
+  }
 }

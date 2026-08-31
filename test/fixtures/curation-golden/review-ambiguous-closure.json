@@ -1,0 +1,55 @@
+{
+  "name": "review-ambiguous-closure",
+  "packet": {
+    "id": "pkt-golden-21",
+    "userIntent": "Draft the rate limiter note while I check the limits.",
+    "finalAssistantSummary": "Drafted a promising note but the episode never settled.",
+    "signals": [],
+    "closure": "incomplete",
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "The rate limiter allows 60 requests per minute per token, sourced from the config default.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-21",
+        "verdict": "needs-review",
+        "gateResults": {
+          "settled": "fail",
+          "projectSpecific": "pass",
+          "durable": "fail",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "pass",
+          "entailed": "pass",
+          "nonDuplicate": "pass",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "The rate limiter defaults to 60 requests per minute per token.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          }
+        ],
+        "unresolvedQuestions": [
+          "The episode never reached a settled close; the stated default was never confirmed."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "needs-review",
+    "notes": "Trailing unsettled episode; valuable-looking but unconfirmed."
+  }
+}

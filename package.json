@@ -23,13 +23,15 @@
     "prepack": "npm run build",
     "test": "node --import tsx --test test/*.test.ts",
     "start": "tsx src/cli.ts",
-    "test:live": "node --import tsx --test test/live/*.test.ts"
+    "test:live": "node --import tsx --test test/live/*.test.ts",
+    "test:curation-live": "node --import tsx --test test/live/curation-live.test.ts"
   },
   "engines": {
     "node": ">=22.19.0"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.84.4",
+    "typebox": "^1.3.7",
     "yaml": "^2.8.1",
     "zod": "^4.1.12"
   },

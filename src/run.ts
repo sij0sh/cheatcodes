@@ -15,9 +15,23 @@ import {
   saveGlobalConfig,
 } from "./config.js";
 import { applyCuratedEntry, parseKnowledgeMarkdown, renderKnowledgeMarkdown, type KnowledgeEntry } from "./concept.js";
-import { normalizeCuratorOutcome, PiCurator, type Curator, type CuratedEntry } from "./curate.js";
+import {
+  normalizeCuratorOutcome,
+  PiCurator,
+  PiQualifier,
+  type Curator,
+  type CuratedEntry,
+} from "./curate.js";
 import { createPacket, segmentSession, type EvidenceItem, type HarvestPacket } from "./harvest.js";
 import { WORKER_ORIGIN, parseJsonlFile } from "./jsonl.js";
+import { recordCurationMetrics, type CurationAgreement, type CuratorMode } from "./metrics.js";
+import {
+  GATE_IDS,
+  QUALIFIER_PROMPT_VERSION,
+  qualificationToCurated,
+  type QualificationVerdict,
+  type Qualifier,
+} from "./qualify.js";
 import { ensureModelsFile } from "./models.js";
 import { scanInputs, type ScanWarning } from "./scan.js";
 import {
@@ -65,6 +79,8 @@ export interface RunOptions {
   cwd?: string;
   curator?: Curator;
   curatorFactory?: () => Promise<Curator>;
+  qualifier?: Qualifier;
+  qualifierFactory?: () => Promise<Qualifier>;
   now?: () => Date;
   onWarning?: (message: string) => void;
   shouldStop?: () => boolean;
@@ -85,9 +101,17 @@ export interface RunResult {
   warnings: string[];
   staleLockRecovered: boolean;
   deadlineExceeded: boolean;
+  mode: CuratorMode;
 }
 
 function warningText(warning: ScanWarning): string { return `${warning.file}: ${warning.message}`; }
+
+export function resolveCuratorMode(env: NodeJS.ProcessEnv): { mode: CuratorMode; warning?: string } {
+  const raw = env.CHEATCODES_CURATOR_MODE?.trim().toLowerCase();
+  if (!raw || raw === "legacy") return { mode: "legacy" };
+  if (raw === "typed" || raw === "shadow") return { mode: raw };
+  return { mode: "legacy", warning: `unknown CHEATCODES_CURATOR_MODE "${env.CHEATCODES_CURATOR_MODE}"; using legacy` };
+}
 
 async function getCurator(options: RunOptions, root: string, model: string, env: NodeJS.ProcessEnv): Promise<Curator> {
   if (options.curator) return options.curator;
@@ -99,6 +123,18 @@ async function getCurator(options: RunOptions, root: string, model: string, env:
     options.onWarning?.(`models registry unavailable, falling back to the Pi default: ${(error as Error).message}`);
   }
   return PiCurator.create({ projectRoot: root, model, modelsPath });
+}
+
+async function getQualifier(options: RunOptions, root: string, model: string, env: NodeJS.ProcessEnv): Promise<Qualifier> {
+  if (options.qualifier) return options.qualifier;
+  if (options.qualifierFactory) return options.qualifierFactory();
+  let modelsPath: string | undefined;
+  try {
+    modelsPath = await ensureModelsFile(env);
+  } catch (error) {
+    options.onWarning?.(`models registry unavailable, falling back to the Pi default: ${(error as Error).message}`);
+  }
+  return PiQualifier.create({ projectRoot: root, model, modelsPath });
 }
 
 function selectedEvidence(packet: HarvestPacket, entry: CuratedEntry): EvidenceItem[] {
@@ -134,7 +170,11 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
   const knowledgeFile = knowledgeFilePath(root, global.knowledgeFile);
   const warnings: string[] = [];
   const warn = (message: string): void => { warnings.push(message); options.onWarning?.(message); };
+  const curatorMode = resolveCuratorMode(env);
+  const mode = curatorMode.mode;
+  if (curatorMode.warning) warn(curatorMode.warning);
   let curator: Curator | undefined;
+  let qualifier: Qualifier | undefined;
   let curatorCalls = 0;
   let packets = 0;
   let entriesWritten = 0;
@@ -200,22 +240,80 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
         const packet = createPacket(episode, { projectKey, entries });
         if (!packet) continue;
         packets++;
-        curator ??= await getCurator(options, root, global.model, env);
-        curatorCalls++;
-        const outcome = normalizeCuratorOutcome(await curator.curate(packet), packet);
-        if (outcome.schemaInvalid || !outcome.response) {
-          // Fail closed (guide 0.7): park the file and keep its cursor so the next run retries.
-          warn(`Packet ${packet.id} failed schema validation after retries; parking ${candidate.file} until the next run${outcome.warning ? `: ${outcome.warning}` : ""}`);
-          fileUnresolved = true;
-          break;
-        }
-        for (const curated of outcome.response.entries) {
+        const applyEntry = async (curated: CuratedEntry): Promise<boolean> => {
           const result = applyCuratedEntry(entries, curatedInput(curated, sourceFor(packet, selectedEvidence(packet, curated)), sessionDate), projectKey);
           entries = result.entries;
           if (result.changed) {
             entriesWritten++;
             await renderAndStore(knowledgeFile, entries);
           }
+          return result.changed;
+        };
+        if (mode === "legacy") {
+          curator ??= await getCurator(options, root, global.model, env);
+          curatorCalls++;
+          const outcome = normalizeCuratorOutcome(await curator.curate(packet), packet);
+          if (outcome.schemaInvalid || !outcome.response) {
+            // Fail closed (guide 0.7): park the file and keep its cursor so the next run retries.
+            warn(`Packet ${packet.id} failed schema validation after retries; parking ${candidate.file} until the next run${outcome.warning ? ` : ${outcome.warning}` : ""}`);
+            fileUnresolved = true;
+            break;
+          }
+          for (const curated of outcome.response.entries) await applyEntry(curated);
+          continue;
+        }
+        qualifier ??= await getQualifier(options, root, global.model, env);
+        curatorCalls++;
+        const outcome = await qualifier.qualify(packet);
+        const verdictCandidate = outcome.response?.entries[0];
+        const verdict: QualificationVerdict | undefined = verdictCandidate?.verdict;
+        const gateFailures = verdictCandidate ? GATE_IDS.filter((gate) => verdictCandidate.gateResults[gate] === "fail") : [];
+        let wrote = false;
+        let legacyWouldWrite: boolean | undefined;
+        let agreement: CurationAgreement | undefined;
+        if (outcome.schemaInvalid || !outcome.response) {
+          warn(`Packet ${packet.id} failed qualification schema validation after ${outcome.schemaRetries} attempt(s)${outcome.warning ? ` : ${outcome.warning}` : ""}`);
+        } else if (mode === "typed") {
+          for (const accepted of outcome.response.entries.filter((entry) => entry.verdict === "accept")) {
+            wrote = (await applyEntry(qualificationToCurated(accepted, packet))) || wrote;
+          }
+          if (outcome.response.entries.some((entry) => entry.verdict === "needs-review")) {
+            warn(`Packet ${packet.id} was marked needs-review; no knowledge written`);
+          }
+        } else {
+          curator ??= await getCurator(options, root, global.model, env);
+          curatorCalls++;
+          const legacy = normalizeCuratorOutcome(await curator.curate(packet), packet);
+          legacyWouldWrite = !legacy.schemaInvalid && legacy.response !== undefined && legacy.response.entries.length > 0;
+          agreement = legacy.response === undefined
+            ? "legacy-error"
+            : legacyWouldWrite === (verdict === "accept") ? "agree" : "disagree";
+        }
+        const recorded = await recordCurationMetrics({
+          version: 1,
+          at: new Date().toISOString(),
+          mode,
+          projectKey,
+          sessionId: packet.sessionId,
+          packetId: packet.id,
+          model: global.model,
+          promptVersion: QUALIFIER_PROMPT_VERSION,
+          ...(verdict ? { verdict } : {}),
+          gateFailures,
+          rejectionReasons: verdictCandidate?.rejectionReasons ?? [],
+          schemaRetries: outcome.schemaRetries,
+          latencyMs: outcome.latencyMs,
+          ...(outcome.usage?.inputTokens ? { inputTokens: outcome.usage.inputTokens } : {}),
+          ...(outcome.usage?.outputTokens ? { outputTokens: outcome.usage.outputTokens } : {}),
+          ...(legacyWouldWrite !== undefined ? { legacyWouldWrite } : {}),
+          ...(agreement !== undefined ? { agreement } : {}),
+          wrote,
+        }, env);
+        if (!recorded) warn("curation metrics could not be recorded");
+        if (mode === "typed" && (outcome.schemaInvalid || !outcome.response)) {
+          // Fail closed (guide 0.7): park the file and keep its cursor so the next run retries.
+          fileUnresolved = true;
+          break;
         }
       }
       if (fileUnresolved) { unresolvedFiles++; continue; }
@@ -229,7 +327,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
       const committed = projectState.files[candidate.file]!;
       await updateProjectState(env, projectKey, (project) => ({ ...project, files: { ...project.files, [candidate.file]: committed } }));
     }
-    return { root, projectKey, changedFiles: scan.changed.length, curatorCalls, packets, entriesWritten, prunedCursors, unresolvedFiles, warnings, staleLockRecovered: lock.staleRecovered, deadlineExceeded };
+    return { root, projectKey, changedFiles: scan.changed.length, curatorCalls, packets, entriesWritten, prunedCursors, unresolvedFiles, warnings, staleLockRecovered: lock.staleRecovered, deadlineExceeded, mode };
   } finally { await lock.release(); }
 }
 

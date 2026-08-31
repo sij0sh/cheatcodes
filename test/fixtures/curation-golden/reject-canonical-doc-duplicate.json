@@ -1,0 +1,63 @@
+{
+  "name": "reject-canonical-doc-duplicate",
+  "packet": {
+    "id": "pkt-golden-12",
+    "userIntent": "Summarize the install instructions.",
+    "finalAssistantSummary": "Restated the documented install steps.",
+    "signals": [],
+    "closure": "assistant-settled",
+    "shortlist": [
+      {
+        "id": "cc-install",
+        "title": "Install",
+        "summary": "npm install -g cheatcodes, then run cheatcodes init.",
+        "score": 5
+      }
+    ],
+    "evidence": [
+      {
+        "id": "ev-1",
+        "kind": "message",
+        "excerpt": "Install is npm install -g cheatcodes, then cheatcodes init.",
+        "recordIds": [
+          "a1"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "entries": [
+      {
+        "candidateId": "pkt-golden-12",
+        "verdict": "reject",
+        "gateResults": {
+          "settled": "pass",
+          "projectSpecific": "pass",
+          "durable": "pass",
+          "current": "pass",
+          "nonInferable": "pass",
+          "actionable": "fail",
+          "entailed": "pass",
+          "nonDuplicate": "fail",
+          "nonContradictory": "pass"
+        },
+        "claims": [
+          {
+            "text": "Install cheatcodes with npm install -g cheatcodes and run cheatcodes init.",
+            "evidenceRefs": [
+              "ev-1"
+            ]
+          }
+        ],
+        "rejectionReasons": [
+          "canonical-doc-duplicate"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "verdict": "reject",
+    "notes": "Duplicates the canonical install entry in the shortlist."
+  }
+}
