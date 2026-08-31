@@ -75,6 +75,7 @@ When the package is linked or installed, Pi loads its extension and starts a det
 | `workerTimeoutMinutes` | Maximum run time | `10` |
 | `knowledgeFile` | Project-relative output path | `.agents/CHEATCODES.md` |
 | `contextPointer` | Add the knowledge pointer to agent instructions | `true` |
+| `autorun` | Run the worker automatically on Pi session start | `true` |
 | `autorun` | Run `cheatcodes run` when a Pi session starts in a trusted project | `true` |
 | `projectAliases` | Treat other paths as the same project | `{}` |
 
