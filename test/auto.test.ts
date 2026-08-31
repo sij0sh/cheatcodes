@@ -27,13 +27,6 @@ function fixture(root: string, sessionId = "session-1"): string {
   ].map(line).join("");
 }
 
-function claudeFixture(root: string, sessionId = "claude-session-1"): string {
-  const metadata = { sessionId, cwd: root, version: "1.0.58" };
-  return [
-    { ...metadata, type: "user", uuid: "cu1", parentUuid: null, timestamp: "2026-01-01T00:00:01Z", message: { role: "user", content: "No, that is wrong. We must use the repository adapter instead." } },
-    { ...metadata, type: "assistant", uuid: "ca1", parentUuid: "cu1", timestamp: "2026-01-01T00:00:02Z", message: { role: "assistant", stop_reason: "end_turn", content: [{ type: "text", text: "Understood. The repository adapter is required." }] } },
-  ].map(line).join("");
-}
 
 function fakeCurator(calls: { count: number }): Curator {
   return { async curate(packet) {
@@ -118,7 +111,6 @@ test("a model hint creates a missing version 2 config and never overwrites an ex
       CHEATCODES_PI_MODEL: "prov/m1",
       CHEATCODES_PI_THINKING: "high",
       PI_CODING_AGENT_DIR: path.join(configDir, "absent-pi"),
-      CLAUDE_CONFIG_DIR: path.join(configDir, "absent-claude"),
     };
     const result = await runWorker({ root, env, curator: fakeCurator({ count: 0 }) });
     assert.equal(result.outcome, "success");
@@ -222,26 +214,22 @@ test("direct session-file hints are scanned as extra inputs", async () => {
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("startup adds existing Pi and Claude session roots to global inputs", async () => {
+test("startup adds the existing Pi session root to global inputs", async () => {
   const root = await temporary();
   const harnesses = await temporary("cheatcodes-harnesses-");
   try {
     const piAgentDir = path.join(harnesses, "pi-agent");
-    const claudeConfigDir = path.join(harnesses, "claude");
     const piSessions = path.join(piAgentDir, "sessions");
-    const claudeProjects = path.join(claudeConfigDir, "projects");
     await mkdir(piSessions, { recursive: true });
-    await mkdir(claudeProjects, { recursive: true });
     await writeFile(path.join(piSessions, "pi.jsonl"), fixture(root, "pi-session"));
-    await writeFile(path.join(claudeProjects, "claude.jsonl"), claudeFixture(root));
     const { env } = await writeGlobalConfig({ inputs: [] });
-    const harnessEnv = { ...env, PI_CODING_AGENT_DIR: piAgentDir, CLAUDE_CONFIG_DIR: claudeConfigDir };
+    const harnessEnv = { ...env, PI_CODING_AGENT_DIR: piAgentDir };
 
     const result = await runWorker(withCurator({ root, env: harnessEnv }, fakeCurator({ count: 0 })));
 
     assert.equal(result.outcome, "success");
-    assert.equal(result.run!.changedFiles, 2);
-    assert.deepEqual((await loadGlobalConfig(harnessEnv))!.inputs, [piSessions, claudeProjects]);
+    assert.equal(result.run!.changedFiles, 1);
+    assert.deepEqual((await loadGlobalConfig(harnessEnv))!.inputs, [piSessions]);
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(harnesses, { recursive: true, force: true });

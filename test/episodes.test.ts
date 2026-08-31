@@ -82,11 +82,10 @@ test("record fields link turns, calls, stop reasons, and branch leaves determini
     line(session("s1")),
     line(user("u1", null, "Run the repository test suite twice and report.", "2026-01-01T00:00:01Z")),
     line(toolCall("acall", "u1", "call-1", "bash", { command: "npm test" }, "2026-01-01T00:00:02Z")),
-    line({ type: "message", id: "u2", parentId: "acall", timestamp: "2026-01-01T00:00:03Z", message: { role: "user", content: [
-      { type: "tool_result", tool_use_id: "call-1", content: "first run failed" },
-      { type: "tool_result", tool_use_id: "call-1", content: "second run passed" },
-    ] } }),
-    line(assistant("a1", "u2", "The second repository run passed.", "2026-01-01T00:00:04Z")),
+    line(toolResult("t1", "acall", "call-1", "bash", "2026-01-01T00:00:03Z", { exitCode: 1 }, "first run failed")),
+    line(toolCall("acall2", "t1", "call-2", "bash", { command: "npm test" }, "2026-01-01T00:00:04Z")),
+    line(toolResult("t2", "acall2", "call-2", "bash", "2026-01-01T00:00:05Z", { exitCode: 0 }, "second run passed")),
+    line(assistant("a1", "t2", "The second repository run passed.", "2026-01-01T00:00:06Z")),
   ].join(""));
   const parsed = parseJsonlBytes(bytes, { file: "multi.jsonl" });
   assert.equal(parsed.origin, "user-session");
@@ -94,13 +93,13 @@ test("record fields link turns, calls, stop reasons, and branch leaves determini
   assert.equal(episodes.length, 1);
   const episode = episodes[0]!;
   assert.equal(episode.closure, "assistant-settled");
-  assert.deepEqual(episode.recordIds, ["u1", "u2", "u2:tool:1", "a1"]);
+  assert.deepEqual(episode.recordIds, ["u1", "t1", "t2", "a1"]);
   const settled = parsed.records.find((record) => record.kind === "assistant")!;
   assert.equal(settled.assistantStopReason, "stop");
   for (const record of parsed.records) {
     assert.equal(record.branchLeafId, "a1");
     assert.equal(record.turnId, "acall");
-    if (record.receipt) assert.equal(record.toolCallId, "call-1");
+    if (record.receipt) assert.equal(record.toolCallId?.startsWith("call-"), true);
   }
   const again = parseJsonlBytes(bytes, { file: "multi.jsonl" });
   assert.deepEqual(again.records.map((record) => record.turnId), parsed.records.map((record) => record.turnId));

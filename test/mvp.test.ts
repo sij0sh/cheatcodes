@@ -222,22 +222,11 @@ test("partial final JSONL lines are not committed until complete", () => {
   assert.equal(reparsed.completeSha256, parsed.completeSha256);
 });
 
-test("Claude Code JSONL is normalized at the session boundary", () => {
-  const metadata = { sessionId: "claude-session", cwd: "/repo", version: "1.0.58" };
-  const parsed = parseJsonlBytes(Buffer.from([
-    line({ ...metadata, type: "user", uuid: "u1", parentUuid: null, timestamp: "2026-01-01T00:00:00Z", message: { role: "user", content: "Please run the repository tests before finishing." } }),
-    line({ ...metadata, type: "assistant", uuid: "a1", parentUuid: "u1", timestamp: "2026-01-01T00:00:01Z", message: { role: "assistant", stop_reason: "tool_use", content: [{ type: "tool_use", id: "tool-1", name: "Bash", input: { command: "npm test" } }] } }),
-    line({ ...metadata, type: "user", uuid: "t1", parentUuid: "a1", timestamp: "2026-01-01T00:00:02Z", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "tool-1", content: "all tests passed" }] } }),
-    line({ ...metadata, type: "assistant", uuid: "a2", parentUuid: "t1", timestamp: "2026-01-01T00:00:03Z", message: { role: "assistant", stop_reason: "end_turn", content: [{ type: "text", text: "The repository tests pass." }] } }),
-  ].join("")), { file: "claude.jsonl" });
-
-  assert.equal(parsed.sessionId, "claude-session");
-  assert.deepEqual(parsed.records.map((record) => record.id), ["u1", "t1", "a2"]);
-  assert.deepEqual(parsed.branches[0]!.map((record) => record.id), ["u1", "t1", "a2"]);
-  assert.equal(parsed.records[1]!.receipt!.tool, "Bash");
-  assert.equal(parsed.records[1]!.receipt!.command, "npm test");
+test("Claude Code sessions are no longer parsed", () => {
+  assert.throws(() => parseJsonlBytes(Buffer.from([
+    line({ sessionId: "claude-session", cwd: "/repo", version: "1.0.58", type: "user", uuid: "u1", timestamp: "2026-01-01T00:00:00Z", message: { role: "user", content: "Please run the repository tests before finishing." } }),
+  ].join("")), { file: "claude.jsonl" }), /missing valid Pi session metadata/);
 });
-
 test("branch reconstruction follows parent chains across versions", () => {
   const record = (id: string, parentId: string | null, role: string) =>
     line({ type: "message", id, parentId, timestamp: "2026-01-01T00:00:00Z", message: { role, stopReason: "stop", content: [{ type: "text", text: `substantive message text for ${id}` }] } });
