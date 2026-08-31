@@ -27,6 +27,18 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
   const cwd = process.cwd();
+  // The SDK leaves extension binding to the host: without bindExtensions the
+  // session_start event never reaches package extensions, so a rollover child
+  // never restores its run. Bind a headless UI (notifies -> stderr) per session.
+  const headlessUi = new Proxy(
+    {},
+    {
+      get: (_target, prop) =>
+        prop === "notify"
+          ? (message: string, level?: "info" | "warning" | "error") => console.error(`cheatcodes workflow: ${level ?? "info"}: ${message}`)
+          : () => {},
+    },
+  ) as never;
   const createRuntime = async ({ cwd, sessionManager, sessionStartEvent }: { cwd: string; sessionManager: SessionManager; sessionStartEvent?: never }) => {
     const services = await createAgentSessionServices({
       cwd,
@@ -34,8 +46,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       // unavailable, so the engine can grant them to each workflow position.
       resourceLoaderOptions: { extensionFactories: [{ name: "cheatcodes-tools", factory: cheatcodesWorkflow }] },
     });
+    const result = await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent });
+    await result.session.bindExtensions({ uiContext: headlessUi, mode: "print" });
     return {
-      ...(await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent })),
+      ...result,
       services,
       diagnostics: services.diagnostics,
     };
