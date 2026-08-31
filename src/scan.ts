@@ -55,6 +55,9 @@ async function readHeader(file: string): Promise<{ id: string; cwd: string; vers
 }
 
 function matchProjectRoot(cwd: string, roots: string[]): string | undefined {
+  // Headers recorded on another platform (e.g. Windows "C:\\..." read on POSIX) are not
+  // absolute here; resolving them would silently place them inside the current project.
+  if (!path.isAbsolute(cwd)) return undefined;
   const absolute = path.resolve(cwd);
   return roots
     .filter((root) => {
