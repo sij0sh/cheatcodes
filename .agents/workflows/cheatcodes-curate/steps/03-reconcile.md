@@ -13,6 +13,14 @@ Call `search_knowledge` for the topic of each claim. Decide per claim:
   with the conflict described.
 
 Propose at most one operation per topic and at most eight operations total.
-Every operation must carry the packet ids it came from. Write the transaction
-with `baseRevision` taken from the manifest context: use the corpus revision
-reported by `search_knowledge` results.
+Use exactly these operation shapes; the staging tool rejects anything else.
+
+- `create`: `{op: "create", entry: {title, summary, body}, evidenceRefs: [...]}`
+- `update`: `{op: "update", target: {id, expectedDigest}, entry: {title, summary, body}}`
+- `keep`: `{op: "keep", target: {id, expectedDigest}, reason: "..."}`
+- `needs-review`: `{op: "needs-review", targets: [id, ...], conflict: "...", nextAction: "..."}`
+
+`target.expectedDigest` is the entry digest from the `search_knowledge` result.
+Never put `packetIds` inside an operation; the transaction-level `packetIds`
+array carries them. Write the transaction with `baseRevision` from the corpus
+revision reported by the `search_knowledge` results.
