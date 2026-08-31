@@ -38,6 +38,7 @@ export const CURATOR_PROMPT = `You curate durable project knowledge from a bound
 Return exactly one JSON object with an entries array. Do not return Markdown or commentary.
 Each entry has action "create" or "update", title, summary, body, tags, and evidenceRefs.
 Every entry states only current project truth. Do not describe history, addenda, or replaced guidance.
+Accept only what a competent engineer could not reconstruct from the repository; prefer an empty entries array over low-signal entries.
 For updates, set targetEntryId to the supplied update candidate ID and return the complete revised entry: the body must replace the candidate's body entirely rather than append.
 Creates must omit targetEntryId.
 Use only supplied evidence IDs. Never invent IDs, paths, timestamps, or provenance.

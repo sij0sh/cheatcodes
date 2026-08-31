@@ -29,6 +29,7 @@ import {
   GATE_IDS,
   QUALIFIER_PROMPT_VERSION,
   qualificationToCurated,
+  runStateVeto,
   type QualificationVerdict,
   type Qualifier,
 } from "./qualify.js";
@@ -247,6 +248,11 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
         if (!packet) continue;
         packets++;
         const applyEntry = async (curated: CuratedEntry): Promise<boolean> => {
+          const veto = runStateVeto(curated.title, curated.summary);
+          if (veto) {
+            warn(`Entry "${curated.title}" was rejected by the run-state filter (${veto}); no knowledge written`);
+            return false;
+          }
           const result = applyCuratedEntry(entries, curatedInput(curated, sourceFor(packet, selectedEvidence(packet, curated)), sessionDate), projectKey);
           entries = result.entries;
           if (result.changed) {
@@ -285,6 +291,11 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
           }
           if (outcome.response.entries.some((entry) => entry.verdict === "needs-review")) {
             warn(`Packet ${packet.id} was marked needs-review; no knowledge written`);
+          }
+          const rejected = outcome.response.entries.filter((entry) => entry.verdict === "reject");
+          if (rejected.length > 0) {
+            const reasons = [...new Set(rejected.flatMap((entry) => entry.rejectionReasons))].join(",");
+            warn(`Packet ${packet.id} was rejected (${reasons}); no knowledge written`);
           }
         } else {
           curator ??= await getCurator(options, root, global.model, env);

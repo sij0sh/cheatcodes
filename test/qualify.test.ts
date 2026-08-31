@@ -12,6 +12,7 @@ import {
   QUALIFIER_PROMPT,
   REJECTION_REASONS,
   qualificationToCurated,
+  runStateVeto,
   validateQualification,
   type GateId,
   type GateResult,
@@ -87,6 +88,30 @@ test("qualifier prompt names the terminating tool and the review path", () => {
   assert.equal(QUALIFIER_PROMPT.includes("submit_qualification"), true);
   assert.equal(QUALIFIER_PROMPT.includes("needs-review"), true);
   assert.equal(QUALIFIER_PROMPT.includes("final action"), true);
+  assert.equal(QUALIFIER_PROMPT.includes("could not reconstruct from the repository"), true);
+  assert.equal(QUALIFIER_PROMPT.includes("attempt to derive each claim from the repository"), true);
+  assert.equal(QUALIFIER_PROMPT.includes("An empty output file is a successful outcome"), true);
+});
+
+test("run-state veto flags state reports and spares durable claims", () => {
+  assert.equal(runStateVeto("Project build, test suite, and smoke validation pass", "The TypeScript build and all 52 automated tests pass."), "transient-work-state");
+  assert.equal(runStateVeto("Git history audit found no detected credential exposure", "No compromised keys."), "audit-intermediate");
+  assert.equal(runStateVeto("Durable fact", "The redacted example key is intentional."), undefined);
+  assert.equal(runStateVeto("Colyseus room IDs are unavailable until the first client joins", "Verified after two failed attempts."), undefined);
+});
+
+test("validateQualification converts run-state accepts into rejections", () => {
+  const packet = makePacket();
+  const vetoed = validateQualification(
+    { entries: [acceptCandidate({ proposedEntry: { title: "Project build and test suite pass", summary: "All 52 tests pass.", body: "b", tags: [] } })] },
+    packet,
+  );
+  const candidate = vetoed.entries[0]!;
+  assert.equal(candidate.verdict, "reject");
+  assert.deepEqual(candidate.rejectionReasons, ["transient-work-state"]);
+  assert.equal(candidate.proposedEntry, undefined);
+  const kept = validateQualification({ entries: [acceptCandidate()] }, packet);
+  assert.equal(kept.entries[0]!.verdict, "accept");
 });
 
 test("qualification schema and host invariants", () => {

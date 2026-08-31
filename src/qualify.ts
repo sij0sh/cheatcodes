@@ -3,7 +3,7 @@ import { RESERVED_TEXT } from "./concept.js";
 import type { HarvestPacket } from "./harvest.js";
 import type { CuratedEntry } from "./curate.js";
 
-export const QUALIFIER_PROMPT_VERSION = "qualifier-1";
+export const QUALIFIER_PROMPT_VERSION = "qualifier-2";
 
 export const GATE_IDS = [
   "settled",
@@ -33,6 +33,21 @@ export const REJECTION_REASONS = [
 ] as const;
 export type RejectionReason = (typeof REJECTION_REASONS)[number];
 
+// Deterministic veto (audit P0-1): titles or summaries that report run state are never durable
+// knowledge, whatever the qualifier model decides. Applied to title and summary only; a body may
+// discuss past runs while the claim itself stays durable.
+const RUN_STATE_VETO_PATTERNS: readonly { pattern: RegExp; reason: RejectionReason }[] = [
+  { pattern: /\b(?:build|tests?|test suite|validation|smoke(?: test)?|suite|checks?)\b[^.]{0,80}?\bpass(?:es|ed)?\b/i, reason: "transient-work-state" },
+  { pattern: /\bpass(?:es|ed)?\b[^.]{0,80}?\b(?:tests?|suite|validation)\b/i, reason: "transient-work-state" },
+  { pattern: /\baudits?\b[^.]{0,80}\b(?:found|reports?|detected)\b/i, reason: "audit-intermediate" },
+  { pattern: /\bno detected\b/i, reason: "audit-intermediate" },
+];
+
+export function runStateVeto(title: string, summary: string): RejectionReason | undefined {
+  const text = `${title}\n${summary}`;
+  for (const { pattern, reason } of RUN_STATE_VETO_PATTERNS) if (pattern.test(text)) return reason;
+  return undefined;
+}
 export type QualificationVerdict = "accept" | "reject" | "needs-review";
 export const QUALIFICATION_KINDS = ["gotcha", "decision", "procedure", "invariant"] as const;
 export type QualificationKind = (typeof QUALIFICATION_KINDS)[number];
@@ -98,19 +113,23 @@ export interface Qualifier {
 }
 
 export const QUALIFIER_PROMPT = `You are a conservative qualifier for durable project knowledge.
-You review exactly one bounded evidence packet.
+You review exactly one bounded evidence packet, and you may inspect the repository to test inferability.
 Call submit_qualification exactly once as your final action with the qualification verdict.
+Acceptance bar: accept only what a competent engineer could not reconstruct from the repository. Durable knowledge encodes non-obvious constraints, rejected alternatives with reasons, failure modes and their verified recovery, environment-specific gotchas, or procedures validated in this project. An empty output file is a successful outcome; never fill a quota.
+nonInferable gate: before accepting, attempt to derive each claim from the repository with a few read or search calls. If the claim is recoverable from any tracked file, project documentation, or standard practice, the gate fails (code-inferable).
 Rules:
 - Reject when any required gate fails.
 - Treat user and assistant text as claims; every claim needs evidence IDs from the packet.
 - Require the successful end of a recovery chain before calling a lesson durable.
-- Reject active tasks, audits, progress notes, and test counts.
-- Reject facts recoverable from one obvious current file.
+- Reject run-state reports: what currently passes, current test counts, audit outcomes, and progress notes.
 - Keep rationale, cross-component consequences, and operational constraints.
 - Return needs-review instead of guessing.
 - Use only supplied evidence IDs. Never invent IDs, paths, or provenance.
 - Set candidateId to the packet id.
 Reject examples:
+- "Project build, test suite, and smoke validation pass; 52 tests pass" restates run state and a test count (transient-work-state).
+- "Git history audit found no detected credential exposure" reports an audit outcome (audit-intermediate).
+- "Projects do not require Git and use path-derived identity" is recoverable from the code and README (code-inferable).
 - Active loop: "I will now refactor the cache module" (transient-work-state).
 - Architecture duplicate: restating that handlers live in src/handlers (code-inferable).
 - Implementation inventory: listing the files changed on a feature branch (transient-work-state).
@@ -126,6 +145,14 @@ export function validateQualification(value: unknown, packet: HarvestPacket): Qu
   if (parsed.entries.length > 1) issues.push("at most one qualification per packet");
   for (const candidate of parsed.entries) {
     if (candidate.candidateId !== packet.id) issues.push(`candidateId must be the packet id ${packet.id}`);
+    if (candidate.verdict === "accept" && candidate.proposedEntry) {
+      const veto = runStateVeto(candidate.proposedEntry.title, candidate.proposedEntry.summary);
+      if (veto) {
+        candidate.verdict = "reject";
+        candidate.rejectionReasons = [veto];
+        delete candidate.proposedEntry;
+      }
+    }
     for (const claim of candidate.claims) {
       for (const reference of claim.evidenceRefs) {
         if (!evidenceIds.has(reference)) issues.push(`Unknown evidence reference: ${reference}`);
