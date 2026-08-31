@@ -24,6 +24,7 @@ test("scanInputs excludes sessions whose cwd is not absolute on this platform", 
     await writeFile(path.join(sessions, "windows.jsonl"), foreignSession);
     const scan = await scanInputs([sessions], [root], {});
     assert.deepEqual(scan.changed.map((candidate) => path.basename(candidate.file)), ["project.jsonl"]);
+    assert.deepEqual(scan.foreignSessionIds, ["windows-session"]);
     const skipped = scan.skipped.find((warning) => path.basename(warning.file) === "windows.jsonl");
     assert.ok(skipped, "foreign session must be reported as skipped");
     assert.match(skipped.message, /outside configured project roots/);

@@ -14,7 +14,7 @@ import {
   resolveProjectRoots,
   saveGlobalConfig,
 } from "./config.js";
-import { applyCuratedEntry, parseKnowledgeMarkdown, renderKnowledgeMarkdown, type KnowledgeEntry } from "./concept.js";
+import { applyCuratedEntry, parseKnowledgeMarkdown, removeEntriesFromSessions, renderKnowledgeMarkdown, type KnowledgeEntry } from "./concept.js";
 import {
   normalizeCuratorOutcome,
   PiCurator,
@@ -192,6 +192,12 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
     const scan = await scanInputs(inputs, projectRoots, projectState.files);
     scan.skipped.map(warningText).forEach(warn);
     scan.missing.forEach((file) => warn(`${file}: configured input does not exist`));
+    const isolated = removeEntriesFromSessions(entries, scan.foreignSessionIds);
+    if (isolated.removed > 0) {
+      entries = isolated.entries;
+      await renderAndStore(knowledgeFile, entries);
+      warn(`Removed ${isolated.removed} knowledge entr${isolated.removed === 1 ? "y" : "ies"} sourced from sessions outside configured project roots`);
+    }
     const prunedFiles = new Set<string>();
     const enumerated = new Set([...scan.changed.map((item) => item.file), ...scan.unchanged]);
     for (const file of Object.keys(projectState.files)) {

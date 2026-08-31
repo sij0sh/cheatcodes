@@ -233,6 +233,21 @@ export function parseKnowledgeMarkdown(markdown: string): KnowledgeEntry[] {
   return entries;
 }
 
+const SESSION_SOURCE = /^session:([^#]+)#records=/;
+
+export function removeEntriesFromSessions(
+  entries: readonly KnowledgeEntry[],
+  sessionIds: readonly string[],
+): { entries: KnowledgeEntry[]; removed: number } {
+  const excluded = new Set(sessionIds);
+  if (excluded.size === 0) return { entries: [...entries], removed: 0 };
+  const kept = entries.filter((entry) => !(entry.sources ?? []).some((source) => {
+    const match = SESSION_SOURCE.exec(source);
+    return match !== null && excluded.has(match[1]!);
+  }));
+  return { entries: kept, removed: entries.length - kept.length };
+}
+
 export function deriveEntryId(projectKey: string, title: string): string {
   const digest = createHash("sha256").update(`${projectKey}\u0000${normalizeTitleKey(title)}`).digest("hex");
   return `cc-${digest.slice(0, 24)}`;

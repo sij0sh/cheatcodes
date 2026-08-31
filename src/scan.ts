@@ -10,7 +10,7 @@ export interface SessionCandidate {
 }
 
 export interface ScanWarning { file: string; message: string }
-export interface ScanResult { changed: SessionCandidate[]; unchanged: string[]; skipped: ScanWarning[]; missing: string[] }
+export interface ScanResult { changed: SessionCandidate[]; unchanged: string[]; skipped: ScanWarning[]; missing: string[]; foreignSessionIds: string[] }
 
 const SKIPPED_DIRECTORIES = new Set([".cheatcodes", ".git", "node_modules"]);
 
@@ -50,7 +50,7 @@ async function readHeader(file: string): Promise<{ id: string; cwd: string; vers
       position += result.bytesRead;
       bytes = Buffer.alloc(Math.min(bytes.length * 2, 65536));
     }
-    throw new Error("valid Pi or Claude session metadata was not found");
+    throw new Error("valid Pi session metadata was not found");
   } finally { await handle.close(); }
 }
 
@@ -71,6 +71,7 @@ export async function scanInputs(inputs: string[], projectRoots: string[], files
   const discovered: string[] = [];
   const skipped: ScanWarning[] = [];
   const missing: string[] = [];
+  const foreignSessionIds: string[] = [];
   for (const input of [...new Set(inputs.map((value) => path.resolve(value)))].sort()) {
     let metadata;
     try { metadata = await stat(input); } catch (error) {
@@ -92,9 +93,13 @@ export async function scanInputs(inputs: string[], projectRoots: string[], files
     try {
       const header = await readHeader(file);
       if (header.origin === WORKER_ORIGIN) { skipped.push({ file, message: "cheatcodes-worker session excluded from harvest" }); continue; }
-      if (!matchProjectRoot(header.cwd, projectRoots)) { skipped.push({ file, message: "Session cwd is outside configured project roots" }); continue; }
+      if (!matchProjectRoot(header.cwd, projectRoots)) {
+        foreignSessionIds.push(header.id);
+        skipped.push({ file, message: "Session cwd is outside configured project roots" });
+        continue;
+      }
       changed.push({ file, size: metadata.size, mtimeMs: metadata.mtimeMs });
     } catch (error) { skipped.push({ file, message: `Cannot read session header: ${(error as Error).message}` }); }
   }
-  return { changed, unchanged, skipped, missing };
+  return { changed, unchanged, skipped, missing, foreignSessionIds: [...new Set(foreignSessionIds)].sort() };
 }

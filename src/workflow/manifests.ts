@@ -1,6 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { corpusRevision, parseKnowledgeMarkdown, type KnowledgeEntry } from "../concept.js";
+import { corpusRevision, parseKnowledgeMarkdown, removeEntriesFromSessions, renderKnowledgeMarkdown, type KnowledgeEntry } from "../concept.js";
 import { deriveProjectKey, knowledgeFilePath, loadGlobalConfig, resolveGlobalInputs, resolveProjectRoots } from "../config.js";
 import { createPacket, segmentSession, type HarvestPacket } from "../harvest.js";
 import { parseJsonlFile, WORKER_ORIGIN } from "../jsonl.js";
@@ -68,12 +68,18 @@ export async function buildManifest(options: { root?: string; env?: NodeJS.Proce
     const knowledgeFile = knowledgeFilePath(root, global.knowledgeFile);
     let entries: KnowledgeEntry[] = [];
     try { entries = parseKnowledgeMarkdown(await readFile(knowledgeFile, "utf8")); } catch { entries = []; }
-    const revision = corpusRevision(entries);
     const globalState = await loadGlobalState(env);
     const projectState = globalState.projects[projectKey] ?? { files: {} };
     const inputs = resolveGlobalInputs(global, env);
     const projectRoots = resolveProjectRoots(global, root, projectKey);
     const scan = await scanInputs(inputs, projectRoots, projectState.files);
+    const isolated = removeEntriesFromSessions(entries, scan.foreignSessionIds);
+    if (isolated.removed > 0) {
+      entries = isolated.entries;
+      await atomicWrite(knowledgeFile, renderKnowledgeMarkdown(entries));
+      warnings.push(`Removed ${isolated.removed} knowledge entr${isolated.removed === 1 ? "y" : "ies"} sourced from sessions outside configured project roots`);
+    }
+    const revision = corpusRevision(entries);
     scan.skipped.forEach((item) => warnings.push(`${item.file}: ${item.message}`));
     scan.missing.forEach((file) => warnings.push(`${file}: configured input does not exist`));
     const packets: HarvestPacket[] = [];

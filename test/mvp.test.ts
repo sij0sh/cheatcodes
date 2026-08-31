@@ -6,7 +6,7 @@ import type { Curator } from "../src/curate.js";
 import { runProject } from "../src/run.js";
 import { loadGlobalState } from "../src/state.js";
 import { normalizeRepositoryPath, parseJsonlBytes, redactSecrets } from "../src/jsonl.js";
-import { parseKnowledgeMarkdown } from "../src/concept.js";
+import { parseKnowledgeMarkdown, renderKnowledgeMarkdown } from "../src/concept.js";
 import { temporary, writeGlobalConfig } from "./helpers.js";
 
 function line(value: unknown): string { return `${JSON.stringify(value)}\n`; }
@@ -64,6 +64,27 @@ test("run requires a global config", async () => {
   try {
     const env = { CHEATCODES_CONFIG: path.join(root, "missing", "config.json"), CHEATCODES_STATE: path.join(root, "state.json") };
     await assert.rejects(runProject({ root, env }), /No global config/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("run removes entries sourced from sessions outside the project root", async () => {
+  const root = await temporary();
+  try {
+    const sessions = path.join(root, "sessions");
+    await mkdir(path.join(root, ".agents"), { recursive: true });
+    await mkdir(sessions, { recursive: true });
+    await writeFile(path.join(sessions, "local.jsonl"), line({ type: "session", version: 3, id: "local", cwd: root }));
+    await writeFile(path.join(sessions, "foreign.jsonl"), line({ type: "session", version: 3, id: "foreign", cwd: path.dirname(root) }));
+    const knowledgeFile = path.join(root, ".agents", "CHEATCODES.md");
+    const base = { summary: "Summary.", body: "Body." };
+    await writeFile(knowledgeFile, renderKnowledgeMarkdown([
+      { id: "local-entry", title: "Local", ...base, sources: ["session:local#records=u1"] },
+      { id: "foreign-entry", title: "Foreign", ...base, sources: ["session:foreign#records=u2"] },
+    ]));
+    const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
+    const result = await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    assert.equal(result.warnings.some((warning) => /Removed 1 knowledge entry/.test(warning)), true);
+    assert.deepEqual(parseKnowledgeMarkdown(await readFile(knowledgeFile, "utf8")).map((item) => item.id), ["local-entry"]);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

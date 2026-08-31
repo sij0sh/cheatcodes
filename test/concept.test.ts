@@ -5,6 +5,7 @@ import {
   deriveEntryId,
   KnowledgeValidationError,
   parseKnowledgeMarkdown,
+  removeEntriesFromSessions,
   renderKnowledgeMarkdown,
   validateEntry,
   type KnowledgeEntry,
@@ -110,6 +111,16 @@ test("tags and sources are sorted and deduplicated", () => {
   const parsed = parseKnowledgeMarkdown(rendered)[0]!;
   assert.deepEqual(parsed.tags, ["a", "b"]);
   assert.deepEqual(parsed.sources, ["s1", "s2"]);
+});
+
+test("entries sourced from foreign sessions are removed without affecting project entries", () => {
+  const local = entry({ sources: ["session:local#records=u1"] });
+  const foreign = entry({ id: "cc-foreign", title: "Foreign", sources: ["session:foreign#records=u2"] });
+  const mixed = entry({ id: "cc-mixed", title: "Mixed", sources: ["session:local#records=u3", "session:foreign#records=u4"] });
+  const untracked = entry({ id: "cc-untracked", title: "Untracked", sources: ["manual"] });
+  const result = removeEntriesFromSessions([local, foreign, mixed, untracked], ["foreign"]);
+  assert.equal(result.removed, 2);
+  assert.deepEqual(result.entries.map((item) => item.id), [local.id, untracked.id]);
 });
 
 test("line endings and trailing whitespace are normalized", () => {
