@@ -87,6 +87,7 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     knowledgeFile,
     contextPointer,
     autorun,
+    projectAliases,
   };
 }
 
