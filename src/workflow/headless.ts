@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { getAgentDir, SessionManager, createAgentSessionFromServices, createAgentSessionRuntime, createAgentSessionServices } from "@earendil-works/pi-coding-agent";
+import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { loadGlobalConfig } from "../config.js";
 import cheatcodesWorkflow from "./extension.js";
 
@@ -29,16 +30,39 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const cwd = process.cwd();
   // The SDK leaves extension binding to the host: without bindExtensions the
   // session_start event never reaches package extensions, so a rollover child
-  // never restores its run. Bind a headless UI (notifies -> stderr) per session.
-  const headlessUi = new Proxy(
-    {},
-    {
-      get: (_target, prop) =>
-        prop === "notify"
-          ? (message: string, level?: "info" | "warning" | "error") => console.error(`cheatcodes workflow: ${level ?? "info"}: ${message}`)
-          : () => {},
-    },
-  ) as never;
+  // never restores its run. The stub must be a real object: the runner spreads
+  // the UI, which drops Proxy traps and made every ui call throw.
+  const noop = () => {};
+  const headlessUi: ExtensionUIContext = {
+    select: async () => undefined,
+    confirm: async () => false,
+    input: async () => undefined,
+    notify: (message, level) => console.error(`cheatcodes workflow: ${level ?? "info"}: ${message}`),
+    onTerminalInput: () => noop,
+    setStatus: noop,
+    setWorkingMessage: noop,
+    setWorkingVisible: noop,
+    setWorkingIndicator: noop,
+    setHiddenThinkingLabel: noop,
+    setWidget: noop,
+    setFooter: noop,
+    setHeader: noop,
+    setTitle: noop,
+    custom: async () => undefined as never,
+    pasteToEditor: noop,
+    setEditorText: noop,
+    getEditorText: () => "",
+    editor: async () => undefined,
+    addAutocompleteProvider: noop,
+    setEditorComponent: noop,
+    getEditorComponent: () => undefined,
+    getAllThemes: () => [],
+    setTheme: () => ({ success: true }),
+    getToolsExpanded: () => false,
+    setToolsExpanded: noop,
+    theme: { name: "headless" } as ExtensionUIContext["theme"],
+    getTheme: () => undefined,
+  };
   const createRuntime = async ({ cwd, sessionManager, sessionStartEvent }: { cwd: string; sessionManager: SessionManager; sessionStartEvent?: never }) => {
     const services = await createAgentSessionServices({
       cwd,
@@ -47,7 +71,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       resourceLoaderOptions: { extensionFactories: [{ name: "cheatcodes-tools", factory: (pi) => cheatcodesWorkflow(pi, { autorun: false }) }] },
     });
     const result = await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent });
-    await result.session.bindExtensions({ uiContext: headlessUi, mode: "print" });
+    console.error(`cheatcodes workflow: constructed session for ${sessionManager.getSessionFile()}`);
+    await result.session.bindExtensions({
+      uiContext: headlessUi,
+      mode: "print",
+      onError: (error) => console.error(`cheatcodes workflow: extension error (${error.extensionPath}): ${error.error}`),
+    });
+    console.error("cheatcodes workflow: extensions bound");
     return {
       ...result,
       services,
@@ -74,7 +104,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     });
   };
   wireEngineCommands();
-  console.error("cheatcodes workflow: runtime ready");
+  console.error(`cheatcodes workflow: runtime ready, session ${runtime.session.sessionFile}`);
   const global = await loadGlobalConfig();
   const timeoutMs = (global?.workerTimeoutMinutes ?? 10) * 60_000;
   // Pi's SDK default is a small fast model; a rollover child resumes from the
