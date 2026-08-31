@@ -44,7 +44,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       cwd,
       // The bounded tools must exist even when project-package discovery is
       // unavailable, so the engine can grant them to each workflow position.
-      resourceLoaderOptions: { extensionFactories: [{ name: "cheatcodes-tools", factory: cheatcodesWorkflow }] },
+      resourceLoaderOptions: { extensionFactories: [{ name: "cheatcodes-tools", factory: (pi) => cheatcodesWorkflow(pi, { autorun: false }) }] },
     });
     const result = await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent });
     await result.session.bindExtensions({ uiContext: headlessUi, mode: "print" });
@@ -74,6 +74,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     });
   };
   wireEngineCommands();
+  console.error("cheatcodes workflow: runtime ready");
   const global = await loadGlobalConfig();
   const timeoutMs = (global?.workerTimeoutMinutes ?? 10) * 60_000;
   // Pi's SDK default is a small fast model; a rollover child resumes from the
@@ -114,7 +115,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     void runtime.session.abort();
   }, timeoutMs);
   try {
+    console.error(`cheatcodes workflow: starting run ${manifestId}`);
     await runtime.session.prompt(`/cheatcodes-curate ${manifestId}`);
+    console.error("cheatcodes workflow: initial prompt resolved");
   } catch (error) {
     console.error(`cheatcodes workflow: worker failed: ${(error as Error).message}`);
     process.exitCode = 1;
@@ -132,6 +135,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (report.status === "completed" || report.status === "parked") break;
     if (report.sessionFile && report.sessionFile !== pumpedFile) {
       pumpedFile = report.sessionFile;
+      console.error(`cheatcodes workflow: session switched to ${report.sessionFile}`);
       wireEngineCommands();
       if (runtime.session.pendingMessageCount === 0 && report.runId && report.positionKey) {
         const kick = `Continue workflow \`${report.runId}\` at ${report.positionKey} (attempt ${report.attempt ?? 1}).`;

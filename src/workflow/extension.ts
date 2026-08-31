@@ -8,6 +8,8 @@ export interface AutorunDeps {
 	spawn?: typeof nodeSpawn;
 	resolveCli?: () => string;
 	loadConfig?: typeof loadGlobalConfig;
+	/** Set false for embedded hosts (the workflow worker already runs curation itself). */
+	autorun?: boolean;
 }
 
 export function defaultResolveCli(): string {
@@ -72,6 +74,7 @@ async function runAutorun(
 /** Pi extension entry: bounded curation tools plus optional session-start autorun. */
 export default function cheatcodesExtension(pi: ExtensionAPI, deps: AutorunDeps = {}): void {
 	for (const tool of createWorkflowTools() as ToolDefinition[]) pi.registerTool(tool);
+	if (deps.autorun === false) return;
 	launchAutorun(pi, {
 		spawn: deps.spawn ?? nodeSpawn,
 		resolveCli: deps.resolveCli ?? defaultResolveCli,
