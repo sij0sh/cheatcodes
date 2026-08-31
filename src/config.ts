@@ -16,6 +16,7 @@ export interface GlobalConfig {
   workerTimeoutMinutes: number;
   knowledgeFile?: string;
   contextPointer?: boolean;
+  autorun?: boolean;
   projectAliases: Record<string, string[]>;
 }
 
@@ -44,7 +45,7 @@ const VERSION_2_EXAMPLE = `{"version":2,"model":"<model>","inputs":[],"workerTim
 export function validateGlobalConfig(value: unknown, source = "config"): GlobalConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${source} must be an object`);
   const raw = value as Record<string, unknown>;
-  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "projectAliases"]);
+  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "autorun", "projectAliases"]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) throw new Error(`${source}.${key} is not a recognized field`);
   }
@@ -69,6 +70,11 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     if (typeof raw.contextPointer !== "boolean") throw new Error(`${source}.contextPointer must be a boolean`);
     contextPointer = raw.contextPointer;
   }
+  let autorun: boolean | undefined;
+  if (raw.autorun !== undefined) {
+    if (typeof raw.autorun !== "boolean") throw new Error(`${source}.autorun must be a boolean`);
+    autorun = raw.autorun;
+  }
   const aliasesRaw = raw.projectAliases;
   if (!aliasesRaw || typeof aliasesRaw !== "object" || Array.isArray(aliasesRaw)) throw new Error(`${source}.projectAliases must be an object`);
   const projectAliases: Record<string, string[]> = {};
@@ -80,7 +86,7 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     workerTimeoutMinutes: timeout,
     knowledgeFile,
     contextPointer,
-    projectAliases,
+    autorun,
   };
 }
 
@@ -115,20 +121,13 @@ export function resolveGlobalInputs(config: GlobalConfig, env: NodeJS.ProcessEnv
 
 export async function discoverDefaultInputs(env: NodeJS.ProcessEnv = process.env): Promise<string[]> {
   const piAgentDir = env.PI_CODING_AGENT_DIR?.trim() || path.join(homedir(), ".pi", "agent");
-  const claudeConfigDir = env.CLAUDE_CONFIG_DIR?.trim() || path.join(homedir(), ".claude");
-  const candidates = [
-    path.join(path.resolve(expandHome(piAgentDir)), "sessions"),
-    path.join(path.resolve(expandHome(claudeConfigDir)), "projects"),
-  ];
-  const discovered: string[] = [];
-  for (const candidate of candidates) {
-    try {
-      if ((await stat(candidate)).isDirectory()) discovered.push(candidate);
-    } catch {
-      // Missing or inaccessible harness directories are not configured.
-    }
+  const candidate = path.join(path.resolve(expandHome(piAgentDir)), "sessions");
+  try {
+    if ((await stat(candidate)).isDirectory()) return [candidate];
+  } catch {
+    // Missing or inaccessible Pi sessions are not configured.
   }
-  return discovered;
+  return [];
 }
 
 export function resolveProjectRoots(config: GlobalConfig, root: string, projectKey: string): string[] {

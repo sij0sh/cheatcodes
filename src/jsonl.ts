@@ -98,26 +98,21 @@ const asString = (value: unknown): string | undefined => typeof value === "strin
 const asBoolean = (value: unknown): boolean | undefined => typeof value === "boolean" ? value : undefined;
 const asNumber = (value: unknown): number | undefined => typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
-const sourceRecordId = (value: Record<string, unknown>): string | undefined => asString(value.id) ?? asString(value.uuid);
-const sourceParentId = (value: Record<string, unknown>): string | undefined => asString(value.parentId) ?? asString(value.parentUuid);
+const sourceRecordId = (value: Record<string, unknown>): string | undefined => asString(value.id);
+const sourceParentId = (value: Record<string, unknown>): string | undefined => asString(value.parentId);
 
 export function sessionHeaderFromRecord(value: unknown): SessionHeader | undefined {
   const raw = asObject(value);
   if (!raw) return undefined;
-  if (raw.type === "session" && asString(raw.id)) {
-    return {
-      type: "session",
-      version: asNumber(raw.version) ?? 1,
-      id: asString(raw.id)!,
-      timestamp: asString(raw.timestamp),
-      cwd: asString(raw.cwd),
-      origin: asString(raw.origin) === WORKER_ORIGIN ? "cheatcodes-worker" : undefined,
-    };
-  }
-  const id = asString(raw.sessionId);
-  const cwd = asString(raw.cwd);
-  if (!id || !cwd) return undefined;
-  return { type: "session", version: 3, id, timestamp: asString(raw.timestamp), cwd, origin: asString(raw.origin) === WORKER_ORIGIN ? "cheatcodes-worker" : undefined };
+  if (raw.type !== "session" || !asString(raw.id)) return undefined;
+  return {
+    type: "session",
+    version: asNumber(raw.version) ?? 1,
+    id: asString(raw.id)!,
+    timestamp: asString(raw.timestamp),
+    cwd: asString(raw.cwd),
+    origin: asString(raw.origin) === WORKER_ORIGIN ? "cheatcodes-worker" : undefined,
+  };
 }
 
 
@@ -224,7 +219,7 @@ function makeReceipt(tool: string, args: Record<string, unknown>, result: Record
   const resultText = textContent(result?.content);
   const details = asObject(result?.details);
   const exitCode = asNumber(result?.exitCode) ?? asNumber(details?.exitCode) ?? asNumber(asObject(details?.ptcValue)?.exitCode);
-  const isError = asBoolean(result?.isError) ?? asBoolean(result?.is_error);
+  const isError = asBoolean(result?.isError);
   const rawPath = firstPath(args);
   const normalizedPath = rawPath && options.projectId && options.projectRoots
     ? normalizeRepositoryPath(rawPath, options.projectId, options.projectRoots, options.cwd)
@@ -304,12 +299,11 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
     if (message?.role !== "assistant" || !Array.isArray(message.content)) continue;
     for (const item of message.content) {
       const block = asObject(item);
-      if (!block || !["toolCall", "tool_call", "functionCall", "tool_use"].includes(String(block.type))) continue;
+      if (!block || block.type !== "toolCall") continue;
       const id = asString(block.id) ?? asString(block.toolCallId);
       const tool = asString(block.name) ?? asString(block.toolName);
-      if (id && tool) calls.set(id, { tool, args: asObject(block.arguments) ?? asObject(block.input) ?? {} });
+      if (id && tool) calls.set(id, { tool, args: asObject(block.arguments) ?? {} });
     }
-  }
 
   const retained: NormalizedRecord[] = [];
   for (const line of lines) {
@@ -326,40 +320,12 @@ function normalizedFromRaw(lines: RawLine[], header: SessionHeader, options: Par
       turnId: turnInitiators.get(line.index),
       ...(header.origin === WORKER_ORIGIN || asString(raw.origin) === WORKER_ORIGIN ? { origin: WORKER_ORIGIN } : {}),
     };
-    const isMessage = raw.type === "message" || raw.type === "user" || raw.type === "assistant";
-    const toolResults = Array.isArray(message?.content)
-      ? message.content.map(asObject).filter((item): item is Record<string, unknown> => item?.type === "tool_result")
-      : [];
-    if (isMessage && role === "user" && toolResults.length > 0) {
-      let retainedTools = 0;
-      for (const result of toolResults) {
-        const callId = asString(result.tool_use_id) ?? asString(result.toolCallId);
-        const call = callId ? calls.get(callId) : undefined;
-        const tool = asString(result.toolName) ?? call?.tool;
-        if (!tool) continue;
-        const receipt = makeReceipt(tool, call?.args ?? {}, result, options);
-        receipt.toolCallId = callId;
-        if (receipt.isError === true && /^(?:read|ls|list|find)$/i.test(tool)) continue;
-        if (/^(?:ls|list|find|glob|grep|search)$/i.test(tool)) continue;
-        const recordId = retainedTools === 0 ? id : `${id}:tool:${retainedTools}`;
-        retained.push({
-          ...base,
-          ...linkage,
-          id: recordId,
-          sourceParentId: retainedTools === 0 ? base.sourceParentId : id,
-          kind: tool === "workflow_transition" ? "workflow" : "tool",
-          role,
-          toolCallId: callId,
-          receipt,
-        });
-        retainedTools++;
-      }
-    } else if (isMessage && role === "user") {
+    if (raw.type === "message" && role === "user") {
       const text = normalizePossiblePaths(textContent(message?.content), options).trim();
       if (substantiveUser(text)) retained.push({ ...base, ...linkage, kind: "user", role, text });
-    } else if (isMessage && role === "assistant" && ["stop", "end_turn"].includes(asString(message?.stopReason) ?? asString(message?.stop_reason) ?? "")) {
+    } else if (raw.type === "message" && role === "assistant" && asString(message?.stopReason) === "stop") {
       const text = normalizePossiblePaths(textContent(message?.content), options).trim();
-      if (text) retained.push({ ...base, ...linkage, kind: "assistant", role, text: compactExcerpt(text, 4_000), assistantStopReason: asString(message?.stopReason) ?? asString(message?.stop_reason) });
+      if (text) retained.push({ ...base, ...linkage, kind: "assistant", role, text: compactExcerpt(text, 4_000), assistantStopReason: asString(message?.stopReason) });
     } else if (raw.type === "message" && role === "toolResult") {
       const callId = asString(message?.toolCallId);
       const call = callId ? calls.get(callId) : undefined;
@@ -414,18 +380,7 @@ export function buildBranches(records: readonly NormalizedRecord[]): NormalizedR
     list.push(record.id);
     children.set(record.parentId, list);
   }
-  // Synthetic tool-result continuations ("<id>:tool:<n>") belong to their base record's
-  // episode: they never fork competing branches and are stitched into the chain instead.
-  const continuations = new Map<string, NormalizedRecord[]>();
-  for (const record of records) {
-    const match = /:tool:\d+$/.exec(record.id);
-    if (!match) continue;
-    const base = record.id.slice(0, match.index);
-    const list = continuations.get(base) ?? [];
-    list.push(record);
-    continuations.set(base, list);
-  }
-  const leaves = records.filter((record) => !(children.get(record.id)?.length) && !/:tool:\d+$/.test(record.id));
+  const leaves = records.filter((record) => !(children.get(record.id)?.length));
   return leaves.map((leaf) => {
     const branch: NormalizedRecord[] = [];
     const seen = new Set<string>();
@@ -434,13 +389,8 @@ export function buildBranches(records: readonly NormalizedRecord[]): NormalizedR
       branch.push(current); seen.add(current.id);
       current = current.parentId ? byId.get(current.parentId) : undefined;
     }
-    const stitched: NormalizedRecord[] = [];
-    for (const record of branch.reverse()) {
-      stitched.push(record);
-      for (const continuation of continuations.get(record.id) ?? []) stitched.push(continuation);
-    }
-    for (const record of stitched) record.branchLeafId ??= leaf.id;
-    return stitched;
+    for (const record of branch) record.branchLeafId ??= leaf.id;
+    return branch.reverse();
   });
 }
 
@@ -471,7 +421,7 @@ export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlO
   const headerLine = lines.find((line) => line.value.type === "session");
   const metadataLine = headerLine ?? lines.find((line) => sessionHeaderFromRecord(line.value));
   const header = metadataLine ? sessionHeaderFromRecord(metadataLine.value) : undefined;
-  if (!header) throw new Error(`${options.file ?? "JSONL"}: missing valid Pi or Claude session metadata`);
+  if (!header) throw new Error(`${options.file ?? "JSONL"}: missing valid Pi session metadata`);
   const entryLines = headerLine ? lines.filter((line) => line !== headerLine) : lines;
   const records = normalizedFromRaw(entryLines, header, { ...options, cwd: options.cwd ?? header.cwd });
   const workerMarked = entryLines.some((line) => isWorkerEntry(line.value));
