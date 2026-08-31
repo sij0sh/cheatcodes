@@ -1,44 +1,43 @@
 # Cheatcodes
 
-Turn lessons from coding-agent sessions into a small, reusable project memory.
+> Turn hard-won lessons from coding-agent sessions into durable, inspectable project guidance.
 
-Cheatcodes reads past Pi and Claude Code sessions, finds durable lessons, and keeps them in `CHEATCODES.md`.
+Cheatcodes is a Node.js CLI that curates Pi and Claude Code sessions into a project-local `CHEATCODES.md` file.
+
+## The problem
+
+Coding agents repeatedly encounter project-specific gotchas, decisions, and working procedures. Those lessons usually remain buried in session logs, so later agents repeat failed approaches or need the same correction again.
+
+Saving whole transcripts does not solve the problem. Transcripts contain noise, temporary details, and guidance that later work may replace. Manually maintaining a large instruction file is easy to postpone and hard to keep current.
+
+Cheatcodes combines an agentic curation workflow with a simple file:
+
+- The workflow finds high-signal episodes such as resolved failures, user corrections, explicit decisions, and validated procedures.
+- A configured model decides whether the evidence supports durable guidance and whether to create or update an entry.
+- The result stays in plain Markdown beside the code, where people and agents can read, edit, review, or delete it.
+
+This split keeps the judgment where an agent is useful and keeps the memory in a format that needs no server, database, or retrieval service.
 
 ## Why use it?
 
-- **Retroactive:** learn from corrections, failed attempts, decisions, and working fixes after the work is done.
-- **Lean:** process only new or changed session data. No server, database, dashboard, or project-local runtime directory.
-- **Simple:** keep the result as readable Markdown beside the code.
-- **Current:** update old guidance instead of piling new notes on top of it.
-- **Portable:** point agents to the same knowledge through `AGENTS.md`.
+- **Retrospective:** Capture lessons after the work, including corrections and successful recoveries.
+- **Focused:** Send bounded evidence packets instead of entire transcripts to the curator model.
+- **Incremental:** Process only new or changed session data on later runs.
+- **Current:** Update related guidance instead of accumulating chronological notes.
+- **Inspectable:** Keep project knowledge in a Git-friendly Markdown file.
+- **Agent-visible:** Add a short pointer from `AGENTS.md` by default.
 
-Cheatcodes is useful when the same lessons keep coming up across agent sessions, but maintaining a large instruction file by hand is not.
+Common secret formats are redacted before evidence reaches the curator model. Runtime cursors and locks stay in the user's state directory rather than the project.
 
-## How it works
+## Prerequisites
 
-1. Scan Pi and Claude Code session logs for the current project.
-2. Look for high-signal moments such as user corrections, resolved failures, decisions, and repeatable procedures.
-3. Send a small, redacted evidence packet to your chosen model.
-4. Create or update an entry in `CHEATCODES.md`.
-5. Remember what was processed so the next run only handles changes.
+- Node.js 22.19 or newer
+- Pi or Claude Code session logs
+- A curator model available through a Pi-compatible model registry
 
-Raw transcript excerpts are not copied into the knowledge file. Common secrets are redacted before curation.
+## Install
 
-## Compared with other approaches
-
-| Approach | Tradeoff | What Cheatcodes adds |
-| --- | --- | --- |
-| Handwritten `AGENTS.md` or `CLAUDE.md` | Very simple, but someone must notice and record every lesson | Learns retrospectively and adds a small pointer to the generated knowledge |
-| Transcript search or archives | Keeps everything, including noise and outdated advice | Keeps only durable, current project guidance |
-| Memory servers and RAG systems | Powerful retrieval, with more infrastructure and hidden state | One inspectable Markdown file and incremental local state |
-
-Cheatcodes is deliberately narrower. It is project memory, not chat search or a general knowledge base.
-
-## Start up
-
-Requires Node.js 22.19 or newer.
-
-### 1. Install from this repository
+From this repository:
 
 ```bash
 npm install
@@ -46,7 +45,7 @@ npm run build
 npm link
 ```
 
-### 2. Choose a curator model
+## Configure
 
 Create `~/.config/cheatcodes/config.json`:
 
@@ -60,16 +59,18 @@ Create `~/.config/cheatcodes/config.json`:
 }
 ```
 
-If Pi is installed, Cheatcodes copies Pi's model registry the first time it needs one. Otherwise it creates `~/.config/cheatcodes/models.json` with an example provider for you to replace. Existing model files are never overwritten.
+Replace `provider/model` with a model from your registry. When Cheatcodes first needs `~/.config/cheatcodes/models.json`, it copies Pi's registry if available. Otherwise, it creates an example registry for you to replace. It never overwrites an existing registry.
 
-Empty `inputs` are fine. On startup, Cheatcodes discovers these folders when present:
+An empty `inputs` list enables automatic discovery of these directories when they exist:
 
 - `~/.pi/agent/sessions`
 - `~/.claude/projects`
 
-You can also add other session folders to `inputs`.
+Add other session files or directories to `inputs` when needed. Set `CHEATCODES_CONFIG` to use a different configuration file.
 
-### 3. Run it from a project
+## First run
+
+Run Cheatcodes from the project whose sessions you want to curate:
 
 ```bash
 cd /path/to/project
@@ -77,41 +78,29 @@ cheatcodes run
 cheatcodes status
 ```
 
-The first run creates:
+`cheatcodes run` scans matching sessions, curates supported lessons, and creates `CHEATCODES.md`. By default, it also creates or updates `AGENTS.md`, or `AGENTS.override.md` when that file already exists, with a pointer to the knowledge file.
 
-- `CHEATCODES.md`, containing curated project knowledge
-- a short `AGENTS.md` pointer so compatible agents know where to look
+`cheatcodes status` reports discovered session files, skipped inputs, the entry count, and the last run.
 
-Runtime cursors and locks stay in the user's state directory, not in the project. Set `"contextPointer": false` if you do not want Cheatcodes to touch `AGENTS.md`.
-
-## Sister shims
-
-Cheatcodes is the shared engine. Its Pi and Claude Code sister shims are thin, host-specific launchers.
-
-They run Cheatcodes at the right point in each agent's lifecycle and pass available context, such as the current project, session file, or model. They do not maintain a second knowledge store or implement separate learning logic.
-
-Use a shim for automatic runs inside its supported agent. Use `cheatcodes run` when you want a manual or tool-independent workflow. Both paths update the same `CHEATCODES.md`.
-
-## Commands
-
-```text
-cheatcodes run      Process new session data for the current project
-cheatcodes status   Show inputs, entry count, and the last run
-```
-
-## Output
-
-`CHEATCODES.md` is plain Markdown. Read it, edit it, review it in Git, or remove entries you no longer want. The file remains useful even without Cheatcodes running.
-
-## Configuration
+## Configuration reference
 
 | Field | Purpose | Default |
 | --- | --- | --- |
 | `model` | Model used to curate evidence | Required |
-| `inputs` | Session files or folders to scan | Discovered Pi and Claude Code folders |
+| `inputs` | Session files or directories to scan | Discovered Pi and Claude Code directories |
 | `workerTimeoutMinutes` | Maximum run time | `10` |
 | `knowledgeFile` | Project-relative output path | `CHEATCODES.md` |
-| `contextPointer` | Add the knowledge pointer to `AGENTS.md` | `true` |
+| `contextPointer` | Add the knowledge pointer to agent instructions | `true` |
 | `projectAliases` | Treat other paths as the same project | `{}` |
 
-Set `CHEATCODES_CONFIG` to use a different config path.
+Set `"contextPointer": false` to leave agent instruction files unchanged. Set `knowledgeFile` to another project-relative path when `CHEATCODES.md` does not fit the repository layout.
+
+## Output
+
+`CHEATCODES.md` is useful without Cheatcodes running. Commit it, review changes in Git, edit entries directly, or remove guidance that no longer applies.
+
+Cheatcodes stores its processing state under the user's XDG state directory, or `~/.local/state/cheatcodes` by default. The project keeps only the knowledge file and, unless disabled, the agent-instruction pointer.
+
+## License
+
+[MIT](LICENSE) - Copyright (c) 2026 Josh Simon.
