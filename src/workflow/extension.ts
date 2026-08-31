@@ -1,6 +1,6 @@
 import { spawn as nodeSpawn } from "node:child_process";
 import { createRequire } from "node:module";
-import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, SessionStartEvent, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { loadGlobalConfig } from "../config.js";
 import { createWorkflowTools } from "./tools.js";
 
@@ -32,35 +32,41 @@ export function launchAutorun(
 	pi.on("session_start", (event, ctx) => {
 		if (event.reason === "reload") return;
 		if (!ctx.isProjectTrusted()) return;
-		void (async () => {
-			if (!(await autorunEnabled(deps.loadConfig))) return;
-			let cliPath: string;
-			try {
-				cliPath = deps.resolveCli();
-			} catch {
-				return;
-			}
-			const env: NodeJS.ProcessEnv = { ...process.env };
-			const sessionFile = ctx.sessionManager.getSessionFile();
-			if (sessionFile) env.CHEATCODES_PI_SESSION_FILE = sessionFile;
-			if (event.previousSessionFile) env.CHEATCODES_PI_PREVIOUS_SESSION_FILE = event.previousSessionFile;
-			if (ctx.model) env.CHEATCODES_PI_MODEL = `${ctx.model.provider}/${ctx.model.id}`;
-			if (ctx.thinkingLevel) env.CHEATCODES_PI_THINKING = ctx.thinkingLevel;
-			try {
-				const child = deps.spawn(process.execPath, [cliPath, "run"], {
-					cwd: ctx.cwd,
-					detached: true,
-					shell: false,
-					stdio: "ignore",
-					env,
-				});
-				child.unref();
-				child.on("error", () => {});
-			} catch {
-				// A missing or failing CLI never breaks a session.
-			}
-		})();
+		return runAutorun(event, ctx, deps);
 	});
+}
+
+async function runAutorun(
+	event: SessionStartEvent,
+	ctx: ExtensionContext,
+	deps: Required<Pick<AutorunDeps, "spawn" | "resolveCli">> & { loadConfig: typeof loadGlobalConfig },
+): Promise<void> {
+	if (!(await autorunEnabled(deps.loadConfig))) return;
+	let cliPath: string;
+	try {
+		cliPath = deps.resolveCli();
+	} catch {
+		return;
+	}
+	const env: NodeJS.ProcessEnv = { ...process.env };
+	const sessionFile = ctx.sessionManager.getSessionFile();
+	if (sessionFile) env.CHEATCODES_PI_SESSION_FILE = sessionFile;
+	if (event.previousSessionFile) env.CHEATCODES_PI_PREVIOUS_SESSION_FILE = event.previousSessionFile;
+	if (ctx.model) env.CHEATCODES_PI_MODEL = `${ctx.model.provider}/${ctx.model.id}`;
+	if (ctx.thinkingLevel) env.CHEATCODES_PI_THINKING = ctx.thinkingLevel;
+	try {
+		const child = deps.spawn(process.execPath, [cliPath, "run"], {
+			cwd: ctx.cwd,
+			detached: true,
+			shell: false,
+			stdio: "ignore",
+			env,
+		});
+		child.unref();
+		child.on("error", () => {});
+	} catch {
+		// A missing or failing CLI never breaks a session.
+	}
 }
 
 /** Pi extension entry: bounded curation tools plus optional session-start autorun. */
