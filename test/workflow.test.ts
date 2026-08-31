@@ -61,7 +61,7 @@ test("buildManifest produces a content-addressed immutable manifest and commits 
   } finally { await clean(); }
 });
 
-async function correctionArcSession(file: string, marker: string): Promise<string> {
+async function correctionArcSession(root: string, file: string, marker: string): Promise<string> {
   const arc = (tag: string) => [
     line({ type: "message", id: `u-${tag}`, parentId: null, timestamp: `2026-01-01T00:0${tag}:00Z`.replace(":000", "0:00"), message: { role: "user", content: [{ type: "text", text: `Batch the ${marker} ${tag} export by fiscal quarter or reconciliation fails.` }] } }),
     line({ type: "message", id: `a-${tag}`, parentId: `u-${tag}`, timestamp: `2026-01-01T00:0${tag}:01Z`, message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: `c-${tag}`, name: "bash", arguments: { command: "npm test" } }] } }),
@@ -72,7 +72,7 @@ async function correctionArcSession(file: string, marker: string): Promise<strin
     line({ type: "message", id: `x-${tag}`, parentId: `w-${tag}`, timestamp: `2026-01-01T00:0${tag}:06Z`, message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: `Done. ${marker} ${tag} batches quarters before export; tests pass.` }] } }),
   ];
   return [
-    line({ type: "session", version: 3, id: file, timestamp: "2026-01-01T00:00:00Z", cwd: file }),
+    line({ type: "session", version: 3, id: file, timestamp: "2026-01-01T00:00:00Z", cwd: root }),
     ...arc("1"), ...arc("2"),
   ].join("");
 }
@@ -83,7 +83,7 @@ test("buildManifest leaves truncated files uncommitted so capped episodes rescan
     const sessions = path.join(root, "sessions");
     await mkdir(sessions, { recursive: true });
     for (let index = 1; index <= 5; index++) {
-      await writeFile(path.join(sessions, `s${index}.jsonl`), await correctionArcSession(`cap-${index}`, `widget${index}`));
+      await writeFile(path.join(sessions, `s${index}.jsonl`), await correctionArcSession(root, `cap-${index}`, `widget${index}`));
     }
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     const first = await buildManifest({ root, env });
