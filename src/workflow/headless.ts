@@ -62,6 +62,38 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   wireEngineCommands();
   const global = await loadGlobalConfig();
   const timeoutMs = (global?.workerTimeoutMinutes ?? 10) * 60_000;
+  // Pi's SDK default is a small fast model; a rollover child resumes from the
+  // engine's bare control message in a fresh context, which needs the stronger
+  // configured model to actually continue the position's work.
+  if (global?.model) {
+    const slash = global.model.indexOf("/");
+    const provider = slash === -1 ? undefined : global.model.slice(0, slash);
+    const rest = slash === -1 ? global.model : global.model.slice(slash + 1);
+    const colon = rest.lastIndexOf(":");
+    const suffix = colon === -1 ? undefined : rest.slice(colon + 1);
+    const thinking = suffix && ["off", "minimal", "low", "medium", "high"].includes(suffix) ? suffix : undefined;
+    const modelId = colon === -1 || thinking ? (colon === -1 ? rest : rest.slice(0, colon)) : rest;
+    const model = provider ? runtime.session.modelRuntime.getModel(provider, modelId) : runtime.session.modelRuntime.getModel("", modelId);
+    if (!model && provider) {
+      // The suffix may be part of the model id.
+      try {
+        const fallback = runtime.session.modelRuntime.getModel(provider, rest);
+        if (fallback) await runtime.session.setModel(fallback);
+      } catch (error) {
+        console.error(`cheatcodes workflow: configured model "${global.model}" unusable: ${(error as Error).message}`);
+      }
+    }
+    if (model) {
+      try {
+        await runtime.session.setModel(model);
+        if (thinking) runtime.session.setThinkingLevel(thinking as Parameters<typeof runtime.session.setThinkingLevel>[0]);
+      } catch (error) {
+        console.error(`cheatcodes workflow: configured model "${global.model}" unusable: ${(error as Error).message}`);
+      }
+    } else if (!provider) {
+      console.error(`cheatcodes workflow: configured model "${global.model}" not found; using session default`);
+    }
+  }
   let pumpedFile = runtime.session.sessionFile;
   const timer = setTimeout(() => {
     console.error(`cheatcodes workflow: worker timed out after ${global?.workerTimeoutMinutes ?? 10} minute(s)`);
