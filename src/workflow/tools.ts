@@ -37,12 +37,15 @@ export function createWorkflowTools(env: NodeJS.ProcessEnv = process.env): ToolD
     description: "Load one harvested evidence episode from a workflow manifest. Accepts manifest and packet ids only; paths are rejected.",
     parameters: Type.Object({
       manifestId: Type.String({ description: "Content-addressed manifest id from the workflow target." }),
-      packetId: Type.String({ description: "Packet id inside the manifest." }),
+      packetId: Type.Optional(Type.String({ description: "Packet id inside the manifest. Omit to list the manifest's packet inventory." })),
     }, { additionalProperties: false }),
     execute: async (_toolCallId, params) => {
       const root = rootFor(env);
       const manifest = await readManifest(root, params.manifestId);
       if (!manifest) return text(`error: unknown manifest ${params.manifestId}`, true);
+      if (params.packetId === undefined) {
+        return text(manifest.packets.map((item) => ({ packetId: item.id, sessionId: item.sessionId, signals: item.signals, userIntent: item.userIntent })));
+      }
       const packet = manifest.packets.find((item) => item.id === params.packetId);
       if (!packet) return text(`error: manifest ${params.manifestId} has no packet ${params.packetId}`, true);
       return text({
