@@ -45,6 +45,21 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     agentDir: getAgentDir(),
     sessionManager: SessionManager.create(cwd),
   });
+  // The SDK builds sessions without command-context actions, so the engine's
+  // ctx.switchSession (used by workflow rollovers) would silently no-op —
+  // the TUI/CLI modes are the only hosts that wire it. Map the commands to
+  // this runtime; rebind for every session a rollover creates.
+  const wireEngineCommands = () => {
+    runtime.session.extensionRunner.bindCommandContext({
+      waitForIdle: () => runtime.session.waitForIdle(),
+      newSession: (options) => runtime.newSession(options),
+      fork: (entryId, options) => runtime.fork(entryId, options),
+      navigateTree: (entryId, options) => runtime.session.navigateTree(entryId, options),
+      switchSession: (sessionPath, options) => runtime.switchSession(sessionPath, options),
+      reload: () => runtime.session.reload(),
+    });
+  };
+  wireEngineCommands();
   const global = await loadGlobalConfig();
   const timeoutMs = (global?.workerTimeoutMinutes ?? 10) * 60_000;
   let pumpedFile = runtime.session.sessionFile;
@@ -71,6 +86,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (report.status === "completed" || report.status === "parked") break;
     if (report.sessionFile && report.sessionFile !== pumpedFile) {
       pumpedFile = report.sessionFile;
+      wireEngineCommands();
       if (runtime.session.pendingMessageCount === 0 && report.runId && report.positionKey) {
         const kick = `Continue workflow \`${report.runId}\` at ${report.positionKey} (attempt ${report.attempt ?? 1}).`;
         await runtime.session.prompt(kick, { streamingBehavior: "followUp" });
