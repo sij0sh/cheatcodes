@@ -76,7 +76,9 @@ export async function findTerminalReport(env: NodeJS.ProcessEnv, root: string, s
           const execution = isRecord(parsed.data.execution) ? parsed.data.execution : undefined;
           if (parsed.data.workflow !== "cheatcodes-curate" || execution?.target !== manifestId) continue;
         }
-        status = parsed.data.status === "completed" ? "completed" : "parked";
+        if (parsed.data.status === "parked") status = "parked";
+        else if (parsed.data.status === "completed") status = "completed";
+        // In-progress snapshots (active, rollover-pending) never satisfy the check.
       }
     }
     if (cwdMatches) return { status, sessionFile: candidate.file };
