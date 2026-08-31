@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { maintainProject, type MaintenanceMode } from "./maintain.js";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { mkdir, readdir, symlink, copyFile } from "node:fs/promises";
+import { maintenanceSchedule, maintainProject, type MaintenanceMode } from "./maintain.js";
 import { projectStatus, runWorker } from "./run.js";
+import { runWorkflowCurator } from "./workflow/runner.js";
 
 const MAINTENANCE_FLAGS = new Set(["--dry-run", "--apply", "--resume"]);
 
@@ -12,6 +15,7 @@ function usage(): string {
     "  cheatcodes run",
     "  cheatcodes status",
     "  cheatcodes maintain [--root <dir>] [--dry-run|--apply|--resume]",
+    "  cheatcodes workflow [--root <dir>] [--install]",
   ].join("\n");
 }
 
@@ -81,6 +85,8 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
       return;
     }
     try {
+      const schedule = await maintenanceSchedule(process.env, parsed.root ? path.resolve(parsed.root) : process.cwd());
+      console.log(`Maintenance ${schedule.due ? "due" : "not due"}${schedule.reasons.length > 0 ? `: ${schedule.reasons.join("; ")}` : ""}.`);
       const outcome = await maintainProject({ mode: parsed.mode, root: parsed.root ? path.resolve(parsed.root) : undefined });
       for (const line of renderPlan(outcome.plan)) console.log(line);
       if (outcome.warning) console.warn(`warning: ${outcome.warning}`);
@@ -89,6 +95,58 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
       }
     } catch (error) {
       console.error(`cheatcodes maintain: ${(error as Error).message}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
+  if (command === "workflow") {
+    let root: string | undefined;
+    let install = false;
+    for (let index = 0; index < rest.length; index++) {
+      const arg = rest[index]!;
+      if (arg === "--root") {
+        root = rest[++index];
+        if (!root) { console.error("cheatcodes workflow: --root requires a directory"); process.exitCode = 2; return; }
+        continue;
+      }
+      if (arg === "--install") { install = true; continue; }
+      console.error(`cheatcodes workflow: unknown option ${arg}`);
+      process.exitCode = 2;
+      return;
+    }
+    if (install) {
+      const workflowsDir = path.join(getAgentDir(), "workflows");
+      const target = path.join(workflowsDir, "cheatcodes-curate");
+      const source = path.resolve(import.meta.dirname ?? ".", "workflows", "cheatcodes-curate");
+      try {
+        await mkdir(workflowsDir, { recursive: true });
+        await readdir(target).then(() => { throw new Error(`target ${target} already exists; remove it or keep it`); }).catch(async (error) => {
+          if (!String(error).includes("already exists")) await symlink(source, target);
+          else throw error;
+        });
+        console.log(`Linked workflow package into ${target}`);
+      } catch {
+        await mkdir(path.dirname(target), { recursive: true });
+        for (const file of ["WORKFLOW.md"]) await copyFile(path.join(source, file), path.join(target, file)).catch(() => undefined);
+        console.log(`Copied workflow package into ${target} (install the package files for steps and contracts)`);
+      }
+      return;
+    }
+    try {
+      const result = await runWorkflowCurator(root ? { root: path.resolve(root) } : {});
+      for (const warning of result.warnings) console.warn(`warning: ${warning}`);
+      if (!result.started) {
+        console.log(`cheatcodes workflow: nothing to curate${result.warning ? ` (${result.warning})` : ""}`);
+        return;
+      }
+      console.log(`cheatcodes workflow: manifest ${result.manifestId}, terminal ${result.terminal?.status ?? "unknown"}.`);
+      if (result.warning) console.warn(`warning: ${result.warning}`);
+      if (result.applied) {
+        console.log(`Applied ${result.applied.transactionId}: ${result.applied.entryCountBefore} -> ${result.applied.entryCountAfter} entries, ${result.applied.tombstones} tombstone(s), ${result.applied.reviews} review(s).`);
+      }
+      if (result.terminal && result.terminal.status !== "completed") process.exitCode = 1;
+    } catch (error) {
+      console.error(`cheatcodes workflow: ${(error as Error).message}`);
       process.exitCode = 1;
     }
     return;

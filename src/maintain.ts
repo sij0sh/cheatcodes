@@ -34,6 +34,7 @@ export async function planMaintenance(env: NodeJS.ProcessEnv, root: string, glob
   const operations = proposeOperations(clusters, entries);
   const verified = entries.filter((entry) => entry.verifiedAt !== undefined).map((entry) => entry.id);
   const survivors = operations.filter((op) => op.op === "merge").map((op) => op.survivorId);
+  const operationsWithCoverage = await withCoverageOps(env, projectKey, entries, operations, verified, survivors);
   const missingVerification = clusters
     .flatMap((cluster) => cluster.entryIds)
     .filter((id) => !verified.includes(id))
@@ -45,7 +46,59 @@ export async function planMaintenance(env: NodeJS.ProcessEnv, root: string, glob
     if (op.op === "delete") resultingCount--;
     if (op.op === "merge") resultingCount -= op.targets.length - 1;
   }
-  return { projectKey, baseRevision: corpusRevision(entries), clusters, operations, reviewedIds: [...new Set([...verified, ...survivors])].sort(), missingVerification, resultingCount };
+  return { projectKey, baseRevision: corpusRevision(entries), clusters, operations: operationsWithCoverage, reviewedIds: [...new Set([...verified, ...survivors])].sort(), missingVerification, resultingCount };
+}
+
+const MAINTENANCE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface MaintenanceSchedule {
+  due: boolean;
+  reasons: string[];
+}
+
+/** Coverage cursor: entries that were never reviewed are nominated, so isolated stale entries cannot hide. */
+async function withCoverageOps(
+  env: NodeJS.ProcessEnv,
+  projectKey: string,
+  entries: readonly KnowledgeEntry[],
+  operations: readonly KnowledgeOperation[],
+  verified: readonly string[],
+  survivors: readonly string[],
+): Promise<KnowledgeOperation[]> {
+  const targeted = new Set<string>();
+  for (const op of operations) {
+    if (op.op === "needs-review") op.targets.forEach((id) => targeted.add(id));
+    else if (op.op === "merge") op.targets.forEach((target) => targeted.add(target.id));
+    else if (op.op === "create") continue; // new entries are reviewed at the next cycle
+    else if (op.op === "delete" || op.op === "update" || op.op === "keep") targeted.add(op.target.id);
+  }
+  let openReviewTargets: string[] = [];
+  try {
+    const state = await loadCurationState(env, projectKey);
+    openReviewTargets = state.reviews.filter((review) => review.status === "open").flatMap((review) => review.targets);
+  } catch { openReviewTargets = []; }
+  const reviewed = new Set([...verified, ...survivors, ...targeted, ...openReviewTargets]);
+  const coverageOps: KnowledgeOperation[] = entries
+    .filter((entry) => !reviewed.has(entry.id))
+    .map((entry) => ({
+      op: "needs-review" as const,
+      targets: [entry.id],
+      conflict: "entry has never been reviewed",
+      nextAction: "verify current truth against the project or remove the entry",
+    }));
+  return [...operations, ...coverageOps];
+}
+
+export async function maintenanceSchedule(env: NodeJS.ProcessEnv, root: string): Promise<MaintenanceSchedule> {
+  const projectKey = await deriveProjectKey(root);
+  const state = await loadCurationState(env, projectKey);
+  const cursor = state.maintenanceCursor;
+  if (!cursor) return { due: true, reasons: ["no maintenance has run yet"] };
+  const age = Date.now() - Date.parse(cursor.at);
+  if (!Number.isFinite(age) || age >= MAINTENANCE_INTERVAL_MS) {
+    return { due: true, reasons: [`last maintenance ${cursor.at} is older than the maintenance interval`] };
+  }
+  return { due: false, reasons: [] };
 }
 
 export interface CommitResult {

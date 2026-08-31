@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "required": ["status"],
+  "additionalProperties": false,
+  "properties": {
+    "status": { "enum": ["staged", "rejected"] },
+    "transactionId": { "type": "string", "maxLength": 120 },
+    "digest": { "type": "string", "maxLength": 80 },
+    "reason": { "type": "string", "maxLength": 600 }
+  }
+}

@@ -216,3 +216,127 @@ test("workflow-engine session entries mark the session as a worker session", asy
     assert.ok(warnings.some((message) => /cheatcodes-worker session excluded/.test(message)));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+import { cp, readFile as readFileFs, writeFile as writeFileFs, mkdir as mkdirFs } from "node:fs/promises";
+import { deriveProjectKey, knowledgeFilePath, loadGlobalConfig } from "../src/config.js";
+import { corpusRevision, parseKnowledgeMarkdown } from "../src/concept.js";
+import { loadCurationState } from "../src/curation-state.js";
+import { commitManifestCursors } from "../src/workflow/manifests.js";
+import { maintainProject } from "../src/maintain.js";
+import { createWorkflowTools } from "../src/workflow/tools.js";
+import { buildManifest } from "../src/workflow/manifests.js";
+
+
+async function writeCuratePackage(workflowsRoot: string): Promise<void> {
+  await cp(path.resolve(import.meta.dirname ?? ".", "..", "workflows", "cheatcodes-curate"), path.join(workflowsRoot, "cheatcodes-curate"), { recursive: true });
+}
+
+async function fixtureProject(): Promise<{ root: string; env: NodeJS.ProcessEnv }> {
+  const root = await mkdtemp(path.join(tmpdir(), "cheatcodes-pipeline-"));
+  const sessions = path.join(root, "sessions");
+  await mkdirFs(sessions, { recursive: true });
+  await writeFileFs(path.join(sessions, "ep.jsonl"), [
+    line({ type: "session", version: 3, id: "ep-1", timestamp: "2026-01-01T00:00:00Z", cwd: root }),
+    line({ type: "message", id: "u1", parentId: null, timestamp: "2026-01-01T00:00:01Z", message: { role: "user", content: [{ type: "text", text: "The report export must batch rows by fiscal quarter or the ledger reconciliation fails on large datasets. Make the export test pass." }] } }),
+    line({ type: "message", id: "a1", parentId: "u1", timestamp: "2026-01-01T00:00:02Z", message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: "c1", name: "bash", arguments: { command: "npm test" } }] } }),
+    line({ type: "message", id: "t1", parentId: "a1", timestamp: "2026-01-01T00:00:03Z", message: { role: "toolResult", toolCallId: "c1", toolName: "bash", content: [{ type: "text", text: "1 failing: export does not batch rows" }], isError: false, exitCode: 1, details: {} } }),
+    line({ type: "message", id: "u2", parentId: "t1", timestamp: "2026-01-01T00:00:04Z", message: { role: "user", content: [{ type: "text", text: "No, batch by fiscal quarter first, then rerun the export." }] } }),
+    line({ type: "message", id: "a2", parentId: "u2", timestamp: "2026-01-01T00:00:05Z", message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: "c2", name: "edit", arguments: { path: "src/export.ts", patch: "batch rows by fiscal quarter" } }] } }),
+    line({ type: "message", id: "t2", parentId: "a2", timestamp: "2026-01-01T00:00:06Z", message: { role: "toolResult", toolCallId: "c2", toolName: "edit", content: [{ type: "text", text: "Edited src/export.ts" }], isError: false, details: {} } }),
+    line({ type: "message", id: "a3", parentId: "t2", timestamp: "2026-01-01T00:00:07Z", message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: "c3", name: "bash", arguments: { command: "npm test" } }] } }),
+    line({ type: "message", id: "t3", parentId: "a3", timestamp: "2026-01-01T00:00:08Z", message: { role: "toolResult", toolCallId: "c3", toolName: "bash", content: [{ type: "text", text: "9 passing" }], isError: false, exitCode: 0, details: {} } }),
+    line({ type: "message", id: "a4", parentId: "t3", timestamp: "2026-01-01T00:00:09Z", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "Fixed. The export now batches rows by fiscal quarter before reconciliation, and the tests pass." }] } }),
+  ].join(""));
+  const { env } = await writeGlobalConfig({ inputs: [sessions] });
+  await writeFileFs(path.join(root, "src.ts"), "export const quarter = 4;\n");
+  await writeFileFs(path.join(root, "CHEATCODES.md"), "# CHEATCODES\n");
+  return { root, env };
+}
+
+test("cheatcodes-curate completes through the engine; the host applies only after terminal success", { skip: !choreograph }, async () => {
+  const { root, env } = await fixtureProject();
+  try {
+    const workflowsRoot = path.join(root, "workflows");
+    await writeCuratePackage(workflowsRoot);
+    const build = await buildManifest({ root, env });
+    const manifest = build.manifest!;
+    const packet = manifest.packets[0]!;
+    const evidenceId = packet.evidence[0]!.id;
+
+    const ext = harness();
+    const toolEnv = { ...env, CHEATCODES_PROJECT_ROOT: root };
+    ext.activeTools.clear();
+    for (const name of ["read", "bash", "load_evidence_episode", "search_knowledge", "inspect_project_fact", "verify_command", "stage_knowledge_transaction"]) ext.activeTools.add(name);
+    choreograph!(ext.pi, workflowsRoot);
+    // Bind the bounded tools to the fixture project root.
+    for (const tool of createWorkflowTools(toolEnv)) (ext.pi.registerTool as (t: unknown) => void)(tool);
+    const ctx = ext.ctx();
+    ext.handlers.get("session_start")!(undefined, ctx);
+    // The runner invokes the slash command (prompt() handles extension commands headlessly).
+    await ext.commands.get("cheatcodes-curate")!.handler(manifest.id, ctx);
+
+    const transition = ext.tools.get("workflow_transition")!;
+    const stageTool = ext.tools.get("stage_knowledge_transaction")!;
+    const settleAndPrompt = async () => {
+      await ext.handlers.get("agent_settled")!(undefined, ctx);
+      return (ext.handlers.get("before_agent_start")!({ systemPrompt: "base" }) as { systemPrompt: string }).systemPrompt;
+    };
+
+    let prompt = await settleAndPrompt();
+    assert.match(ext.sent[0]!, /root\/qualify/);
+    const claim = "Export jobs must batch rows by fiscal quarter before reconciliation.";
+    await transition.execute("id", {
+      key: "root/qualify", status: "completed", met: ["verdicts-recorded"],
+      checkpoint: { summary: "Qualified.", data: { verdicts: [{ packetId: packet.id, verdict: "accept", claims: [{ text: claim, evidence: [evidenceId] }] }] } },
+    }, undefined, () => {}, ctx);
+
+    prompt = await settleAndPrompt();
+    assert.ok(prompt.includes("current truth"), "verify instructions reached position two");
+    await transition.execute("id", {
+      key: "root/verify", status: "completed", met: ["claims-verified"],
+      checkpoint: { summary: "Verified.", data: { claims: [{ packetId: packet.id, text: claim, status: "current", reference: "src.ts:1" }] } },
+    }, undefined, () => {}, ctx);
+
+    prompt = await settleAndPrompt();
+    assert.ok(prompt.includes("search_knowledge"), "reconcile instructions reached position three");
+    const corpusText = await readFileFs(knowledgeFilePath(root, loadGlobalConfig(env)!.knowledgeFile), "utf8").catch(() => "");
+    const baseRevision = corpusRevision(parseKnowledgeMarkdown(corpusText));
+    const operation = { op: "create", entry: { title: "Batch exports by fiscal quarter", summary: "Export jobs must batch rows by fiscal quarter before reconciliation.", body: "Batching prevents ledger reconciliation failures on large datasets.", date: "2026-01-01", tags: ["export"], sources: [packet.sessionId], kind: "procedure" } };
+    const transaction = { baseRevision, packetIds: [packet.id], operations: [operation] };
+    await transition.execute("id", {
+      key: "root/reconcile", status: "completed", met: ["transaction-proposed"],
+      checkpoint: { summary: "Proposed.", data: transaction },
+    }, undefined, () => {}, ctx);
+
+    prompt = await settleAndPrompt();
+    assert.ok(prompt.includes("adversarial"), "challenge runs as a fresh adversarial position");
+    await transition.execute("id", {
+      key: "root/challenge", status: "completed", met: ["mutation-decided"],
+      checkpoint: { summary: "Approved.", data: { decision: "approved", rationale: "Claim is current, evidenced, and non-duplicate.", transaction } },
+    }, undefined, () => {}, ctx);
+
+    prompt = await settleAndPrompt();
+    assert.ok(prompt.includes("stage_knowledge_transaction"), "stage instructions reached the final position");
+    const receipt = await stageTool.execute("id", { transaction } as never, undefined, undefined, undefined as never) as { details: { status: string; transactionId: string; digest: string } };
+    assert.equal(receipt.details.status, "staged");
+    await transition.execute("id", {
+      key: "root/stage", status: "completed", met: ["staged"],
+      checkpoint: { summary: "Staged.", data: { status: "staged", transactionId: receipt.details.transactionId, digest: receipt.details.digest } },
+    }, undefined, () => {}, ctx);
+    await ext.handlers.get("agent_settled")!(undefined, ctx);
+
+    const projectKey = await deriveProjectKey(root);
+    const staged = await loadCurationState(env, projectKey);
+    assert.ok(staged.maintenanceCursor?.pendingTransaction, "transaction is staged in host state");
+    assert.equal(parseKnowledgeMarkdown(await readFileFs(knowledgeFilePath(root, loadGlobalConfig(env)!.knowledgeFile), "utf8").catch(() => "")).length, 0, "corpus is untouched before the host applies");
+
+    const applied = await maintainProject({ env, root, mode: "resume" });
+    assert.ok(applied.committed, "host applies the staged transaction after terminal success");
+    const entries = parseKnowledgeMarkdown(await readFileFs(knowledgeFilePath(root, loadGlobalConfig(env)!.knowledgeFile), "utf8"));
+    assert.equal(entries.length, 1);
+    assert.match(entries[0]!.summary, /fiscal quarter/);
+    await commitManifestCursors({ env, root, manifest });
+    const replay = await buildManifest({ root, env });
+    assert.equal(replay.manifest, undefined, "manifest cursors commit only after terminal success");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
