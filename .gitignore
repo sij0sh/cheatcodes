@@ -2,6 +2,7 @@ node_modules/
 dist/
 .pi-files/
 .cheatcodes/local/
+.cheatcodes/workflow/
 .agents/cheatcode-runs/
 .choreograph/
 .agents/workflows/cheatcodes-curate/.choreograph/runs/20260831151604-7e396b0b/
