@@ -6,6 +6,9 @@ import cheatcodesWorkflow from "./extension.js";
 interface TerminalReport {
   status: "completed" | "parked" | "active" | "unknown";
   sessionFile?: string;
+  runId?: string;
+  positionKey?: string;
+  attempt?: number;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
@@ -44,6 +47,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   });
   const global = await loadGlobalConfig();
   const timeoutMs = (global?.workerTimeoutMinutes ?? 10) * 60_000;
+  let pumpedFile = runtime.session.sessionFile;
   const timer = setTimeout(() => {
     console.error(`cheatcodes workflow: worker timed out after ${global?.workerTimeoutMinutes ?? 10} minute(s)`);
     void runtime.session.abort();
@@ -55,13 +59,23 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  // The prompt resolves when the engine rolls into a child session; the run
-  // keeps going in that session, so stay alive until a terminal snapshot lands.
+  // The prompt resolves at the engine's first session rollover; the run keeps
+  // going in child sessions, so stay alive until a terminal snapshot lands.
+  // A rebinding to a non-terminal child stalls it: in headless mode nothing
+  // pumps the child's first turn (in the TUI the user is the kick), so the
+  // launcher kicks each fresh child once, mirroring the engine's own message.
   const deadline = Date.now() + timeoutMs;
   let report: TerminalReport = { status: "unknown" };
   while (Date.now() < deadline) {
     report = terminalReport(runtime);
     if (report.status === "completed" || report.status === "parked") break;
+    if (report.sessionFile && report.sessionFile !== pumpedFile) {
+      pumpedFile = report.sessionFile;
+      if (runtime.session.pendingMessageCount === 0 && report.runId && report.positionKey) {
+        const kick = `Continue workflow \`${report.runId}\` at ${report.positionKey} (attempt ${report.attempt ?? 1}).`;
+        await runtime.session.prompt(kick, { streamingBehavior: "followUp" });
+      }
+    }
     await new Promise((resolve) => setTimeout(resolve, 2_000));
   }
   clearTimeout(timer);
@@ -69,10 +83,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (report.status !== "completed") process.exitCode = 1;
 }
 
-function terminalReport(runtime: { session: { sessionFile?: string } }): TerminalReport {
+function terminalReport(runtime: { session: { sessionFile?: string; pendingMessageCount?: number } }): TerminalReport {
   const file = runtime.session.sessionFile;
   if (!file) return { status: "unknown" };
   let status: TerminalReport["status"] = "unknown";
+  let runId: string | undefined;
+  let positionKey: string | undefined;
+  let attempt: number | undefined;
   // Rollover can replace the session file between prompt resolution and this read.
   let content: string;
   try { content = readFileSync(file, "utf8"); } catch { return { status, sessionFile: file }; }
@@ -85,8 +102,17 @@ function terminalReport(runtime: { session: { sessionFile?: string } }): Termina
     if (parsed.data.status === "completed") status = "completed";
     else if (parsed.data.status === "parked") status = "parked";
     else if (typeof parsed.data.status === "string") status = "active";
+    const execution = isRecord(parsed.data.execution) ? parsed.data.execution : undefined;
+    if (execution && typeof execution.runId === "string" && Array.isArray(execution.stack) && execution.stack.length > 0) {
+      const top = execution.stack[execution.stack.length - 1];
+      if (isRecord(top) && typeof top.key === "string") {
+        runId = execution.runId;
+        positionKey = top.key;
+        attempt = typeof top.attempt === "number" ? top.attempt : 1;
+      }
+    }
   }
-  return { status, sessionFile: file };
+  return { status, sessionFile: file, runId, positionKey, attempt };
 }
 
 const invoked = process.argv[1] && process.argv[1].endsWith("headless.js");
