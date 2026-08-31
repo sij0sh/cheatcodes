@@ -145,14 +145,15 @@ test("invalid payload fails validation before any write", () => {
 
 test("stale base revision and concurrent corpus change reject the commit", async () => {
   const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
   try {
     const { env } = await writeGlobalConfig({ inputs: [] });
     const base = [entry({ id: "e1", title: "Queue adapter" })];
-    await writeFile(path.join(root, "CHEATCODES.md"), renderKnowledgeMarkdown(base));
+    await writeFile(path.join(root, ".agents", "CHEATCODES.md"), renderKnowledgeMarkdown(base));
     const projectKey = await deriveProjectKey(root);
     const digest = entryDigest(base[0]!);
     const transaction = tx([{ op: "delete", target: { id: "e1", expectedDigest: digest }, reason: "stale", verification: { verifiedAt: "2026-01-01T00:00:00Z", sources: ["cmd: x"] } }], corpusRevision(base), projectKey);
-    await writeFile(path.join(root, "CHEATCODES.md"), renderKnowledgeMarkdown([...base, entry({ id: "e2", title: "Concurrent edit" })]));
+    await writeFile(path.join(root, ".agents", "CHEATCODES.md"), renderKnowledgeMarkdown([...base, entry({ id: "e2", title: "Concurrent edit" })]));
     await assert.rejects(() => commitKnowledgeTransaction(env, root, transaction), /stale transaction/);
     const state = await loadCurationState(env, projectKey);
     assert.deepEqual(state.transactions, []);
@@ -163,15 +164,16 @@ test("stale base revision and concurrent corpus change reject the commit", async
 
 test("failed validation leaves the corpus and curation state untouched", async () => {
   const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
   try {
     const { env } = await writeGlobalConfig({ inputs: [] });
     const base = [entry({ id: "e1", title: "Queue adapter" })];
     const before = renderKnowledgeMarkdown(base);
-    await writeFile(path.join(root, "CHEATCODES.md"), before);
+    await writeFile(path.join(root, ".agents", "CHEATCODES.md"), before);
     const projectKey = await deriveProjectKey(root);
     const transaction = tx([{ op: "update", target: { id: "e1", expectedDigest: "0".repeat(64) }, entry: { title: "Queue adapter", summary: "s", body: "b" } }], corpusRevision(base), projectKey);
     await assert.rejects(() => commitKnowledgeTransaction(env, root, transaction));
-    assert.equal(await readFile(path.join(root, "CHEATCODES.md"), "utf8"), before);
+    assert.equal(await readFile(path.join(root, ".agents", "CHEATCODES.md"), "utf8"), before);
     assert.equal(existsSync(path.join(path.dirname(env.CHEATCODES_STATE!), "curation")), false);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -180,13 +182,14 @@ test("failed validation leaves the corpus and curation state untouched", async (
 
 test("merge and delete persist tombstones across reloads", async () => {
   const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
   try {
     const { env } = await writeGlobalConfig({ inputs: [] });
     const base = [
       entry({ id: "e1", title: "Cache adapter", body: "cache: lru" }),
       entry({ id: "e2", title: "Cache adapter setup", body: "cache config" }),
     ];
-    await writeFile(path.join(root, "CHEATCODES.md"), renderKnowledgeMarkdown(base));
+    await writeFile(path.join(root, ".agents", "CHEATCODES.md"), renderKnowledgeMarkdown(base));
     const projectKey = await deriveProjectKey(root);
     const transaction = tx([{ op: "delete", target: { id: "e2", expectedDigest: entryDigest(base[1]!) }, reason: "duplicate", verification: { verifiedAt: "2026-01-01T00:00:00Z", sources: ["cmd: ls"] } }], corpusRevision(base), projectKey);
     const committed = await commitKnowledgeTransaction(env, root, transaction);
@@ -197,7 +200,7 @@ test("merge and delete persist tombstones across reloads", async () => {
     assert.equal(state.tombstones[0]!.id, "e2");
     assert.equal(state.transactions.length, 1);
     assert.equal(state.packetOutcomes["pkt-1"]?.status, "applied");
-    const corpus = parseKnowledgeMarkdown(await readFile(path.join(root, "CHEATCODES.md"), "utf8"));
+    const corpus = parseKnowledgeMarkdown(await readFile(path.join(root, ".agents", "CHEATCODES.md"), "utf8"));
     assert.deepEqual(corpus.map((item) => item.id), ["e1"]);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -206,10 +209,11 @@ test("merge and delete persist tombstones across reloads", async () => {
 
 test("resume applies a staged transaction and drops a stale one", async () => {
   const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
   try {
     const { env } = await writeGlobalConfig({ inputs: [] });
     const base = [entry({ id: "e1", title: "Loop entry one" }), entry({ id: "e2", title: "Loop entry two" })];
-    await writeFile(path.join(root, "CHEATCODES.md"), renderKnowledgeMarkdown(base));
+    await writeFile(path.join(root, ".agents", "CHEATCODES.md"), renderKnowledgeMarkdown(base));
     const projectKey = await deriveProjectKey(root);
     const operations: KnowledgeOperation[] = [{ op: "needs-review", targets: ["e1", "e2"], conflict: "duplicate loop entries", nextAction: "verify" }];
     const staged: CurationState = { ...emptyCurationState(projectKey), revision: corpusRevision(base), maintenanceCursor: { at: "2026-01-01T00:00:00Z", pendingTransaction: tx(operations, corpusRevision(base), projectKey) } };
@@ -249,6 +253,7 @@ test("clustering nominates duplicates and contradictions without deciding", () =
 
 test("curation state bounds history and round-trips through disk", async () => {
   const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
   try {
     const { env } = await writeGlobalConfig({ inputs: [] });
     const projectKey = await deriveProjectKey(root);
@@ -267,12 +272,13 @@ test("curation state bounds history and round-trips through disk", async () => {
 
 test("maintain dry-run reports plan, verification, and resulting count; apply commits once", async () => {
   const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
   try {
     const { env } = await writeGlobalConfig({ inputs: [] });
     const verified = entry({ id: "e1", title: "Cache adapter", body: "cache: lru", verifiedAt: "2026-01-01T00:00:00Z", verificationSources: ["cmd: ls"] });
     const absorbed = entry({ id: "e2", title: "Cache adapter setup", body: "cache config notes", verifiedAt: "2026-01-01T00:00:00Z", verificationSources: ["cmd: ls"] });
     await mkdir(path.join(root, "sessions"), { recursive: true });
-    await writeFile(path.join(root, "CHEATCODES.md"), renderKnowledgeMarkdown([verified, absorbed, entry({ id: "e3", title: "Queue mode", body: "mode: sync" }), entry({ id: "e4", title: "Queue mode config", body: "mode: async" })]));
+    await writeFile(path.join(root, ".agents", "CHEATCODES.md"), renderKnowledgeMarkdown([verified, absorbed, entry({ id: "e3", title: "Queue mode", body: "mode: sync" }), entry({ id: "e4", title: "Queue mode config", body: "mode: async" })]));
     const dryRun = await maintainProject({ env, root, mode: "dry-run" });
     assert.equal(dryRun.plan!.operations.some((op) => op.op === "merge"), true);
     assert.equal(dryRun.plan!.operations.some((op) => op.op === "needs-review"), true);
@@ -281,7 +287,7 @@ test("maintain dry-run reports plan, verification, and resulting count; apply co
     assert.ok(dryRun.plan!.missingVerification.some((item) => item.id === "e3" || item.id === "e4"));
     const applied = await maintainProject({ env, root, mode: "apply" });
     assert.equal(applied.committed!.reviews, 1);
-    const corpus = parseKnowledgeMarkdown(await readFile(path.join(root, "CHEATCODES.md"), "utf8"));
+    const corpus = parseKnowledgeMarkdown(await readFile(path.join(root, ".agents", "CHEATCODES.md"), "utf8"));
     assert.equal(corpus.length, 3);
     const second = await maintainProject({ env, root, mode: "apply" });
     assert.equal(second.committed!.reviews, 1);

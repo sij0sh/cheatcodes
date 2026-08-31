@@ -249,7 +249,8 @@ async function fixtureProject(): Promise<{ root: string; env: NodeJS.ProcessEnv 
   ].join(""));
   const { env } = await writeGlobalConfig({ inputs: [sessions] });
   await writeFileFs(path.join(root, "src.ts"), "export const quarter = 4;\n");
-  await writeFileFs(path.join(root, "CHEATCODES.md"), "# CHEATCODES\n");
+  await mkdirFs(path.join(root, ".agents"), { recursive: true });
+  await writeFileFs(path.join(root, ".agents", "CHEATCODES.md"), "# CHEATCODES\n");
   return { root, env };
 }
 

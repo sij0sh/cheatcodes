@@ -4,7 +4,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { homedir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { deriveProjectKey, emptyGlobalConfig, globalConfigPath, loadGlobalConfig, validateGlobalConfig } from "../src/config.js";
+import { deriveProjectKey, emptyGlobalConfig, ensureKnowledgeOutput, globalConfigPath, loadGlobalConfig, validateGlobalConfig } from "../src/config.js";
 import type { Curator } from "../src/curate.js";
 import { main } from "../src/cli.js";
 import { projectStatus, runWorker, type RunOptions } from "../src/run.js";
@@ -142,7 +142,7 @@ test("run creates the knowledge file and global state but no project-local runti
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
     assert.equal(result.outcome, "success");
-    await stat(path.join(root, "CHEATCODES.md"));
+    await stat(path.join(root, ".agents", "CHEATCODES.md"));
     const entries = await readdir(root);
     assert.equal(entries.includes(".cheatcodes"), false);
     assert.equal(entries.includes("worker.jsonl"), false);
@@ -162,7 +162,7 @@ test("contextPointer false creates the knowledge file without touching AGENTS.md
     const { env } = await writeGlobalConfig({ inputs: [sessions], contextPointer: false });
     const result = await runWorker(withCurator({ root, env }, fakeCurator({ count: 0 })));
     assert.equal(result.outcome, "success");
-    await stat(path.join(root, "CHEATCODES.md"));
+    await stat(path.join(root, ".agents", "CHEATCODES.md"));
     await assert.rejects(stat(path.join(root, "AGENTS.md")), /ENOENT/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -192,6 +192,19 @@ test("knowledgeFile config moves the knowledge file and the AGENTS pointer", asy
     const status = await projectStatus(root, env);
     assert.equal(status.entries, 1);
     assert.match(status.knowledgeFile, /\.pi-files\/CHEATCODES\.md$/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+test("a legacy root knowledge file moves to the .agents default", async () => {
+  const root = await temporary();
+  try {
+    await writeFile(path.join(root, "CHEATCODES.md"), "# CHEATCODES\n");
+    await writeFile(path.join(root, "AGENTS.md"), "Notes\n\n## Project knowledge\n\nStart with `CHEATCODES.md`.\n");
+    const result = await ensureKnowledgeOutput(root);
+    assert.equal(result.knowledgeFile, path.join(root, ".agents", "CHEATCODES.md"));
+    await stat(path.join(root, ".agents", "CHEATCODES.md"));
+    await assert.rejects(stat(path.join(root, "CHEATCODES.md")), /ENOENT/);
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.match(agents, /Start with `\.agents\/CHEATCODES\.md`\./);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -372,7 +385,7 @@ test("failed runs record the failure and return a failed outcome", async () => {
     assert.match(result.reason!, /curator exploded/);
     const state = await loadGlobalState(env);
     assert.equal(state.projects[result.projectKey!]!.lastRun!.outcome, "failed");
-    await stat(path.join(root, "CHEATCODES.md"));
+    await stat(path.join(root, ".agents", "CHEATCODES.md"));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

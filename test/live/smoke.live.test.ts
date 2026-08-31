@@ -41,7 +41,7 @@ test("live model smoke test", { timeout: 300_000, skip: !model || process.env.CI
     console.log("run result:", JSON.stringify(result, null, 2));
     assert.equal(result.curatorCalls, 1);
     assert.ok(result.entriesWritten >= 1, "expected at least one entry write");
-    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    const knowledge = await readFile(path.join(root, ".agents", "CHEATCODES.md"), "utf8");
     console.log("--- CHEATCODES.md ---");
     console.log(knowledge);
     assert.match(knowledge, /^# CHEATCODES\n/);

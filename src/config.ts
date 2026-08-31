@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { renderKnowledgeMarkdown } from "./concept.js";
@@ -144,7 +144,8 @@ export async function deriveProjectKey(root: string): Promise<string> {
   return `path:${sha256(await realPath(root))}`;
 }
 
-export const DEFAULT_KNOWLEDGE_FILE = "CHEATCODES.md";
+export const DEFAULT_KNOWLEDGE_FILE = ".agents/CHEATCODES.md";
+export const LEGACY_DEFAULT_KNOWLEDGE_FILE = "CHEATCODES.md";
 
 export function knowledgeFilePath(root: string, knowledgeFile = DEFAULT_KNOWLEDGE_FILE): string {
   const resolved = path.resolve(root, knowledgeFile);
@@ -171,8 +172,10 @@ async function updateContextPointer(root: string, knowledgeFile: string): Promis
   const pointer = knowledgePointer(knowledgeFile);
   if (existing.includes(pointer)) return target;
   let next: string;
-  if (existing.includes(LEGACY_KNOWLEDGE_POINTER)) {
-    next = existing.replace(LEGACY_KNOWLEDGE_POINTER, pointer);
+  const legacyPointer = [LEGACY_KNOWLEDGE_POINTER, knowledgePointer(LEGACY_DEFAULT_KNOWLEDGE_FILE)]
+    .find((candidate) => existing.includes(candidate));
+  if (legacyPointer) {
+    next = existing.replace(legacyPointer, pointer);
   } else {
     next = `${existing.trimEnd()}${existing.trim() ? "\n\n" : ""}${pointer}\n`;
   }
@@ -182,8 +185,21 @@ async function updateContextPointer(root: string, knowledgeFile: string): Promis
 
 export interface KnowledgeOutput { knowledgeFile: string; contextFile?: string }
 
+/** Projects initialized before the .agents default keep their corpus at the repo root; move it once. */
+async function migrateLegacyKnowledgeFile(root: string, knowledgePath: string): Promise<void> {
+  const legacyPath = path.join(root, LEGACY_DEFAULT_KNOWLEDGE_FILE);
+  if (legacyPath === knowledgePath) return;
+  let legacy;
+  try { legacy = await stat(legacyPath); } catch { return; }
+  if (!legacy.isFile()) return;
+  try { await readFile(knowledgePath); return; } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  await mkdir(path.dirname(knowledgePath), { recursive: true });
+  await rename(legacyPath, knowledgePath);
+}
+
 export async function ensureKnowledgeOutput(root: string, knowledgeFile = DEFAULT_KNOWLEDGE_FILE, contextPointer = true): Promise<KnowledgeOutput> {
   const knowledgePath = knowledgeFilePath(root, knowledgeFile);
+  if (knowledgeFile === DEFAULT_KNOWLEDGE_FILE) await migrateLegacyKnowledgeFile(root, knowledgePath);
   try {
     await readFile(knowledgePath);
   } catch (error) {

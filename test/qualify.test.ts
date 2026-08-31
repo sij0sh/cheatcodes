@@ -219,7 +219,7 @@ test("typed mode writes only accepted candidates and parks on schema failure", a
   const { root, env, dispose } = await sessionProject();
   try {
     const typedEnv = { ...env, CHEATCODES_CURATOR_MODE: "typed" };
-    const knowledgeFile = path.join(root, "CHEATCODES.md");
+    const knowledgeFile = path.join(root, ".agents", "CHEATCODES.md");
     const acceptOutcome = (packet: HarvestPacket): QualificationOutcome => ({
       response: { entries: [acceptCandidate({
         candidateId: packet.id,

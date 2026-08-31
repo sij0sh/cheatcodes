@@ -2,7 +2,7 @@
 
 > Curate lessons from coding agent sessions into project guidance.
 
-Cheatcodes is a Node.js CLI that turns Pi and Claude Code sessions into a project-local `CHEATCODES.md` file.
+Cheatcodes is a Node.js CLI that turns Pi and Claude Code sessions into a project-local knowledge file, `.agents/CHEATCODES.md` by default.
 
 ## What it does
 
@@ -63,7 +63,7 @@ cheatcodes run
 cheatcodes status
 ```
 
-`cheatcodes run` scans matching sessions, curates supported lessons, and creates `CHEATCODES.md`. By default, it also adds a pointer to `AGENTS.md`, or to `AGENTS.override.md` when the override file already exists.
+`cheatcodes run` scans matching sessions, curates supported lessons, and creates `.agents/CHEATCODES.md`. By default, it also adds a pointer to `AGENTS.md`, or to `AGENTS.override.md` when the override file already exists. A knowledge file left at the legacy root location moves to the new default on the next run.
 
 `cheatcodes status` reports discovered session files, skipped inputs, the entry count, and the last run.
 
@@ -74,15 +74,15 @@ cheatcodes status
 | `model` | Model used to curate evidence | Required |
 | `inputs` | Session files or directories to scan | Discovered Pi and Claude Code directories |
 | `workerTimeoutMinutes` | Maximum run time | `10` |
-| `knowledgeFile` | Project-relative output path | `CHEATCODES.md` |
+| `knowledgeFile` | Project-relative output path | `.agents/CHEATCODES.md` |
 | `contextPointer` | Add the knowledge pointer to agent instructions | `true` |
 | `projectAliases` | Treat other paths as the same project | `{}` |
 
-Set `"contextPointer": false` to leave agent instruction files unchanged. Set `knowledgeFile` to another project-relative path when `CHEATCODES.md` does not fit the repository layout.
+Set `"contextPointer": false` to leave agent instruction files unchanged. Set `knowledgeFile` to another project-relative path when `.agents/CHEATCODES.md` does not fit the repository layout.
 
 ## Output
 
-`CHEATCODES.md` does not require Cheatcodes to be running. You can commit it, review changes in Git, edit entries directly, or remove guidance that no longer applies.
+`.agents/CHEATCODES.md` does not require Cheatcodes to be running. You can commit it, review changes in Git, edit entries directly, or remove guidance that no longer applies.
 
 Cheatcodes stores processing state in the user's XDG state directory, which defaults to `~/.local/state/cheatcodes`. The project keeps only the knowledge file and, unless disabled, the agent instruction pointer.
 

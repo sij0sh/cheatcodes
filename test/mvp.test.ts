@@ -45,12 +45,12 @@ test("first run uses the working directory as the project root and creates one k
     assert.equal(result.root, root);
     assert.equal(result.changedFiles, 1);
     assert.equal(calls.count, 1);
-    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    const knowledge = await readFile(path.join(root, ".agents", "CHEATCODES.md"), "utf8");
     assert.match(knowledge, /^# CHEATCODES\n/);
     assert.match(knowledge, /## Use the repository adapter\n/);
     const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
     assert.match(agents, /## Project knowledge/);
-    assert.match(agents, /`CHEATCODES\.md`/);
+    assert.match(agents, /`\.agents\/CHEATCODES\.md`/);
     const entries = await readdir(root);
     assert.equal(entries.includes(".cheatcodes"), false);
   } finally {
@@ -76,7 +76,7 @@ test("runs are deterministic and incremental with global state cursors", async (
     const first = await runProject({ root, env, curator: fakeCurator(calls) });
     assert.equal(first.curatorCalls, 1);
     assert.equal(first.entriesWritten, 1);
-    const knowledgeFile = path.join(root, "CHEATCODES.md");
+    const knowledgeFile = path.join(root, ".agents", "CHEATCODES.md");
     const knowledgeAfterFirst = await readFile(knowledgeFile, "utf8");
     const stateAfterFirst = await loadGlobalState(env);
     const key = first.projectKey;
@@ -107,7 +107,7 @@ test("a rewritten source file is reconsidered without duplicating entries", asyn
     assert.equal(warnings.some((message) => /source was rewritten/.test(message)), true);
     assert.equal(second.curatorCalls, 1);
     assert.equal(second.entriesWritten, 1);
-    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    const knowledge = await readFile(path.join(root, ".agents", "CHEATCODES.md"), "utf8");
     assert.equal(knowledge.match(/## Use the repository adapter/g)?.length, 1);
     assert.match(knowledge, /session:session-1#records=/);
     assert.match(knowledge, /session:session-2#records=/);
@@ -120,7 +120,7 @@ test("durable output contains no evidence excerpts", async () => {
     const sessions = await sessionsWithFixture(root);
     const { env } = await writeGlobalConfig({ inputs: [sessions] });
     await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
-    const knowledge = await readFile(path.join(root, "CHEATCODES.md"), "utf8");
+    const knowledge = await readFile(path.join(root, ".agents", "CHEATCODES.md"), "utf8");
     assert.equal(knowledge.includes("No, that is wrong"), false);
     assert.equal(knowledge.includes("repository adapter is required"), false);
     assert.equal(knowledge.includes("cheatcodes/"), false);
@@ -248,6 +248,6 @@ test("repository-boundary filtering skips sessions from other roots", async () =
     const calls = { count: 0 };
     const result = await runProject({ root, env, curator: fakeCurator(calls) });
     assert.equal(result.changedFiles, 1);
-    await stat(path.join(root, "CHEATCODES.md"));
+    await stat(path.join(root, ".agents", "CHEATCODES.md"));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
