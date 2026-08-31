@@ -19,6 +19,15 @@ export type ValidationState = "passed" | "failed" | "ambiguous" | "none";
 export const WORKER_ORIGIN = "cheatcodes-worker";
 export type SessionOrigin = "user-session" | "cheatcodes-worker";
 
+const WORKER_ENTRY_TYPES = new Set(["choreograph", "cheatcodes-worker"]);
+
+export function isWorkerEntry(value: unknown): boolean {
+  const raw = asObject(value);
+  if (!raw) return false;
+  if (asString(raw.origin) === WORKER_ORIGIN) return true;
+  return raw.type === "custom" && WORKER_ENTRY_TYPES.has(asString(raw.customType) ?? "");
+}
+
 export interface ToolReceipt {
   toolCallId?: string;
   tool: string;
@@ -465,7 +474,8 @@ export function parseJsonlBytes(bytes: Buffer | Uint8Array, options: ParseJsonlO
   if (!header) throw new Error(`${options.file ?? "JSONL"}: missing valid Pi or Claude session metadata`);
   const entryLines = headerLine ? lines.filter((line) => line !== headerLine) : lines;
   const records = normalizedFromRaw(entryLines, header, { ...options, cwd: options.cwd ?? header.cwd });
-  const origin: SessionOrigin = header.origin === WORKER_ORIGIN || records.some((record) => record.origin === WORKER_ORIGIN)
+  const workerMarked = entryLines.some((line) => isWorkerEntry(line.value));
+  const origin: SessionOrigin = header.origin === WORKER_ORIGIN || workerMarked || records.some((record) => record.origin === WORKER_ORIGIN)
     ? "cheatcodes-worker"
     : "user-session";
   const previous = Math.max(0, Math.min(options.previousCommittedOffset ?? 0, buffer.length));

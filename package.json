@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.84.4",
+    "choreograph": "github:sij0sh/choreograph#bc6b6c8f8836f4f55969a5b474043abf44bdc877",
     "typebox": "^1.3.7",
     "yaml": "^2.8.1",
     "zod": "^4.1.12"
