@@ -288,7 +288,7 @@ test("cheatcodes-curate completes through the engine; the host applies only afte
     const claim = "Export jobs must batch rows by fiscal quarter before reconciliation.";
     await transition.execute("id", {
       key: "root/qualify", status: "completed", met: ["verdicts-recorded"],
-      checkpoint: { summary: "Qualified.", data: { verdicts: [{ packetId: packet.id, verdict: "accept", claims: [{ text: claim, evidence: [evidenceId] }] }] } },
+      checkpoint: { summary: "Qualified.", data: { verdicts: [{ packetId: packet.id, verdict: "accept", notes: "Claims re-verified against current source.", claims: [{ text: claim, evidence: [evidenceId] }] }] } },
     }, undefined, () => {}, ctx);
 
     prompt = await settleAndPrompt();
