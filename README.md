@@ -2,7 +2,7 @@
 
 > Curate lessons from coding agent sessions into project guidance.
 
-Cheatcodes is a Node.js CLI that turns Pi and Claude Code sessions into a project-local knowledge file, `.agents/CHEATCODES.md` by default.
+Cheatcodes is a Node.js CLI that turns Pi sessions into a project-local knowledge file, `.agents/CHEATCODES.md` by default.
 
 ## What it does
 
@@ -12,12 +12,12 @@ The curator receives only bounded evidence from each session. Later runs process
 
 The result is plain Markdown beside the code. People and agents can read, edit, review, or delete it without a server, database, or retrieval service. Cheatcodes adds a short pointer from `AGENTS.md` by default.
 
-Common secret formats are redacted before evidence reaches the curator model. Runtime cursors and locks stay in the user's state directory rather than the project.
+Common secret formats are redacted before evidence reaches the curator model. Sessions outside the configured project roots are skipped. Entries sourced from skipped sessions are removed from the knowledge file on the next run. Runtime cursors and locks stay in the user's state directory rather than the project.
 
 ## Prerequisites
 
 - Node.js 22.19 or newer
-- Pi or Claude Code session logs
+- Pi session logs
 - A curator model available through a Pi-compatible model registry
 
 ## Install
@@ -46,10 +46,7 @@ Create `~/.config/cheatcodes/config.json`:
 
 Replace `provider/model` with a model from your registry. When Cheatcodes needs `~/.config/cheatcodes/models.json` for the first time, it copies Pi's registry if available. Otherwise, it creates an example registry for you to replace. It never overwrites an existing registry.
 
-An empty `inputs` list automatically discovers these directories when they exist:
-
-- `~/.pi/agent/sessions`
-- `~/.claude/projects`
+An empty `inputs` list automatically discovers `~/.pi/agent/sessions` when it exists. Set `PI_CODING_AGENT_DIR` to point at a different Pi agent directory.
 
 Add other session files or directories to `inputs` as needed. Set `CHEATCODES_CONFIG` to use a different configuration file.
 
@@ -67,18 +64,21 @@ cheatcodes status
 
 `cheatcodes status` reports discovered session files, skipped inputs, the entry count, and the last run.
 
+When the package is linked or installed, Pi loads its extension and starts a detached `cheatcodes run` at session start in trusted projects. Set `"autorun": false` to disable this.
+
 ## Configuration reference
 
 | Field | Purpose | Default |
 | --- | --- | --- |
 | `model` | Model used to curate evidence | Required |
-| `inputs` | Session files or directories to scan | Discovered Pi and Claude Code directories |
+| `inputs` | Session files or directories to scan | Discovered Pi sessions directory |
 | `workerTimeoutMinutes` | Maximum run time | `10` |
 | `knowledgeFile` | Project-relative output path | `.agents/CHEATCODES.md` |
 | `contextPointer` | Add the knowledge pointer to agent instructions | `true` |
+| `autorun` | Run `cheatcodes run` when a Pi session starts in a trusted project | `true` |
 | `projectAliases` | Treat other paths as the same project | `{}` |
 
-Set `"contextPointer": false` to leave agent instruction files unchanged. Set `knowledgeFile` to another project-relative path when `.agents/CHEATCODES.md` does not fit the repository layout.
+Set `"contextPointer": false` to leave agent instruction files unchanged. Set `"autorun": false` to require manual runs. Set `knowledgeFile` to another project-relative path when `.agents/CHEATCODES.md` does not fit the repository layout.
 
 ## Output
 
