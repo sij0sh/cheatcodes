@@ -1,10 +1,68 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { maintainProject, type MaintenanceMode } from "./maintain.js";
 import { projectStatus, runWorker } from "./run.js";
 
+const MAINTENANCE_FLAGS = new Set(["--dry-run", "--apply", "--resume"]);
+
 function usage(): string {
-  return "Usage:\n  cheatcodes run\n  cheatcodes status";
+  return [
+    "Usage:",
+    "  cheatcodes run",
+    "  cheatcodes status",
+    "  cheatcodes maintain [--root <dir>] [--dry-run|--apply|--resume]",
+  ].join("\n");
+}
+
+function parseMaintainArgs(rest: string[]): { mode: MaintenanceMode; root?: string } | { error: string } {
+  let mode: MaintenanceMode = "dry-run";
+  let root: string | undefined;
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index]!;
+    if (arg === "--root") {
+      const value = rest[++index];
+      if (!value) return { error: "--root requires a directory" };
+      if (root !== undefined) return { error: "--root given more than once" };
+      root = value;
+      continue;
+    }
+    if (MAINTENANCE_FLAGS.has(arg)) {
+      if (mode !== "dry-run") return { error: "choose only one of --dry-run, --apply, --resume" };
+      mode = arg === "--apply" ? "apply" : arg === "--resume" ? "resume" : "dry-run";
+      continue;
+    }
+    return { error: `unknown maintenance option: ${arg}` };
+  }
+  return { mode, root };
+}
+
+function renderPlan(plan: Awaited<ReturnType<typeof maintainProject>>["plan"]): string[] {
+  if (!plan) return [];
+  const lines = [
+    `Maintenance plan for ${plan.projectKey} (base revision ${plan.baseRevision.slice(0, 12)}):`,
+    `Reviewed (verified): ${plan.reviewedIds.length > 0 ? plan.reviewedIds.join(", ") : "none"}`,
+    `Proposed operations: ${plan.operations.length}`,
+  ];
+  for (const op of plan.operations) {
+    if (op.op === "merge") lines.push(`  - merge ${op.targets.map((target) => target.id).join(", ")} into ${op.survivorId} (${op.reason})`);
+    else if (op.op === "needs-review") lines.push(`  - needs-review ${op.targets.join(", ")}: ${op.conflict}`);
+    else if (op.op === "delete") lines.push(`  - delete ${op.target.id} (${op.reason})`);
+    else if (op.op === "create") lines.push(`  - create entry "${op.entry.title}"`);
+    else if (op.op === "update") lines.push(`  - update ${op.target.id}`);
+    else if (op.op === "keep") lines.push(`  - keep ${op.target.id} (${op.reason})`);
+  }
+  if (plan.clusters.length > 0) {
+    lines.push("Contradictions:");
+    for (const cluster of plan.clusters.filter((candidate) => candidate.kind === "contradiction")) {
+      lines.push(`  - ${cluster.entryIds.join(", ")}: ${cluster.reasons.join("; ")}`);
+    }
+  } else {
+    lines.push("Contradictions: none");
+  }
+  lines.push(`Missing verification: ${plan.missingVerification.length > 0 ? plan.missingVerification.map((item) => item.id).join(", ") : "none"}`);
+  lines.push(`Resulting entries: ${plan.resultingCount}`);
+  return lines;
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
@@ -12,6 +70,27 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   if (!command || command === "help" || command === "--help" || command === "-h") {
     console.log(usage());
     if (!command) process.exitCode = 2;
+    return;
+  }
+  if (command === "maintain") {
+    const parsed = parseMaintainArgs(rest);
+    if ("error" in parsed) {
+      console.error(`cheatcodes maintain: ${parsed.error}`);
+      console.error(usage());
+      process.exitCode = 2;
+      return;
+    }
+    try {
+      const outcome = await maintainProject({ mode: parsed.mode, root: parsed.root ? path.resolve(parsed.root) : undefined });
+      for (const line of renderPlan(outcome.plan)) console.log(line);
+      if (outcome.warning) console.warn(`warning: ${outcome.warning}`);
+      if (outcome.committed) {
+        console.log(`Applied ${outcome.committed.transactionId}: ${outcome.committed.entryCountBefore} -> ${outcome.committed.entryCountAfter} entries, ${outcome.committed.tombstones} tombstone(s), ${outcome.committed.reviews} review(s), revision ${outcome.committed.resultRevision.slice(0, 12)}.`);
+      }
+    } catch (error) {
+      console.error(`cheatcodes maintain: ${(error as Error).message}`);
+      process.exitCode = 1;
+    }
     return;
   }
   if (rest.length > 0) {

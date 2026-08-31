@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+export type EntryKind = "gotcha" | "decision" | "procedure" | "invariant";
+
 export interface KnowledgeEntry {
   id: string;
   title: string;
@@ -8,6 +10,9 @@ export interface KnowledgeEntry {
   date?: string;
   tags?: string[];
   sources?: string[];
+  kind?: EntryKind;
+  verifiedAt?: string;
+  verificationSources?: string[];
 }
 
 export interface CuratedEntryInput {
@@ -90,6 +95,13 @@ function optionalDate(value: unknown, issues: string[]): string | undefined {
   return parsed.toISOString();
 }
 
+function optionalKind(value: unknown, issues: string[]): EntryKind | undefined {
+  if (value === undefined || value === "") return undefined;
+  if (value === "gotcha" || value === "decision" || value === "procedure" || value === "invariant") return value;
+  issues.push("kind must be one of gotcha, decision, procedure, invariant");
+  return undefined;
+}
+
 export function validateEntry(value: unknown): KnowledgeEntry {
   const issues: string[] = [];
   if (!isRecord(value)) throw new KnowledgeValidationError(["entry must be a mapping"]);
@@ -104,18 +116,25 @@ export function validateEntry(value: unknown): KnowledgeEntry {
   const date = optionalDate(value.date, issues);
   const tags = normalizeList(value.tags, "tags", issues);
   const sources = normalizeList(value.sources, "sources", issues);
+  const kind = optionalKind(value.kind, issues);
+  const verifiedAt = optionalDate(value.verifiedAt, issues);
+  const verificationSources = normalizeList(value.verificationSources, "verificationSources", issues);
 
   for (const [field, text] of [["id", id], ["title", title], ["summary", summary], ["body", body]] as const) {
     if (text) rejectReserved(text, field, issues);
   }
   tags.forEach((tag, index) => rejectReserved(tag, `tags[${index}]`, issues));
   sources.forEach((source, index) => rejectReserved(source, `sources[${index}]`, issues));
+  verificationSources.forEach((source, index) => rejectReserved(source, `verificationSources[${index}]`, issues));
 
   if (issues.length > 0) throw new KnowledgeValidationError(issues);
   const entry: KnowledgeEntry = { id, title, summary, body: normalizeMultiline(body) };
   if (date) entry.date = date;
   if (tags.length > 0) entry.tags = tags;
   if (sources.length > 0) entry.sources = sources;
+  if (kind) entry.kind = kind;
+  if (verifiedAt) entry.verifiedAt = verifiedAt;
+  if (verificationSources.length > 0) entry.verificationSources = verificationSources;
   return entry;
 }
 
@@ -126,6 +145,9 @@ interface EntryMetadata {
   date?: string;
   tags?: string[];
   sources?: string[];
+  kind?: EntryKind;
+  verifiedAt?: string;
+  verificationSources?: string[];
 }
 
 function metadataFor(entry: KnowledgeEntry): EntryMetadata {
@@ -133,6 +155,9 @@ function metadataFor(entry: KnowledgeEntry): EntryMetadata {
   if (entry.date) metadata.date = entry.date;
   if (entry.tags && entry.tags.length > 0) metadata.tags = entry.tags;
   if (entry.sources && entry.sources.length > 0) metadata.sources = entry.sources;
+  if (entry.kind) metadata.kind = entry.kind;
+  if (entry.verifiedAt) metadata.verifiedAt = entry.verifiedAt;
+  if (entry.verificationSources && entry.verificationSources.length > 0) metadata.verificationSources = entry.verificationSources;
   return metadata;
 }
 
@@ -152,7 +177,7 @@ function renderBlock(entry: KnowledgeEntry): string {
   ].join("\n");
 }
 
-function normalizeTitleKey(title: string): string {
+export function normalizeTitleKey(title: string): string {
   return title.normalize("NFKC").toLowerCase().trim().replace(/\s+/g, " ");
 }
 
@@ -280,4 +305,31 @@ export function applyCuratedEntry(
     return { entries: updated, changed, id };
   }
   return { entries: [...entries, entry], changed: true, id };
+}
+
+const DIGEST_FIELDS = ["title", "summary", "body", "date", "tags", "sources", "kind", "verifiedAt", "verificationSources"] as const;
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([key, item]) => [key, stableValue(item)]),
+    );
+  }
+  return value;
+}
+
+export function entryDigest(entry: KnowledgeEntry): string {
+  const normalized = validateEntry(entry);
+  const content: Record<string, unknown> = {};
+  for (const field of DIGEST_FIELDS) content[field] = stableValue(normalized[field]);
+  return createHash("sha256").update(JSON.stringify(content)).digest("hex");
+}
+
+export function corpusRevision(entries: readonly KnowledgeEntry[]): string {
+  const ordered = entries.map((entry) => ({ order: entryOrder(validateEntry(entry)), digest: entryDigest(entry) }));
+  ordered.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
+  return createHash("sha256").update(ordered.map((item) => item.digest).join("\n")).digest("hex");
 }
