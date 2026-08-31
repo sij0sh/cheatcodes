@@ -228,7 +228,7 @@ import { buildManifest } from "../src/workflow/manifests.js";
 
 
 async function writeCuratePackage(workflowsRoot: string): Promise<void> {
-  await cp(path.resolve(import.meta.dirname ?? ".", "..", "workflows", "cheatcodes-curate"), path.join(workflowsRoot, "cheatcodes-curate"), { recursive: true });
+  await cp(path.resolve(import.meta.dirname ?? ".", "..", ".agents", "workflows", "cheatcodes-curate"), path.join(workflowsRoot, "cheatcodes-curate"), { recursive: true });
 }
 
 async function fixtureProject(): Promise<{ root: string; env: NodeJS.ProcessEnv }> {

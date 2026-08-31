@@ -10,7 +10,7 @@ import { acquireProjectLock, atomicWrite, loadGlobalState, sha256, updateProject
 export const MANIFEST_VERSION = 1;
 export const MAX_MANIFEST_PACKETS = 8;
 
-export const workflowDir = (root: string): string => path.join(root, ".cheatcodes", "workflow");
+export const workflowDir = (root: string): string => path.join(root, ".agents", "cheatcode-runs");
 export const manifestPath = (root: string, id: string): string => path.join(workflowDir(root), `${id}.json`);
 
 export interface EpisodeManifest {

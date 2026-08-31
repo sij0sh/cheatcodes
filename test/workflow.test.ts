@@ -62,19 +62,23 @@ test("buildManifest produces a content-addressed immutable manifest and commits 
 });
 
 async function correctionArcSession(root: string, file: string, marker: string): Promise<string> {
-  const arc = (tag: string) => [
-    line({ type: "message", id: `u-${tag}`, parentId: null, timestamp: `2026-01-01T00:0${tag}:00Z`.replace(":000", "0:00"), message: { role: "user", content: [{ type: "text", text: `Batch the ${marker} ${tag} export by fiscal quarter or reconciliation fails.` }] } }),
-    line({ type: "message", id: `a-${tag}`, parentId: `u-${tag}`, timestamp: `2026-01-01T00:0${tag}:01Z`, message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: `c-${tag}`, name: "bash", arguments: { command: "npm test" } }] } }),
-    line({ type: "message", id: `t-${tag}`, parentId: `a-${tag}`, timestamp: `2026-01-01T00:0${tag}:02Z`, message: { role: "toolResult", toolCallId: `c-${tag}`, toolName: "bash", content: [{ type: "text", text: "2 failing" }], isError: false, exitCode: 1, details: {} } }),
-    line({ type: "message", id: `v-${tag}`, parentId: `t-${tag}`, timestamp: `2026-01-01T00:0${tag}:03Z`, message: { role: "user", content: [{ type: "text", text: `No, for ${marker} ${tag} batch quarters before the export runs.` }] } }),
-    line({ type: "message", id: `b-${tag}`, parentId: `v-${tag}`, timestamp: `2026-01-01T00:0${tag}:04Z`, message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: `d-${tag}`, name: "edit", arguments: { path: `src/${marker}-${tag}.ts`, patch: "batch quarters" } }] } }),
-    line({ type: "message", id: `w-${tag}`, parentId: `b-${tag}`, timestamp: `2026-01-01T00:0${tag}:05Z`, message: { role: "toolResult", toolCallId: `d-${tag}`, toolName: "edit", content: [{ type: "text", text: "Edited" }], isError: false, details: {} } }),
-    line({ type: "message", id: `x-${tag}`, parentId: `w-${tag}`, timestamp: `2026-01-01T00:0${tag}:06Z`, message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: `Done. ${marker} ${tag} batches quarters before export; tests pass.` }] } }),
-  ];
-  return [
-    line({ type: "session", version: 3, id: file, timestamp: "2026-01-01T00:00:00Z", cwd: root }),
-    ...arc("1"), ...arc("2"),
-  ].join("");
+  const records: unknown[] = [line({ type: "session", version: 3, id: file, timestamp: "2026-01-01T00:00:00Z", cwd: root })];
+  let parent: string | null = null;
+  let second = 0;
+  for (const tag of ["1", "2"]) {
+    const add = (id: string, message: unknown) => {
+      records.push(line({ type: "message", id, parentId: parent, timestamp: `2026-01-01T00:0${tag}:0${second++}Z`, message }));
+      parent = id;
+    };
+    add(`u-${tag}`, { role: "user", content: [{ type: "text", text: `Batch the ${marker} ${tag} export by fiscal quarter or reconciliation fails.` }] });
+    add(`a-${tag}`, { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: `c-${tag}`, name: "bash", arguments: { command: "npm test" } }] });
+    add(`t-${tag}`, { role: "toolResult", toolCallId: `c-${tag}`, toolName: "bash", content: [{ type: "text", text: "2 failing" }], isError: false, exitCode: 1, details: {} });
+    add(`v-${tag}`, { role: "user", content: [{ type: "text", text: `No, for ${marker} ${tag} batch quarters before the export runs.` }] });
+    add(`b-${tag}`, { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: `d-${tag}`, name: "edit", arguments: { path: `src/${marker}-${tag}.ts`, patch: "batch quarters" } }] });
+    add(`w-${tag}`, { role: "toolResult", toolCallId: `d-${tag}`, toolName: "edit", content: [{ type: "text", text: "Edited" }], isError: false, details: {} });
+    add(`x-${tag}`, { role: "assistant", stopReason: "stop", content: [{ type: "text", text: `Done. ${marker} ${tag} batches quarters before export; tests pass.` }] });
+  }
+  return records.join("");
 }
 
 test("buildManifest leaves truncated files uncommitted so capped episodes rescan", async () => {

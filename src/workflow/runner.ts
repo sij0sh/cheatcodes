@@ -23,8 +23,11 @@ export type PiLauncher = (options: { root: string; target: string }) => Promise<
 
 const defaultLauncher: PiLauncher = async ({ root, target }) => {
   const { spawn } = await import("node:child_process");
+  // `pi -p` disposes the session when the triggering turn ends, so the engine
+  // needs this SDK-backed runner to stay alive across workflow turns.
+  const script = path.join(import.meta.dirname ?? ".", "headless.js");
   return await new Promise((resolve) => {
-    const child = spawn("pi", ["-p", `/cheatcodes-curate ${target}`], { cwd: root, stdio: "inherit" });
+    const child = spawn(process.execPath, [script, target], { cwd: root, stdio: "inherit" });
     child.on("error", () => resolve({ exitCode: 127 }));
     child.on("exit", (code) => resolve({ exitCode: code ?? 1 }));
   });
@@ -39,7 +42,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * terminal success only when the newest choreograph snapshot reports
  * `completed`; parked or missing reports never apply staged work.
  */
-export async function findTerminalReport(env: NodeJS.ProcessEnv, root: string, sinceMs: number): Promise<TerminalReport> {
+export async function findTerminalReport(env: NodeJS.ProcessEnv, root: string, sinceMs: number, manifestId?: string): Promise<TerminalReport> {
   const sessionsRoot = path.join(env.PI_CODING_AGENT_DIR ?? getAgentDir(), "sessions");
   const candidates: { file: string; mtimeMs: number }[] = [];
   const walk = async (directory: string, depth: number): Promise<void> => {
@@ -68,6 +71,11 @@ export async function findTerminalReport(env: NodeJS.ProcessEnv, root: string, s
       if (!isRecord(parsed)) continue;
       if (!cwdMatches && parsed.type === "session" && typeof parsed.cwd === "string" && path.resolve(parsed.cwd) === root) cwdMatches = true;
       if (parsed.type === "custom" && parsed.customType === "choreograph" && isRecord(parsed.data) && typeof parsed.data.status === "string") {
+        // A concurrent workflow in the same project must never satisfy this run's terminal check.
+        if (manifestId !== undefined) {
+          const execution = isRecord(parsed.data.execution) ? parsed.data.execution : undefined;
+          if (parsed.data.workflow !== "cheatcodes-curate" || execution?.target !== manifestId) continue;
+        }
         status = parsed.data.status === "completed" ? "completed" : "parked";
       }
     }
@@ -88,7 +96,7 @@ export async function runWorkflowCurator(options: { root?: string; env?: NodeJS.
   const launcher = options.launcher ?? defaultLauncher;
   const launched = await launcher({ root, target: manifest.id });
   if (launched.exitCode === 127) return { started: false, manifestId: manifest.id, warning: "pi CLI is not available; install choreograph and pi to run the curation workflow", warnings };
-  const terminal = await findTerminalReport(env, root, startedAt);
+  const terminal = await findTerminalReport(env, root, startedAt, manifest.id);
   if (terminal.status !== "completed") {
     return { started: true, manifestId: manifest.id, terminal, warning: `workflow did not complete (${terminal.status}); staged work is left pending and cursors are not committed`, warnings };
   }
