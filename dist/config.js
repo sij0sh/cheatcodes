@@ -30,7 +30,7 @@ export function validateGlobalConfig(value, source = "config") {
     if (!value || typeof value !== "object" || Array.isArray(value))
         throw new Error(`${source} must be an object`);
     const raw = value;
-    const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "autorun", "projectAliases"]);
+    const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "autorun", "autoMap", "projectAliases"]);
     for (const key of Object.keys(raw)) {
         if (!allowed.has(key))
             throw new Error(`${source}.${key} is not a recognized field`);
@@ -65,6 +65,12 @@ export function validateGlobalConfig(value, source = "config") {
             throw new Error(`${source}.autorun must be a boolean`);
         autorun = raw.autorun;
     }
+    let autoMap;
+    if (raw.autoMap !== undefined) {
+        if (typeof raw.autoMap !== "boolean")
+            throw new Error(`${source}.autoMap must be a boolean`);
+        autoMap = raw.autoMap;
+    }
     const aliasesRaw = raw.projectAliases;
     if (!aliasesRaw || typeof aliasesRaw !== "object" || Array.isArray(aliasesRaw))
         throw new Error(`${source}.projectAliases must be an object`);
@@ -79,6 +85,7 @@ export function validateGlobalConfig(value, source = "config") {
         knowledgeFile,
         contextPointer,
         autorun,
+        autoMap,
         projectAliases,
     };
 }

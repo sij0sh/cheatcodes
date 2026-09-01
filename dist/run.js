@@ -383,8 +383,18 @@ export async function runWorker(options = {}) {
     let timer;
     if (!options.curator && !options.curatorFactory) {
         timer = setTimeout(() => {
-            rmSync(lock.path, { force: true });
-            process.exit(1);
+            void (async () => {
+                // Record the timeout before the hard exit so ops keep diagnosability;
+                // a state-write failure must never block the kill.
+                try {
+                    await updateProjectState(env, projectKey, (project) => ({ ...project, lastRun: makeRecord(invocationId, "timeout", startedAt, now()) }));
+                }
+                catch {
+                    // Recording is best-effort; exit regardless.
+                }
+                rmSync(lock.path, { force: true });
+                process.exit(1);
+            })();
         }, deadlineMs);
     }
     try {

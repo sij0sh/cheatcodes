@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -71,6 +71,10 @@ test("global config validation enforces the version 2 shape", () => {
   assert.equal(configured.knowledgeFile, ".pi-files/CHEATCODES.md");
   assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), contextPointer: "yes" }), /contextPointer must be a boolean/);
   assert.equal(validateGlobalConfig({ ...emptyGlobalConfig("m"), contextPointer: false }).contextPointer, false);
+  assert.throws(() => validateGlobalConfig({ ...emptyGlobalConfig("m"), autoMap: "yes" }), /autoMap must be a boolean/);
+  assert.equal(validateGlobalConfig({ ...emptyGlobalConfig("m"), autoMap: true }).autoMap, true);
+  assert.equal(validateGlobalConfig({ ...emptyGlobalConfig("m"), autoMap: false }).autoMap, false);
+  assert.equal(validateGlobalConfig(emptyGlobalConfig("m")).autoMap, undefined);
   const valid = validateGlobalConfig(emptyGlobalConfig("m"));
   assert.equal(valid.version, 2);
 });
@@ -392,4 +396,35 @@ test("unknown commands including init and publish fail with exit code 2", async 
     await main(["run", "--model", "x"]);
     assert.equal(process.exitCode, 2);
   } finally { process.exitCode = original; }
+});
+
+test("a config with the documented autoMap flag loads instead of failing at startup", async () => {
+  const { file, env } = await writeGlobalConfig({ inputs: [], autoMap: true });
+  try {
+    const loaded = await loadGlobalConfig(env);
+    assert.equal(loaded?.autoMap, true);
+    assert.equal(JSON.parse(await readFile(file, "utf8")).autoMap, true);
+  } finally { await rm(path.dirname(file), { recursive: true, force: true }); }
+});
+
+test("the watchdog hard exit records the timeout before releasing the lock", async () => {
+  const root = await temporary();
+  const configDir = await temporary("cheatcodes-watchdog-");
+  try {
+    const configFile = path.join(configDir, "config.json");
+    const stateFile = path.join(configDir, "state.json");
+    const child = spawnSync(process.execPath, ["--import", "tsx", path.join("test", "watchdog-child.ts"), "hang", root, configFile, stateFile], {
+      cwd: process.cwd(), encoding: "utf8", timeout: 30_000,
+    });
+    assert.equal(child.status, 1, `child should hard-exit, got ${child.status}: ${child.stderr?.slice(-400)}`);
+    const state = JSON.parse(await readFile(stateFile, "utf8"));
+    const project = Object.values(state.projects)[0] as { lastRun?: { outcome: string; startedAt: string } } | undefined;
+    assert.equal(project?.lastRun?.outcome, "timeout", "hard exit must record lastRun before exiting");
+    assert.ok(project.lastRun!.startedAt);
+    const lockDir = path.join(configDir, "locks");
+    assert.deepEqual(await readdir(lockDir), [], "watchdog releases the project lock");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(configDir, { recursive: true, force: true });
+  }
 });

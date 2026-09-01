@@ -13,6 +13,8 @@ export interface GlobalConfigOptions {
   workerTimeoutMinutes?: number;
   knowledgeFile?: string;
   contextPointer?: boolean;
+  autorun?: boolean;
+  autoMap?: boolean;
   projectAliases?: Record<string, string[]>;
 }
 
@@ -24,6 +26,8 @@ export function globalConfigObject(options: GlobalConfigOptions = {}): Record<st
     workerTimeoutMinutes: options.workerTimeoutMinutes ?? 10,
     ...(options.knowledgeFile !== undefined ? { knowledgeFile: options.knowledgeFile } : {}),
     ...(options.contextPointer !== undefined ? { contextPointer: options.contextPointer } : {}),
+    ...(options.autorun !== undefined ? { autorun: options.autorun } : {}),
+    ...(options.autoMap !== undefined ? { autoMap: options.autoMap } : {}),
     projectAliases: options.projectAliases ?? {},
   };
 }

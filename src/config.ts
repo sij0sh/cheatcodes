@@ -46,7 +46,7 @@ const VERSION_2_EXAMPLE = `{"version":2,"model":"<model>","inputs":[],"workerTim
 export function validateGlobalConfig(value: unknown, source = "config"): GlobalConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${source} must be an object`);
   const raw = value as Record<string, unknown>;
-  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "autorun", "projectAliases"]);
+  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "autorun", "autoMap", "projectAliases"]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) throw new Error(`${source}.${key} is not a recognized field`);
   }
@@ -76,6 +76,11 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     if (typeof raw.autorun !== "boolean") throw new Error(`${source}.autorun must be a boolean`);
     autorun = raw.autorun;
   }
+  let autoMap: boolean | undefined;
+  if (raw.autoMap !== undefined) {
+    if (typeof raw.autoMap !== "boolean") throw new Error(`${source}.autoMap must be a boolean`);
+    autoMap = raw.autoMap;
+  }
   const aliasesRaw = raw.projectAliases;
   if (!aliasesRaw || typeof aliasesRaw !== "object" || Array.isArray(aliasesRaw)) throw new Error(`${source}.projectAliases must be an object`);
   const projectAliases: Record<string, string[]> = {};
@@ -88,6 +93,7 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     knowledgeFile,
     contextPointer,
     autorun,
+    autoMap,
     projectAliases,
   };
 }
