@@ -1,4 +1,5 @@
 import { open, readdir, stat } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { WORKER_ORIGIN, sessionHeaderFromRecord } from "./jsonl.js";
 const SKIPPED_DIRECTORIES = new Set([".cheatcodes", ".git", "node_modules"]);
@@ -53,13 +54,24 @@ async function readHeader(file) {
         await handle.close();
     }
 }
+// Canonical identity must match deriveProjectKey's realpath keying, or a
+// symlink-spelled root marks same-project sessions as foreign and purges them.
+function canonical(value) {
+    try {
+        return realpathSync(value);
+    }
+    catch {
+        return path.resolve(value);
+    }
+}
 function matchProjectRoot(cwd, roots) {
     // Headers recorded on another platform (e.g. Windows "C:\\..." read on POSIX) are not
     // absolute here; resolving them would silently place them inside the current project.
     if (!path.isAbsolute(cwd))
         return undefined;
-    const absolute = path.resolve(cwd);
+    const absolute = canonical(cwd);
     return roots
+        .map(canonical)
         .filter((root) => {
         const relative = path.relative(root, absolute);
         return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
