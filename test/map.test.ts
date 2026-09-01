@@ -16,7 +16,8 @@ import {
   verifyRepoSources,
   type MapContext,
 } from "../src/map.js";
-import { inspectProjectFactTool, inspectProjectTreeTool, TREE_LIMITS } from "../src/workflow/tools.js";
+import { TREE_LIMITS } from "../src/inventory.js";
+import { searchKnowledgeTool } from "../src/workflow/tools.js";
 import { temporary } from "./helpers.js";
 
 const PROJECT = "test-project";
@@ -223,21 +224,21 @@ test("planMapRetirements deletes tagged entries absent from the submitted set", 
   assert.deepEqual(retired[0]!.verification.sources, [SOURCE_REF_A, SOURCE_REF_B]);
 });
 
-test("inspect_project_fact reports the sha256 of the full file content", async () => {
+test("search_knowledge fact mode reports the sha256 of the full file content", async () => {
   const { root, clean } = await mapFixture();
   try {
-    const tool = inspectProjectFactTool({ CHEATCODES_PROJECT_ROOT: root } as NodeJS.ProcessEnv);
+    const tool = searchKnowledgeTool({ CHEATCODES_PROJECT_ROOT: root } as NodeJS.ProcessEnv);
     const result = parseResult(await tool.execute("id", { path: "src/a.ts" } as never, undefined, undefined, undefined as never));
     assert.equal(result.sha256, DIGEST_A);
     assert.equal(result.totalLines, 2);
   } finally { await clean(); }
 });
 
-test("inspect_project_tree lists sorted paths with sizes and skips dependency and metadata directories", async () => {
+test("search_knowledge tree mode lists sorted paths with sizes and skips dependency and metadata directories", async () => {
   const { root, clean } = await mapFixture({ nested: true });
   try {
-    const tool = inspectProjectTreeTool({ CHEATCODES_PROJECT_ROOT: root } as NodeJS.ProcessEnv);
-    const result = parseResult(await tool.execute("id", {} as never, undefined, undefined, undefined as never));
+    const tool = searchKnowledgeTool({ CHEATCODES_PROJECT_ROOT: root } as NodeJS.ProcessEnv);
+    const result = parseResult(await tool.execute("id", { tree: true } as never, undefined, undefined, undefined as never));
     assert.equal(result.truncated, false);
     assert.deepEqual(result.entries.map((entry: { path: string }) => entry.path), [
       "a/", "a/b/", "a/b/c/", "a/b/c/d/", "a/b/c/d/e/",
@@ -248,15 +249,15 @@ test("inspect_project_tree lists sorted paths with sizes and skips dependency an
   } finally { await clean(); }
 });
 
-test("inspect_project_tree marks truncation beyond the depth and entry caps", async () => {
+test("search_knowledge tree mode marks truncation beyond the depth and entry caps", async () => {
   const root = await temporary();
   try {
     await mkdir(path.join(root, "many"), { recursive: true });
     for (let index = 0; index < TREE_LIMITS.entries + 5; index++) {
       await writeFile(path.join(root, "many", `f${String(index).padStart(4, "0")}.txt`), "x");
     }
-    const tool = inspectProjectTreeTool({ CHEATCODES_PROJECT_ROOT: root } as NodeJS.ProcessEnv);
-    const result = parseResult(await tool.execute("id", {} as never, undefined, undefined, undefined as never));
+    const tool = searchKnowledgeTool({ CHEATCODES_PROJECT_ROOT: root } as NodeJS.ProcessEnv);
+    const result = parseResult(await tool.execute("id", { tree: true } as never, undefined, undefined, undefined as never));
     assert.equal(result.truncated, true);
     assert.ok(result.entries.length <= TREE_LIMITS.entries);
   } finally { await rm(root, { recursive: true, force: true }); }

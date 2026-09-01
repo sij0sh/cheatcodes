@@ -102,7 +102,7 @@ test("buildManifest leaves truncated files uncommitted so capped episodes rescan
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("workflow tools resolve evidence, search, inspect, verify, and stage", async () => {
+test("workflow tool resolves evidence, search, inspect, tree, and stage modes", async () => {
   const { root, env, clean } = await fixtureProject();
   try {
     const toolEnv = { ...env, CHEATCODES_PROJECT_ROOT: root };
@@ -112,41 +112,43 @@ test("workflow tools resolve evidence, search, inspect, verify, and stage", asyn
     const manifestId = build.manifest!.id;
     const packetId = build.manifest!.packets[0]!.id;
 
-    const evidence = await run("load_evidence_episode", { manifestId, packetId });
+    const evidence = await run("search_knowledge", { manifestId, packetId });
     assert.ok(!evidence.isError);
     const payload = evidence.details as { evidence: unknown[]; closure: string };
     assert.equal(payload.closure, "assistant-settled");
     assert.ok(payload.evidence.length >= 2);
-    const missing = await run("load_evidence_episode", { manifestId, packetId: "nope" });
+    const missing = await run("search_knowledge", { manifestId, packetId: "nope" });
     assert.equal(missing.isError, true);
+    const inventory = await run("search_knowledge", { manifestId });
+    assert.ok(!inventory.isError, "packetId omitted lists the manifest inventory");
 
     const search = await run("search_knowledge", { query: "quarterly export" });
     const searchPayload = search.details as { corpusRevision: string; results: unknown[] };
     assert.equal(searchPayload.results.length, 0, "empty corpus searches cleanly");
 
-    const inspect = await run("inspect_project_fact", { path: "src.ts", pattern: "quarter" });
+    const inspect = await run("search_knowledge", { path: "src.ts", pattern: "quarter" });
     const inspectPayload = inspect.details as { matchedLines: number; lines: Array<{ line: number; text: string }> };
     assert.equal(inspectPayload.matchedLines, 1);
     assert.equal(inspectPayload.lines[0]!.line, 1);
-    const escape = await run("inspect_project_fact", { path: "../outside.txt" });
+    const escape = await run("search_knowledge", { path: "../outside.txt" });
     assert.equal(escape.isError, true, "path escapes are rejected");
 
-    const unlisted = await run("verify_command", { commandId: "rm -rf" });
-    assert.equal(unlisted.isError, true);
-    const commands = path.join(root, ".cheatcodes", "workflow", "commands.json");
-    await mkdir(path.dirname(commands), { recursive: true });
-    await writeFile(commands, JSON.stringify({ "list": { argv: ["node", "-e", "process.stdout.write('ok')"] } }));
-    const verified = await run("verify_command", { commandId: "list" });
-    const verifyPayload = verified.details as { status: string; exitCode: number; stdoutTail: string };
-    assert.equal(verifyPayload.status, "exited");
-    assert.equal(verifyPayload.stdoutTail, "ok");
+    const tree = await run("search_knowledge", { tree: true });
+    const treePayload = tree.details as { totalFiles: number; truncated: boolean };
+    assert.ok(!tree.isError);
+    assert.ok(treePayload.totalFiles >= 1, "tree mode inventories the project root");
+
+    const noMode = await run("search_knowledge", {});
+    assert.equal(noMode.isError, true, "zero modes returns usage");
+    const twoModes = await run("search_knowledge", { query: "quarter", path: "src.ts" });
+    assert.equal(twoModes.isError, true, "combining modes is rejected");
 
     const { renderKnowledgeMarkdown, validateEntry } = await import("../src/concept.js");
     const seed = validateEntry({ id: "batch-quarter", title: "Batch exports by fiscal quarter", summary: "Batching rows by fiscal quarter is required before reconciliation.", body: "Export jobs must batch rows by fiscal quarter before reconciliation runs.", date: "2026-01-01", tags: ["export"], sources: ["ep-1"], kind: "procedure" });
     const corpus = renderKnowledgeMarkdown([seed]);
     await writeFile(knowledgeFilePath(root, loadGlobalConfig(env)!.knowledgeFile), corpus);
     const entries = parseKnowledgeMarkdown(corpus);
-    const staleStage = await run("stage_knowledge_transaction", { transaction: { baseRevision: "stale", operations: [{ op: "keep", target: { id: entries[0]!.id, expectedDigest: "x" }, reason: "still valid" }] } });
+    const staleStage = await run("search_knowledge", { transaction: { baseRevision: "stale", operations: [{ op: "keep", target: { id: entries[0]!.id, expectedDigest: "x" }, reason: "still valid" }] } });
     assert.equal(staleStage.isError, true);
     const staleDetails = staleStage.details as { reason: string; currentRevision: string };
     assert.equal(staleDetails.reason, "stale-revision");
@@ -155,7 +157,7 @@ test("workflow tools resolve evidence, search, inspect, verify, and stage", asyn
     const { corpusRevision, entryDigest } = await import("../src/concept.js");
     const revision = corpusRevision(entries);
     const op = { op: "update", target: { id: entries[0]!.id, expectedDigest: entryDigest(entries[0]) }, entry: { title: entries[0]!.title, summary: "Batching by fiscal quarter is mandatory before reconciliation.", body: entries[0]!.body, date: "2026-01-01", tags: ["export"], sources: ["ep-1"] } };
-    const staged = await run("stage_knowledge_transaction", { transaction: { baseRevision: revision, packetIds: [packetId], operations: [op] } });
+    const staged = await run("search_knowledge", { transaction: { baseRevision: revision, packetIds: [packetId], operations: [op] } });
     assert.ok(!staged.isError, staged.content[0]?.text);
     const stagedDetails = staged.details as { status: string; transactionId: string };
     assert.equal(stagedDetails.status, "staged");
@@ -170,14 +172,14 @@ test("workflow tools resolve evidence, search, inspect, verify, and stage", asyn
   } finally { await clean(); }
 });
 
-test("inspect_project_fact rejects symlink escapes", async () => {
+test("search_knowledge fact mode rejects symlink escapes", async () => {
   const { root, env, clean } = await fixtureProject();
   try {
     const outside = path.join(os.tmpdir(), `cheatcodes-escape-${Date.now()}.txt`);
     await writeFile(outside, "secret\n");
     await symlink(outside, path.join(root, "link.txt"));
     const tools = new Map(createWorkflowTools({ ...env, CHEATCODES_PROJECT_ROOT: root }).map((tool) => [tool.name, tool]));
-    const result = await tools.get("inspect_project_fact")!.execute("id", { path: "link.txt" } as never, undefined, undefined, undefined as never) as { isError?: boolean };
+    const result = await tools.get("search_knowledge")!.execute("id", { path: "link.txt" } as never, undefined, undefined, undefined as never) as { isError?: boolean };
     assert.equal(result.isError, true);
     await rm(outside, { force: true });
   } finally { await clean(); }
@@ -199,11 +201,11 @@ test("staging reports project-busy instead of racing the project lock", async ()
     const transaction = { baseRevision: corpusRevision(entries), operations: [op] };
     const projectKey = await deriveProjectKey(root);
     const lock = await acquireProjectLock(env, projectKey);
-    const busy = await run("stage_knowledge_transaction", { transaction });
+    const busy = await run("search_knowledge", { transaction });
     assert.equal(busy.isError, true, "staging under a held project lock is rejected");
     assert.equal((busy.details as { reason: string }).reason, "project-busy");
     await lock.release();
-    const staged = await run("stage_knowledge_transaction", { transaction });
+    const staged = await run("search_knowledge", { transaction });
     assert.equal((staged.details as { status: string }).status, "staged");
   } finally { await clean(); }
 });

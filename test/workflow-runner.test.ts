@@ -267,7 +267,7 @@ test("cheatcodes-curate completes through the engine; the host applies only afte
     const ext = harness();
     const toolEnv = { ...env, CHEATCODES_PROJECT_ROOT: root };
     ext.activeTools.clear();
-    for (const name of ["read", "bash", "load_evidence_episode", "search_knowledge", "inspect_project_fact", "verify_command", "stage_knowledge_transaction"]) ext.activeTools.add(name);
+    for (const name of ["read", "bash", "search_knowledge"]) ext.activeTools.add(name);
     choreograph!(ext.pi, workflowsRoot);
     // Bind the bounded tools to the fixture project root.
     for (const tool of createWorkflowTools(toolEnv)) (ext.pi.registerTool as (t: unknown) => void)(tool);
@@ -277,7 +277,7 @@ test("cheatcodes-curate completes through the engine; the host applies only afte
     await ext.commands.get("cheatcodes-curate")!.handler(manifest.id, ctx);
 
     const transition = ext.tools.get("workflow_transition")!;
-    const stageTool = ext.tools.get("stage_knowledge_transaction")!;
+    const stageTool = ext.tools.get("search_knowledge")!;
     const settleAndPrompt = async () => {
       await ext.handlers.get("agent_settled")!(undefined, ctx);
       return (ext.handlers.get("before_agent_start")!({ systemPrompt: "base" }) as { systemPrompt: string }).systemPrompt;
@@ -317,7 +317,7 @@ test("cheatcodes-curate completes through the engine; the host applies only afte
     }, undefined, () => {}, ctx);
 
     prompt = await settleAndPrompt();
-    assert.ok(prompt.includes("stage_knowledge_transaction"), "stage instructions reached the final position");
+    assert.ok(prompt.includes("Stage the challenged transaction"), "stage instructions reached the final position");
     const receipt = await stageTool.execute("id", { transaction } as never, undefined, undefined, undefined as never) as { details: { status: string; transactionId: string; digest: string } };
     assert.equal(receipt.details.status, "staged");
     await transition.execute("id", {

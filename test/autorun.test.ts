@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { test } from "node:test";
-import cheatcodesExtension, { autorunEnabled, defaultResolveCli, launchAutorun, type AutorunDeps } from "../src/workflow/extension.js";
+import cheatcodesExtension, { autorunEnabled, defaultResolveCli, launchAutorun, toolsEnabled, type AutorunDeps } from "../src/workflow/extension.js";
 import type { GlobalConfig } from "../src/config.js";
 
 interface SpawnCall {
@@ -218,16 +218,63 @@ test("async child error event does not crash", async () => {
 	assert.doesNotThrow(() => captured.lastChild!.emit("error", new Error("ENOENT")));
 });
 
-test("default export registers tools and the autorun handler", () => {
-	const tools: unknown[] = [];
+function fakePi(tools: unknown[]) {
 	let handlers = 0;
-	const pi = {
-		registerTool: (tool: unknown) => { tools.push(tool); },
-		on: (name: string, handler: unknown) => { assert.equal(name, "session_start"); assert.ok(handler); handlers++; },
+	return {
+		pi: {
+			registerTool: (tool: unknown) => { tools.push(tool); },
+			on: (name: string, handler: unknown) => { assert.equal(name, "session_start"); assert.ok(handler); handlers++; },
+		},
+		assertHandlers: (expected: number) => assert.equal(handlers, expected),
 	};
-	assert.doesNotThrow(() => cheatcodesExtension(pi as never, {}));
+}
+
+function configLoad(config: GlobalConfig | undefined | Error): AutorunDeps["loadConfig"] {
+	return async () => {
+		if (config instanceof Error) throw config;
+		return config;
+	};
+}
+
+test("default export registers tools and the autorun handler", async () => {
+	const tools: unknown[] = [];
+	const { pi, assertHandlers } = fakePi(tools);
+	await assert.doesNotReject(() => cheatcodesExtension(pi as never, { loadConfig: configLoad(undefined) }));
 	assert.ok(tools.length > 0);
-	assert.equal(handlers, 1);
+	assert.equal(tools[0] && (tools[0] as { name?: string }).name, "search_knowledge");
+	assertHandlers(1);
+});
+
+test("tools: false in config registers no tools but keeps autorun", async () => {
+	const tools: unknown[] = [];
+	const { pi, assertHandlers } = fakePi(tools);
+	await cheatcodesExtension(pi as never, { loadConfig: configLoad(configWith({ tools: false })) });
+	assert.equal(tools.length, 0);
+	assertHandlers(1);
+});
+
+test("deps tools: true overrides config and registers the tools", async () => {
+	const tools: unknown[] = [];
+	const { pi, assertHandlers } = fakePi(tools);
+	await cheatcodesExtension(pi as never, { tools: true, loadConfig: configLoad(configWith({ tools: false })) });
+	assert.ok(tools.length > 0);
+	assertHandlers(1);
+});
+
+test("tools stay on when config validation fails", async () => {
+	const tools: unknown[] = [];
+	const { pi, assertHandlers } = fakePi(tools);
+	await cheatcodesExtension(pi as never, { loadConfig: configLoad(new Error("invalid config")) });
+	assert.ok(tools.length > 0);
+	assertHandlers(1);
+});
+
+test("toolsEnabled reflects the config gate directly", async () => {
+	assert.equal(await toolsEnabled(configLoad(configWith({ tools: false }))), false);
+	assert.equal(await toolsEnabled(configLoad(configWith({ tools: true }))), true);
+	assert.equal(await toolsEnabled(configLoad(configWith({}))), true);
+	assert.equal(await toolsEnabled(configLoad(undefined)), true);
+	assert.equal(await toolsEnabled(configLoad(new Error("boom"))), true);
 });
 
 test("defaultResolveCli resolves the bundled CLI entry", () => {
