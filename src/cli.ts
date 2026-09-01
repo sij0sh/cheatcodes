@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
+import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { maintenanceSchedule, maintainProject, type MaintenanceMode } from "./maintain.js";
 import { runMap } from "./map.js";
@@ -197,5 +198,9 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   }
 }
 
-const invoked = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+// The bin shim is a symlink; compare realpaths so a linked or installed CLI still main()s.
+const invoked = process.argv[1] !== undefined && (() => {
+  try { return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href; }
+  catch { return false; }
+})();
 if (invoked) main().catch((error) => { console.error(`cheatcodes: ${(error as Error).message}`); process.exitCode = 1; });
