@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { getAgentDir, SessionManager, createAgentSessionFromServices, createAgentSessionRuntime, createAgentSessionServices } from "@earendil-works/pi-coding-agent";
+import path from "node:path";
+import { getAgentDir, SessionManager, SettingsManager, createAgentSessionFromServices, createAgentSessionRuntime, createAgentSessionServices } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { loadGlobalConfig } from "../config.js";
 import cheatcodesWorkflow from "./extension.js";
@@ -28,6 +29,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
   const cwd = process.cwd();
+  // The worker is repo-scoped: in-memory settings keep the user's global
+  // packages (including any globally installed workflow engine) out of the
+  // session, and the engine is bound to this project's own .agents/workflows.
+  const extensionSuffix = import.meta.filename?.endsWith(".ts") ? "ts" : "js";
+  const projectWorkflowsExtension = path.join(import.meta.dirname ?? ".", `workflows-extension.${extensionSuffix}`);
   // The SDK leaves extension binding to the host: without bindExtensions the
   // session_start event never reaches package extensions, so a rollover child
   // never restores its run. The stub must be a real object: the runner spreads
@@ -66,9 +72,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const createRuntime = async ({ cwd, sessionManager, sessionStartEvent }: { cwd: string; sessionManager: SessionManager; sessionStartEvent?: never }) => {
     const services = await createAgentSessionServices({
       cwd,
+      settingsManager: SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } }),
       // The bounded tools must exist even when project-package discovery is
       // unavailable, so the engine can grant them to each workflow position.
-      resourceLoaderOptions: { extensionFactories: [{ name: "cheatcodes-tools", factory: (pi) => cheatcodesWorkflow(pi, { autorun: false }) }] },
+      resourceLoaderOptions: {
+        extensionFactories: [{ name: "cheatcodes-tools", factory: (pi) => cheatcodesWorkflow(pi, { autorun: false }) }],
+        additionalExtensionPaths: [projectWorkflowsExtension],
+      },
     });
     const result = await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent });
     console.error(`cheatcodes workflow: constructed session for ${sessionManager.getSessionFile()}`);

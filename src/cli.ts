@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { cp, lstat, mkdir, stat, symlink } from "node:fs/promises";
 import { maintenanceSchedule, maintainProject, type MaintenanceMode } from "./maintain.js";
 import { projectStatus, runWorker } from "./run.js";
 import { runWorkflowCurator } from "./workflow/runner.js";
@@ -15,7 +13,7 @@ function usage(): string {
     "  cheatcodes run",
     "  cheatcodes status",
     "  cheatcodes maintain [--root <dir>] [--dry-run|--apply|--resume]",
-    "  cheatcodes workflow [--root <dir>] [--install]",
+    "  cheatcodes workflow [--root <dir>]",
   ].join("\n");
 }
 
@@ -101,7 +99,6 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   }
   if (command === "workflow") {
     let root: string | undefined;
-    let install = false;
     for (let index = 0; index < rest.length; index++) {
       const arg = rest[index]!;
       if (arg === "--root") {
@@ -109,40 +106,8 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
         if (!root) { console.error("cheatcodes workflow: --root requires a directory"); process.exitCode = 2; return; }
         continue;
       }
-      if (arg === "--install") { install = true; continue; }
       console.error(`cheatcodes workflow: unknown option ${arg}`);
       process.exitCode = 2;
-      return;
-    }
-    if (install) {
-      const workflowsDir = path.join(getAgentDir(), "workflows");
-      const target = path.join(workflowsDir, "cheatcodes-curate");
-      // Assets ship inside the package under .agents/workflows, so this relative
-      // source resolves for published installs, npm link, and repo checkouts alike.
-      const source = path.resolve(import.meta.dirname ?? ".", "..", ".agents", "workflows", "cheatcodes-curate");
-      try {
-        const sourceInfo = await stat(source).catch((error: NodeJS.ErrnoException) => {
-          if (error.code === "ENOENT") throw new Error(`workflow package source not found at ${source}`);
-          throw error;
-        });
-        if (!sourceInfo.isDirectory()) throw new Error(`workflow package source is not a directory: ${source}`);
-        await mkdir(workflowsDir, { recursive: true });
-        const existing = await lstat(target).catch((error: NodeJS.ErrnoException) => {
-          if (error.code === "ENOENT") return undefined;
-          throw error;
-        });
-        if (existing) throw new Error(`target ${target} already exists; remove it or keep it`);
-        try {
-          await symlink(source, target);
-          console.log(`Linked workflow package into ${target}`);
-        } catch {
-          await cp(source, target, { recursive: true, filter: (sourcePath) => path.basename(sourcePath) !== ".choreograph" });
-          console.log(`Copied workflow package into ${target}`);
-        }
-      } catch (error) {
-        console.error(`cheatcodes workflow --install: ${(error as Error).message}`);
-        process.exitCode = 1;
-      }
       return;
     }
     try {

@@ -16,10 +16,7 @@
     "./cli": "./dist/cli.js"
   },
   "files": [
-    "dist",
-    ".agents/workflows/cheatcodes-curate/WORKFLOW.md",
-    ".agents/workflows/cheatcodes-curate/steps",
-    ".agents/workflows/cheatcodes-curate/contracts"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
