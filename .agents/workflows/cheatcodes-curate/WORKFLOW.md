@@ -1,6 +1,6 @@
 ---
 description: Qualify harvested episodes, verify claims against current project truth, reconcile with the corpus, challenge mutations, and stage one transaction.
-legalTools: [load_evidence_episode, search_knowledge, inspect_project_fact, verify_command, stage_knowledge_transaction]
+legalTools: [search_knowledge]
 contracts:
   qualified: contracts/qualified.schema.json
   verified: contracts/verified.schema.json
@@ -47,7 +47,7 @@ episodes from this project. Apply only what the manifest contains.
 
 Be conservative. Reject transient audit chatter, implementation inventories,
 and anything inferable from the current code. Accept only durable, project
-specific guidance that is evidenced by the episode and still true today.
+specific guidance that the episode evidences and that still holds true today.
 
 Park the run (status blocked) when evidence is missing, current verification is
 impossible, or human judgment is required. Do not guess.

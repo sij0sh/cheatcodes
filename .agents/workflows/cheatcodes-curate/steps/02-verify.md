@@ -3,8 +3,7 @@
 You receive the qualified verdicts. For every accepted claim, establish whether
 it is true of the project right now:
 
-- `inspect_project_fact` to read the referenced files or search them.
-- `verify_command` only with an allowlisted command id, never shell text.
+- `search_knowledge` with a `path` to read the referenced files, or with a `query` to search them.
 
 Record each claim as `current`, `stale` (code moved on), `contradicted`
 (project demonstrates the opposite), or `unverified` (no safe check exists).

@@ -1,8 +1,8 @@
 # Qualify episodes
 
-The workflow target is the manifest id. Call `load_evidence_episode` with just
-that manifest id to list its packets, then load each packet id it returned.
-Evaluate every packet; do not skip any.
+The workflow target is the manifest id. Call `search_knowledge` with just
+that manifest id to list its packets, then load each packet id it returned
+by adding `packetId` to the call. Evaluate every packet; do not skip any.
 
 For each packet decide one verdict:
 
