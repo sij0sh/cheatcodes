@@ -22,13 +22,27 @@ Common secret formats are redacted before evidence reaches the curator model. Se
 
 ## Install
 
-From this repository:
+Install as a Pi package:
 
 ```bash
-npm install
-npm run build
-npm link
+pi install git:github.com/sij0sh/cheatcodes
 ```
+
+Pi clones the package, and the committed build makes the CLI and extension work immediately. Keep it current with `pi update --extensions`.
+
+Uninstall:
+
+```bash
+pi remove git:github.com/sij0sh/cheatcodes
+```
+
+To use only the standalone CLI without Pi:
+
+```bash
+npm install -g github:sij0sh/cheatcodes
+```
+
+To develop from a checkout, run `npm install && npm run build`.
 
 ## Configure
 
