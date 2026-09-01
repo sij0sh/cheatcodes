@@ -11,6 +11,7 @@ import {
 import { Type } from "typebox";
 import { z } from "zod";
 import type { HarvestPacket } from "./harvest.js";
+import { RESERVED_TEXT } from "./concept.js";
 import {
   QUALIFIER_PROMPT,
   validateQualification,
@@ -49,6 +50,17 @@ export function validateCuratorResponse(value: unknown, packet: HarvestPacket): 
   const evidenceIds = new Set(packet.evidence.map((item) => item.id));
   const updated = new Set<string>();
   for (const entry of parsed.entries) {
+    // Enforce the corpus reserved-text rule here so violations surface as
+    // schemaInvalid and take the fail-closed parking path instead of throwing
+    // from applyCuratedEntry mid-run.
+    for (const [field, text] of [["title", entry.title], ["summary", entry.summary], ["body", entry.body]] as const) {
+      const marker = RESERVED_TEXT.find((reserved) => text.includes(reserved));
+      if (marker) throw new Error(`${field} must not contain reserved text: ${marker.trim()}`);
+    }
+    entry.tags.forEach((tag, index) => {
+      const marker = RESERVED_TEXT.find((reserved) => tag.includes(reserved));
+      if (marker) throw new Error(`tags[${index}] must not contain reserved text: ${marker.trim()}`);
+    });
     for (const reference of entry.evidenceRefs) if (!evidenceIds.has(reference)) throw new Error(`Unknown evidence reference: ${reference}`);
     if (entry.action === "create" && entry.targetEntryId !== undefined) throw new Error("Create action must not include targetEntryId");
     if (entry.action === "update") {
@@ -141,11 +153,15 @@ export class PiCurator implements Curator {
 }
 
 export function normalizeCuratorOutcome(value: CuratorOutcome | CuratorResponse, packet: HarvestPacket): CuratorOutcome {
-  if ("schemaInvalid" in value) {
-    if (value.response) return { ...value, response: validateCuratorResponse(value.response, packet) };
-    return value;
+  try {
+    if ("schemaInvalid" in value) {
+      if (value.response) return { ...value, response: validateCuratorResponse(value.response, packet) };
+      return value;
+    }
+    return { response: validateCuratorResponse(value, packet), schemaInvalid: false };
+  } catch (error) {
+    return { schemaInvalid: true, warning: (error as Error).message };
   }
-  return { response: validateCuratorResponse(value, packet), schemaInvalid: false };
 }
 
 const GATE_SCHEMA = Type.Union([Type.Literal("pass"), Type.Literal("fail")]);

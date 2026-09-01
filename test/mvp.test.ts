@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import type { Curator } from "../src/curate.js";
+import type { Curator, CuratorResponse } from "../src/curate.js";
+import { normalizeCuratorOutcome, validateCuratorResponse } from "../src/curate.js";
 import { runProject } from "../src/run.js";
 import { loadGlobalState } from "../src/state.js";
 import { normalizeRepositoryPath, parseJsonlBytes, redactSecrets } from "../src/jsonl.js";
@@ -203,6 +204,25 @@ test("secret redaction covers common credential shapes", () => {
   assert.equal(redacted.includes("PRIVATE KEY-----\nabc"), false);
 });
 
+test("secret redaction masks credential names outside the original closed suffix list", () => {
+  const redacted = redactSecrets([
+    "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    "AWS_SECRET_KEY=shortsecretvalue",
+    "DB_PASS=hunter2",
+    "PASSPHRASE=open sesame",
+    "MY_API_KEY=control-value",
+    "AWS_SESSION_TOKEN=control-token-value",
+    "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE",
+  ].join("\n"));
+  assert.equal(redacted.includes("wJalrXUtnFEMI"), false);
+  assert.equal(redacted.includes("shortsecretvalue"), false);
+  assert.equal(redacted.includes("hunter2"), false);
+  assert.equal(redacted.includes("open sesame"), false);
+  assert.equal(redacted.includes("control-value"), false, "pre-existing controls stay masked");
+  assert.equal(redacted.includes("control-token-value"), false, "pre-existing controls stay masked");
+  assert.equal(redacted.includes("AKIAIOSFODNN7EXAMPLE"), false, "AKIA literal rule still fires first");
+});
+
 test("repository path normalization scopes paths to the project and redacts outside paths", () => {
   const root = "/repo";
   assert.equal(normalizeRepositoryPath("src/a.ts", "key", [root], root), "repo://key/src/a.ts");
@@ -259,5 +279,51 @@ test("repository-boundary filtering skips sessions from other roots", async () =
     const result = await runProject({ root, env, curator: fakeCurator(calls) });
     assert.equal(result.changedFiles, 1);
     await stat(path.join(root, ".agents", "CHEATCODES.md"));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+const packetStub = { evidence: [{ id: "e1" }] } as unknown as Parameters<typeof validateCuratorResponse>[1];
+
+function responseWithBody(body: string): CuratorResponse {
+  return { entries: [{ action: "create", title: "Use the repository adapter", summary: "Repository access uses the adapter.", body, tags: ["repository"], evidenceRefs: ["e1"] }] };
+}
+
+test("curator response validation rejects reserved text instead of crashing at apply time", () => {
+  assert.throws(() => validateCuratorResponse(responseWithBody("The adapter boundary --> is the persistence line."), packetStub), /must not contain reserved text/);
+  assert.throws(() => validateCuratorResponse(responseWithBody("<!-- cheatcodes-entry x -->"), packetStub), /must not contain reserved text/);
+  const clean = normalizeCuratorOutcome(responseWithBody("The repository adapter is the only persistence boundary."), packetStub);
+  assert.equal(clean.schemaInvalid, false);
+  const rejected = normalizeCuratorOutcome(responseWithBody("arrow --> body"), packetStub);
+  assert.equal(rejected.schemaInvalid, true);
+  assert.match(rejected.warning!, /must not contain reserved text/);
+});
+
+test("a reserved-text curator entry parks its file and later files still curate", async () => {
+  const root = await temporary();
+  try {
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions);
+    await writeFile(path.join(sessions, "one.jsonl"), fixture(root, "s1"));
+    await writeFile(path.join(sessions, "two.jsonl"), fixture(root, "s2"));
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    const calls = { count: 0 };
+    const poisonedCurator: Curator = { async curate(packet) {
+      calls.count++;
+      if (packet.sessionId === "s1") return responseWithBody("The adapter boundary --> is the persistence line.");
+      return { entries: [{ action: "create", title: "Use the repository adapter", summary: "Repository access uses the adapter.", body: "The repository adapter is the only persistence boundary.", tags: ["repository"], evidenceRefs: [packet.evidence[0]!.id] }] };
+    } };
+    const warnings: string[] = [];
+    const result = await runProject({ root, env, curator: poisonedCurator, onWarning: (message) => warnings.push(message) });
+    assert.equal(result.unresolvedFiles, 1, "the poisoned file parks instead of throwing");
+    assert.equal(result.entriesWritten, 1, "the second file still curates");
+    assert.equal(calls.count, 2);
+    assert.ok(warnings.some((warning) => warning.includes("parking") && warning.includes("must not contain reserved text")));
+    const state = await loadGlobalState(env);
+    const cursors = state.projects[result.projectKey]!.files;
+    assert.equal(Object.keys(cursors).length, 1, "only the clean file advances its cursor");
+    assert.ok(Object.keys(cursors)[0]!.endsWith("two.jsonl"));
+    const rerun = await runProject({ root, env, curator: poisonedCurator });
+    assert.equal(rerun.unresolvedFiles, 1, "rerun parks again instead of crashing");
+    assert.equal(calls.count, 3, "poisoned session is retried on rerun");
   } finally { await rm(root, { recursive: true, force: true }); }
 });

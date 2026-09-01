@@ -21,6 +21,9 @@ export type SessionOrigin = "user-session" | "cheatcodes-worker";
 
 const WORKER_ENTRY_TYPES = new Set(["choreograph", "cheatcodes-worker"]);
 
+// Shared by redactSecrets and the bash-excerpt guard so both sinks gate on the same set.
+const CREDENTIAL_SUFFIX = "(?:TOKEN|SECRET|PASSWORD|PASSWD|PASSPHRASE|PASS|KEY|CREDENTIALS?)";
+
 export function isWorkerEntry(value: unknown): boolean {
   const raw = asObject(value);
   if (!raw) return false;
@@ -136,7 +139,9 @@ export function redactSecrets(input: string): string {
   value = value.replace(/\b(?:gh[opusr]|github_pat)_[A-Za-z0-9_]{16,}\b/g, "[REDACTED TOKEN]");
   value = value.replace(/\bAKIA[0-9A-Z]{16}\b/g, "[REDACTED AWS KEY]");
   value = value.replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/@:]+):([^\s/@]+)@/gi, "$1[REDACTED]@[REDACTED-HOST]/");
-  value = value.replace(/\b([A-Z][A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|PRIVATE_KEY))\s*=\s*(?:(['"])[\s\S]*?\2|[^\s;&|]+)/gi, "$1=[REDACTED]");
+  // Over-redaction is the accepted failure mode; a bare KEY suffix subsumes ACCESS_KEY and SECRET_KEY.
+  // The name prefix is optional so a name that is exactly a suffix (PASSPHRASE=) still matches.
+  value = value.replace(new RegExp(`\\b((?:[A-Z][A-Z0-9_]*)?${CREDENTIAL_SUFFIX})\\s*=\\s*(?:(['"])[\\s\\S]*?\\2|[^\\s;&|]+)`, "gi"), "$1=[REDACTED]");
   value = value.replace(/(["']?(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)["']?\s*[:=]\s*["']?)[^\s,"'}]+/gi, "$1[REDACTED]");
   return value;
 }
@@ -240,7 +245,7 @@ function makeReceipt(tool: string, args: Record<string, unknown>, result: Record
     const patch = asString(args.patch) ?? asString(args.new_text) ?? asString(args.content) ?? resultText;
     if (patch) receipt.excerpt = compactExcerpt(normalizePossiblePaths(patch, options));
   } else if (/^(?:bash|shell|exec)$/i.test(tool)) {
-    if (resultText && !/PRIVATE KEY|\b(?:TOKEN|SECRET|PASSWORD|API_KEY)\s*=/i.test(resultText)) {
+    if (resultText && !new RegExp(`PRIVATE KEY|\\b(?:[A-Z][A-Z0-9_]*)?${CREDENTIAL_SUFFIX}\\s*=`, "i").test(resultText)) {
       receipt.excerpt = compactExcerpt(normalizePossiblePaths(resultText, options));
     }
   }
