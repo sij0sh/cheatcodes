@@ -143,6 +143,26 @@ test("invalid payload fails validation before any write", () => {
   assert.ok(issues.some((issue) => issue.includes("reserved text")));
 });
 
+test("a create that interleaves into the sorted corpus still round-trips", async () => {
+  const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
+  try {
+    const { env } = await writeGlobalConfig({ inputs: [] });
+    const base = [entry({ id: "e1", title: "Queue adapter" })];
+    const corpus = path.join(root, ".agents", "CHEATCODES.md");
+    await writeFile(corpus, renderKnowledgeMarkdown(base));
+    const projectKey = await deriveProjectKey(root);
+    const transaction = tx([{ op: "create", entry: { title: "Aardvark config", summary: "s", body: "b", sources: ["repo:src/a.ts#sha256=" + "a".repeat(64), "repo:src/b.ts#sha256=" + "b".repeat(64)] } }], corpusRevision(base), projectKey);
+    const committed = await commitKnowledgeTransaction(env, root, transaction);
+    assert.equal(committed.entryCountAfter, 2);
+    const after = await readFile(corpus, "utf8");
+    const ids = parseKnowledgeMarkdown(after).map((item) => item.id);
+    assert.deepEqual(ids, [deriveEntryId(projectKey, "Aardvark config"), "e1"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("stale base revision and concurrent corpus change reject the commit", async () => {
   const root = await temporary();
   await mkdir(path.join(root, ".agents"), { recursive: true });

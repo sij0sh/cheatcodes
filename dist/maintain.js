@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { corpusRevision, entryDigest, parseKnowledgeDocument, parseKnowledgeMarkdown, renderKnowledgeDocument, } from "./concept.js";
+import { corpusRevision, entryDigest, entryOrder, parseKnowledgeDocument, parseKnowledgeMarkdown, renderKnowledgeDocument, } from "./concept.js";
 import { deriveProjectKey, globalConfigPath, knowledgeFilePath, loadGlobalConfig } from "./config.js";
 import { loadCurationState, saveCurationState } from "./curation-state.js";
 import { clusterCandidates, proposeOperations } from "./reconcile.js";
@@ -94,10 +94,13 @@ export async function commitKnowledgeTransaction(env, root, transaction, lock) {
         }
         // Steps 5-7: validate operations, apply in memory, validate resulting entries.
         const applied = applyKnowledgeTransaction(entries, transaction, transaction.projectKey);
+        // The rendered document orders entries canonically; creates may interleave,
+        // so the round-trip comparison must use that same order.
+        const ordered = [...applied.entries].sort((a, b) => (entryOrder(a) < entryOrder(b) ? -1 : entryOrder(a) > entryOrder(b) ? 1 : 0));
         // Steps 8-9: render and re-parse; the round-trip must reproduce the entry set.
-        const rendered = renderKnowledgeDocument({ entries: applied.entries, regions: document.regions });
+        const rendered = renderKnowledgeDocument({ entries: ordered, regions: document.regions });
         const reparsed = parseKnowledgeMarkdown(rendered);
-        if (reparsed.length !== applied.entries.length || reparsed.some((entry, index) => entryDigest(entry) !== entryDigest(applied.entries[index]))) {
+        if (reparsed.length !== ordered.length || reparsed.some((entry, index) => entryDigest(entry) !== entryDigest(ordered[index]))) {
             throw new Error(`transaction ${transaction.transactionId}: rendered Markdown does not round-trip`);
         }
         // Stage the transaction before the corpus write so an interrupted commit can resume.

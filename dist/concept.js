@@ -144,7 +144,7 @@ function renderBlock(entry) {
 export function normalizeTitleKey(title) {
     return title.normalize("NFKC").toLowerCase().trim().replace(/\s+/g, " ");
 }
-function entryOrder(entry) {
+export function entryOrder(entry) {
     return `${normalizeTitleKey(entry.title)}\u0000${entry.id}`;
 }
 export function renderKnowledgeMarkdown(entries) {

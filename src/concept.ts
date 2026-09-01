@@ -180,7 +180,7 @@ export function normalizeTitleKey(title: string): string {
   return title.normalize("NFKC").toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-function entryOrder(entry: KnowledgeEntry): string {
+export function entryOrder(entry: KnowledgeEntry): string {
   return `${normalizeTitleKey(entry.title)}\u0000${entry.id}`;
 }
 

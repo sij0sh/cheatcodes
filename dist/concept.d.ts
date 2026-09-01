@@ -28,6 +28,7 @@ export declare class KnowledgeValidationError extends Error {
 export declare const RESERVED_TEXT: string[];
 export declare function validateEntry(value: unknown): KnowledgeEntry;
 export declare function normalizeTitleKey(title: string): string;
+export declare function entryOrder(entry: KnowledgeEntry): string;
 export declare function renderKnowledgeMarkdown(entries: readonly KnowledgeEntry[]): string;
 /**
  * The knowledge file is human-editable Markdown (README), so text outside entry
