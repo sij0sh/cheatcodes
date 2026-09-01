@@ -7,6 +7,7 @@ export interface GlobalConfig {
     knowledgeFile?: string;
     contextPointer?: boolean;
     autorun?: boolean;
+    autoMap?: boolean;
     projectAliases: Record<string, string[]>;
 }
 export declare function globalConfigPath(env?: NodeJS.ProcessEnv): string;

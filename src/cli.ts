@@ -3,20 +3,20 @@ import path from "node:path";
 import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { maintenanceSchedule, maintainProject, type MaintenanceMode } from "./maintain.js";
-import { runMap } from "./map.js";
+import { runMap, checkMapFreshness } from "./map.js";
+import { runEnsure } from "./ensure.js";
 import { projectStatus, runWorker } from "./run.js";
-import { runWorkflowCurator } from "./workflow/runner.js";
 
 const MAINTENANCE_FLAGS = new Set(["--dry-run", "--apply", "--resume"]);
 
 function usage(): string {
   return [
     "Usage:",
+    "  cheatcodes ensure [--root <dir>] [--timeout <s>] [--map]",
     "  cheatcodes run",
     "  cheatcodes status",
     "  cheatcodes map [--root <dir>] [--dry-run]",
     "  cheatcodes maintain [--root <dir>] [--dry-run|--apply|--resume]",
-    "  cheatcodes workflow [--root <dir>]",
   ].join("\n");
 }
 
@@ -100,34 +100,35 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     }
     return;
   }
-  if (command === "workflow") {
+  if (command === "ensure") {
     let root: string | undefined;
+    let timeoutSeconds: number | undefined;
+    let synthesizeMap = false;
     for (let index = 0; index < rest.length; index++) {
       const arg = rest[index]!;
       if (arg === "--root") {
         root = rest[++index];
-        if (!root) { console.error("cheatcodes workflow: --root requires a directory"); process.exitCode = 2; return; }
+        if (!root) { console.error("cheatcodes ensure: --root requires a directory"); process.exitCode = 2; return; }
         continue;
       }
-      console.error(`cheatcodes workflow: unknown option ${arg}`);
+      if (arg === "--timeout") {
+        const value = Number(rest[++index]);
+        if (!Number.isFinite(value) || value <= 0) { console.error("cheatcodes ensure: --timeout requires a positive number of seconds"); process.exitCode = 2; return; }
+        timeoutSeconds = value;
+        continue;
+      }
+      if (arg === "--map") { synthesizeMap = true; continue; }
+      console.error(`cheatcodes ensure: unknown option ${arg}`);
+      console.error(usage());
       process.exitCode = 2;
       return;
     }
     try {
-      const result = await runWorkflowCurator(root ? { root: path.resolve(root) } : {});
-      for (const warning of result.warnings) console.warn(`warning: ${warning}`);
-      if (!result.started) {
-        console.log(`cheatcodes workflow: nothing to curate${result.warning ? ` (${result.warning})` : ""}`);
-        return;
-      }
-      console.log(`cheatcodes workflow: manifest ${result.manifestId}, terminal ${result.terminal?.status ?? "unknown"}.`);
-      if (result.warning) console.warn(`warning: ${result.warning}`);
-      if (result.applied) {
-        console.log(`Applied ${result.applied.transactionId}: ${result.applied.entryCountBefore} -> ${result.applied.entryCountAfter} entries, ${result.applied.tombstones} tombstone(s), ${result.applied.reviews} review(s).`);
-      }
-      if (result.terminal && result.terminal.status !== "completed") process.exitCode = 1;
+      const result = await runEnsure({ root: root ? path.resolve(root) : undefined, timeoutSeconds, synthesizeMap });
+      console.log(JSON.stringify(result, null, 2));
+      if (result.status === "error") process.exitCode = 1;
     } catch (error) {
-      console.error(`cheatcodes workflow: ${(error as Error).message}`);
+      console.error(`cheatcodes ensure: ${(error as Error).message}`);
       process.exitCode = 1;
     }
     return;
@@ -168,7 +169,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     process.exitCode = 2;
     return;
   }
-  if (command === "run" || command === "auto") {
+  if (command === "run") {
     const result = await runWorker();
     if (result.outcome === "failed" || result.outcome === "timeout") {
       console.error(`cheatcodes ${command}: ${result.outcome}${result.reason ? `: ${result.reason}` : ""}`);
@@ -186,6 +187,13 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     console.log(`Project ${result.projectKey} at ${result.root}`);
     console.log(`Inputs: ${result.discoveredFiles} session file(s) discovered, ${result.skipped.length} skipped, ${result.missingInputs.length} missing input(s).`);
     console.log(`Entries: ${result.entries} in ${result.knowledgeFile}.`);
+    try {
+      const map = await checkMapFreshness(process.cwd(), process.env);
+      const line = map.state === "stale" ? `stale (${map.reason})` : map.state === "fresh" ? `fresh${map.seeded ? " (digest seeded)" : ""}` : map.state;
+      console.log(`Map: ${line}.`);
+    } catch (error) {
+      console.log(`Map: unavailable (${(error as Error).message}).`);
+    }
     if (result.lastRun) {
       console.log(`Last run: ${result.lastRun.outcome}${result.lastRun.reason ? ` (${result.lastRun.reason})` : ""} at ${result.lastRun.finishedAt}.`);
     } else {
