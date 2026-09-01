@@ -7,6 +7,7 @@ import { deriveProjectKey, knowledgeFilePath, loadGlobalConfig } from "../src/co
 import { parseKnowledgeMarkdown } from "../src/concept.js";
 import { loadCurationState } from "../src/curation-state.js";
 import { maintainProject } from "../src/maintain.js";
+import { acquireProjectLock } from "../src/state.js";
 import { buildManifest, commitManifestCursors, manifestPath, readManifest } from "../src/workflow/manifests.js";
 import { createWorkflowTools } from "../src/workflow/tools.js";
 import { temporary, writeGlobalConfig } from "./helpers.js";
@@ -179,5 +180,30 @@ test("inspect_project_fact rejects symlink escapes", async () => {
     const result = await tools.get("inspect_project_fact")!.execute("id", { path: "link.txt" } as never, undefined, undefined, undefined as never) as { isError?: boolean };
     assert.equal(result.isError, true);
     await rm(outside, { force: true });
+  } finally { await clean(); }
+});
+
+test("staging reports project-busy instead of racing the project lock", async () => {
+  const { root, env, clean } = await fixtureProject();
+  try {
+    const toolEnv = { ...env, CHEATCODES_PROJECT_ROOT: root };
+    const tools = new Map(createWorkflowTools(toolEnv).map((tool) => [tool.name, tool]));
+    const run = (name: string, params: unknown) => tools.get(name)!.execute("id", params as never, undefined, undefined, undefined as never) as Promise<{ content: Array<{ text: string }>; isError?: boolean; details: unknown }>;
+    const { renderKnowledgeMarkdown, validateEntry, corpusRevision, entryDigest } = await import("../src/concept.js");
+    const seed = validateEntry({ id: "batch-quarter", title: "Batch exports by fiscal quarter", summary: "Batching rows by fiscal quarter is required before reconciliation.", body: "Export jobs must batch rows by fiscal quarter before reconciliation runs.", date: "2026-01-01", tags: ["export"], sources: ["ep-1"], kind: "procedure" });
+    const corpus = renderKnowledgeMarkdown([seed]);
+    await mkdir(path.join(root, ".agents"), { recursive: true });
+    await writeFile(knowledgeFilePath(root, loadGlobalConfig(env)!.knowledgeFile), corpus);
+    const entries = parseKnowledgeMarkdown(corpus);
+    const op = { op: "update", target: { id: entries[0]!.id, expectedDigest: entryDigest(entries[0]) }, entry: { title: entries[0]!.title, summary: "Batching by fiscal quarter is mandatory before reconciliation.", body: entries[0]!.body, date: "2026-01-01", tags: ["export"], sources: ["ep-1"] } };
+    const transaction = { baseRevision: corpusRevision(entries), operations: [op] };
+    const projectKey = await deriveProjectKey(root);
+    const lock = await acquireProjectLock(env, projectKey);
+    const busy = await run("stage_knowledge_transaction", { transaction });
+    assert.equal(busy.isError, true, "staging under a held project lock is rejected");
+    assert.equal((busy.details as { reason: string }).reason, "project-busy");
+    await lock.release();
+    const staged = await run("stage_knowledge_transaction", { transaction });
+    assert.equal((staged.details as { status: string }).status, "staged");
   } finally { await clean(); }
 });

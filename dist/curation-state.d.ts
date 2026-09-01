@@ -73,3 +73,14 @@ export declare function boundedCurationState(state: CurationState): CurationStat
  */
 export declare function loadCurationState(env: NodeJS.ProcessEnv, projectKey: string): Promise<CurationState>;
 export declare function saveCurationState(env: NodeJS.ProcessEnv, state: CurationState): Promise<void>;
+export declare const CURATION_LOCK_WAIT_MS = 2000;
+/**
+ * Locked read-modify-write mirroring updateProjectState. Reloads under the
+ * project lock so a stale caller copy cannot revert a concurrent commit.
+ * Returns undefined without writing when the bounded wait expires; callers
+ * decide whether skipping the write is safe (best-effort cursor updates) or
+ * must surface a busy result (transaction staging).
+ */
+export declare function updateCurationState(env: NodeJS.ProcessEnv, projectKey: string, mutate: (state: CurationState) => CurationState, options?: {
+    waitMs?: number;
+}): Promise<CurationState | undefined>;

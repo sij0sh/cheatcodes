@@ -1,6 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { atomicWrite, globalStatePath } from "./state.js";
+import { acquireProjectLock, atomicWrite, globalStatePath } from "./state.js";
 export const CURATION_STATE_LIMITS = {
     receipts: 50,
     packetOutcomes: 500,
@@ -74,4 +74,25 @@ export async function saveCurationState(env, state) {
     const file = curationStatePath(env, state.projectKey);
     await mkdir(path.dirname(file), { recursive: true });
     await atomicWrite(file, JSON.stringify(boundedCurationState(state), null, 2));
+}
+export const CURATION_LOCK_WAIT_MS = 2_000;
+/**
+ * Locked read-modify-write mirroring updateProjectState. Reloads under the
+ * project lock so a stale caller copy cannot revert a concurrent commit.
+ * Returns undefined without writing when the bounded wait expires; callers
+ * decide whether skipping the write is safe (best-effort cursor updates) or
+ * must surface a busy result (transaction staging).
+ */
+export async function updateCurationState(env, projectKey, mutate, options = {}) {
+    const lock = await acquireProjectLock(env, projectKey, { coalesce: true, waitMs: options.waitMs ?? CURATION_LOCK_WAIT_MS });
+    if (lock.coalesced)
+        return undefined;
+    try {
+        const next = boundedCurationState(mutate(await loadCurationState(env, projectKey)));
+        await saveCurationState(env, next);
+        return next;
+    }
+    finally {
+        await lock.release();
+    }
 }

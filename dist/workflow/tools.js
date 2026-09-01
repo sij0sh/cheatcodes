@@ -5,7 +5,7 @@ import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { corpusRevision, entryDigest, parseKnowledgeMarkdown } from "../concept.js";
 import { deriveProjectKey, knowledgeFilePath, loadGlobalConfig } from "../config.js";
-import { loadCurationState, saveCurationState } from "../curation-state.js";
+import { updateCurationState } from "../curation-state.js";
 import { parseKnowledgeTransaction, validateTransactionOperations } from "../transaction.js";
 import { sha256 } from "../state.js";
 import { readManifest } from "./manifests.js";
@@ -237,11 +237,13 @@ export function stageKnowledgeTransactionTool(env = process.env) {
             const { issues } = validateTransactionOperations(entries, transaction.operations, projectKey);
             if (issues.length > 0)
                 return text({ status: "rejected", reason: "validation", issues: issues.slice(0, 8) }, true);
-            const state = await loadCurationState(env, projectKey);
-            await saveCurationState(env, {
-                ...state,
-                maintenanceCursor: { at: new Date().toISOString(), lastTransactionId: state.maintenanceCursor?.lastTransactionId, pendingTransaction: transaction },
-            });
+            const updated = await updateCurationState(env, projectKey, (current) => ({
+                ...current,
+                maintenanceCursor: { at: new Date().toISOString(), lastTransactionId: current.maintenanceCursor?.lastTransactionId, pendingTransaction: transaction },
+            }));
+            if (!updated) {
+                return text({ status: "rejected", reason: "project-busy", detail: "another cheatcodes run holds the project lock; retry staging later" }, true);
+            }
             return text({ status: "staged", transactionId: transaction.transactionId, baseRevision: revision, digest: sha256(JSON.stringify(transaction.operations)) });
         },
     });

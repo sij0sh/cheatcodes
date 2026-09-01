@@ -239,7 +239,7 @@ export async function acquireStateLock(env: NodeJS.ProcessEnv = process.env): Pr
   return acquireLock(stateLockPath(env), { waitMs: 10_000 });
 }
 
-export async function acquireProjectLock(env: NodeJS.ProcessEnv, projectKey: string, options: { coalesce?: boolean } = {}): Promise<FileLock> {
+export async function acquireProjectLock(env: NodeJS.ProcessEnv, projectKey: string, options: { coalesce?: boolean; waitMs?: number } = {}): Promise<FileLock> {
   return acquireLock(projectLockPath(env, projectKey), options);
 }
 

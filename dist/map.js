@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { z } from "zod";
 import { deriveEntryId, entryDigest, normalizeTitleKey } from "./concept.js";
 import { deriveProjectKey, globalConfigPath, loadGlobalConfig } from "./config.js";
-import { loadCurationState, saveCurationState } from "./curation-state.js";
+import { loadCurationState, updateCurationState } from "./curation-state.js";
 import { commitKnowledgeTransaction } from "./maintain.js";
 import { ensureModelsFile } from "./models.js";
 import { sha256 } from "./state.js";
@@ -330,11 +330,11 @@ export async function runMap(options = {}) {
         createdAt: new Date().toISOString(),
     };
     const committed = await commitKnowledgeTransaction(env, root, transaction);
-    const state = await loadCurationState(env, transaction.projectKey);
-    await saveCurationState(env, {
-        ...state,
-        mapCursor: { inventoryDigest: await inventoryDigest(root), checkedAt: new Date().toISOString() },
-    });
+    const mapCursor = { inventoryDigest: await inventoryDigest(root), checkedAt: new Date().toISOString() };
+    const saved = await updateCurationState(env, transaction.projectKey, (current) => ({ ...current, mapCursor }));
+    if (!saved) {
+        return { status: "committed", committed, schemaRetries: outcome.schemaRetries, warning: "map cursor not updated; another run held the project lock" };
+    }
     return { status: "committed", committed, schemaRetries: outcome.schemaRetries };
 }
 // Free checks only: cited-source digests (Gap F) and the inventory digest
@@ -353,11 +353,14 @@ export async function checkMapFreshness(root, env) {
     const projectKey = await deriveProjectKey(root);
     const state = await loadCurationState(env, projectKey);
     if (!state.mapCursor) {
-        await saveCurationState(env, { ...state, mapCursor: { inventoryDigest: digest, checkedAt: new Date().toISOString() } });
-        return { state: "fresh", seeded: true };
+        // D1: bounded lock wait, skip the cursor write on timeout; freshness stays readable.
+        const seeded = await updateCurationState(env, projectKey, (current) => ({ ...current, mapCursor: { inventoryDigest: digest, checkedAt: new Date().toISOString() } }));
+        return seeded ? { state: "fresh", seeded: true } : { state: "fresh" };
     }
     if (state.mapCursor.inventoryDigest !== digest)
         return { state: "stale", reason: "inventory changed" };
-    await saveCurationState(env, { ...state, mapCursor: { ...state.mapCursor, checkedAt: new Date().toISOString() } });
+    await updateCurationState(env, projectKey, (current) => current.mapCursor
+        ? { ...current, mapCursor: { ...current.mapCursor, checkedAt: new Date().toISOString() } }
+        : current);
     return { state: "fresh" };
 }

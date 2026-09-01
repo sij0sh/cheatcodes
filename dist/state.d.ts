@@ -45,5 +45,6 @@ export declare function projectLockPath(env: NodeJS.ProcessEnv | undefined, proj
 export declare function acquireStateLock(env?: NodeJS.ProcessEnv): Promise<FileLock>;
 export declare function acquireProjectLock(env: NodeJS.ProcessEnv, projectKey: string, options?: {
     coalesce?: boolean;
+    waitMs?: number;
 }): Promise<FileLock>;
 export declare function updateProjectState(env: NodeJS.ProcessEnv, projectKey: string, mutate: (project: ProjectState) => ProjectState): Promise<GlobalState>;

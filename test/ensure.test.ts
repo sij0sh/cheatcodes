@@ -11,6 +11,7 @@ import { inventoryDigest } from "../src/inventory.js";
 import { runEnsure, resolveEnsureTimeoutSeconds, type CurateStage, type EnsureStages, type WorkflowStage } from "../src/ensure.js";
 import { loadCurationState, saveCurationState } from "../src/curation-state.js";
 import { commitKnowledgeTransaction } from "../src/maintain.js";
+import { acquireProjectLock } from "../src/state.js";
 const FILE_A = "export const alpha = 1;\n";
 const DIGEST_A = createHash("sha256").update(FILE_A).digest("hex");
 const SOURCE_A = `repo:src/a.ts#sha256=${DIGEST_A}`;
@@ -109,6 +110,42 @@ test("a committed map stores the inventory digest and clears staleness", async (
     await saveCurationState(env, { ...state, mapCursor: { inventoryDigest: await inventoryDigest(root), checkedAt: new Date().toISOString() } });
     assert.deepEqual(await checkMapFreshness(root, env), { state: "fresh" });
   } finally { await clean(); }
+});
+
+test("checkMapFreshness skips the cursor write while another run holds the project lock", async () => {
+  const { root, env, clean } = await mapFixture();
+  try {
+    await seedMapCorpus(root);
+    const projectKey = await deriveProjectKey(root);
+    const lock = await acquireProjectLock(env, projectKey);
+    const start = Date.now();
+    assert.deepEqual(await checkMapFreshness(root, env), { state: "fresh" }, "freshness stays readable; no seeding under contention");
+    assert.ok(Date.now() - start >= 1_000, "the bounded wait is honored before skipping");
+    const state = await loadCurationState(env, projectKey);
+    assert.equal(state.mapCursor, undefined, "no cursor was written under contention");
+    await lock.release();
+    assert.deepEqual(await checkMapFreshness(root, env), { state: "fresh", seeded: true });
+  } finally { await clean(); }
+});
+
+test("runEnsure synthesizes a stale map when the config sets autoMap", async () => {
+  const root = await temporary();
+  try {
+    let synthesisCalls = 0;
+    const autoStages = stages({
+      checkMap: async () => ({ state: "stale", reason: "inventory changed" }),
+      synthesizeMap: async () => { synthesisCalls++; return { ok: true }; },
+    });
+    const { env: plainEnv } = await writeGlobalConfig({ inputs: [] });
+    const withoutFlag = await runEnsure({ root, env: plainEnv, stages: autoStages });
+    assert.equal(synthesisCalls, 0, "no synthesis without the flag");
+    assert.equal(withoutFlag.map, "stale (inventory changed)");
+    const { env: autoEnv } = await writeGlobalConfig({ inputs: [], autoMap: true });
+    const withFlag = await runEnsure({ root, env: autoEnv, stages: autoStages });
+    assert.equal(synthesisCalls, 1);
+    assert.equal(withFlag.map, "synthesized");
+    assert.equal(withFlag.status, "refreshed");
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("runEnsure reports locked, up-to-date, refreshed, timeout, and error from the curation stage", async () => {
