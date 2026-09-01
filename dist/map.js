@@ -12,8 +12,8 @@ import { sha256 } from "./state.js";
 import { finalUsage } from "./curate.js";
 import { inventoryDigest } from "./inventory.js";
 import { KnowledgeOperationSchema, validateTransactionOperations } from "./transaction.js";
-import { inspectProjectFactTool, inspectProjectTreeTool, loadCorpus, searchKnowledgeTool } from "./workflow/tools.js";
-export const MAP_PROMPT_VERSION = "map-2";
+import { loadCorpus, searchKnowledgeTool } from "./workflow/tools.js";
+export const MAP_PROMPT_VERSION = "map-3";
 export const MAP_FAMILIES = ["map:project-brief", "map:system", "map:capability"];
 export const MAX_MAP_OPERATIONS = 16;
 export const REPO_SOURCE_PATTERN = /^repo:([^#\s]+)#sha256=([0-9a-f]{64})$/;
@@ -22,14 +22,14 @@ You compress distributed repository truth into point entries grouped by three fa
 You must inspect this repository yourself with the supplied tools; never rely on prior knowledge of the project.
 Call submit_map_transaction exactly once as your final action.
 
-Tools:
-- inspect_project_tree: bounded file inventory. Always start here.
-- inspect_project_fact: read lines from one file and receive its sha256.
-- search_knowledge: search existing corpus entries.
+Tools (one mode per call):
+- search_knowledge {"tree": true}: bounded file inventory. Always start here.
+- search_knowledge {"path": "<relative-path>"}: read lines from one file and receive its sha256.
+- search_knowledge {"query": "..."}: search existing corpus entries.
 
 Procedure:
-1. Inventory the repository with inspect_project_tree.
-2. Read package manifests, entry points, and configuration with inspect_project_fact.
+1. Inventory the repository with search_knowledge {"tree": true}.
+2. Read package manifests, entry points, and configuration with search_knowledge {"path": "..."}.
 3. Correlate what you read across files.
 4. Submit one transaction: "create" operations for point entries that do not exist yet, "update" operations for entries in existingEntries (copy id and expectedDigest from that list).
 
@@ -51,7 +51,7 @@ Acceptance gates. Fail any gate and drop the entry:
 
 Provenance rules:
 - Every operation's entry carries sources: at least two "repo:<relative-path>#sha256=<64-hex-digest>" strings.
-- Cite only files you read with inspect_project_fact in this session, and copy the sha256 from that tool's output.
+- Cite only files you read with search_knowledge in this session, and copy the sha256 from that tool's output.
 - Never set kind or date. Never invent paths or digests. Keep summaries and bodies free of Markdown headings reserved for the corpus format.
 - Updates must keep the entry title; a point changes name by being recreated, never by being renamed.
 
@@ -228,7 +228,7 @@ export class MapSynthesizer {
             throw new Error(resolved.warning);
         const settings = SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } });
         const env = { ...process.env, CHEATCODES_PROJECT_ROOT: options.projectRoot };
-        const tools = [inspectProjectTreeTool(env), inspectProjectFactTool(env), searchKnowledgeTool(env)];
+        const tools = [searchKnowledgeTool(env)];
         const loader = new DefaultResourceLoader({
             cwd: options.projectRoot,
             agentDir: getAgentDir(),
