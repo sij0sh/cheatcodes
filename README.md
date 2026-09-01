@@ -84,6 +84,8 @@ When the package is linked or installed, Pi loads its extension and starts a det
 
 `cheatcodes ensure` is the one unattended verb. It curates changed sessions, runs the pending-episode curation workflow, and checks map freshness, then prints one JSON status (`refreshed`, `up-to-date`, `timeout`, `locked`, or `error`). Every status except `error` exits 0, so freshness work never blocks an agent launch.
 
+Episode curation runs on the [choreograph](https://github.com/sij0sh/choreograph) workflow engine, installed as a GitHub-pinned dependency and driven inside a Pi SDK session by `cheatcodes ensure` and `cheatcodes run`.
+
 The map check is free: it re-verifies cited `repo:` digests and compares a bounded inventory digest. A stale map is reported as `map: "stale (sources changed)"` or `map: "stale (inventory changed)"`. Synthesis is never automatic unless you pass `--map` or set `"autoMap": true`.
 
 ## Configuration reference
