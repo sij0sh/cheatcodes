@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readFile, realpath } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -12,9 +12,14 @@ import { readManifest } from "./manifests.js";
 export const WORKFLOW_PROMPT_VERSION = "workflow-1";
 const RESULT_LIMIT = 400;
 const MAX_COMMAND_TIMEOUT_MS = 180_000;
+export const TREE_LIMITS = { depth: 4, entries: 400, bytes: 16_384 };
+const SKIP_DIRS = new Set([
+    ".git", "node_modules", "dist", "build", "out", "coverage", ".cache",
+    ".agents", ".cheatcodes", ".pi-files", "vendor", ".venv", "__pycache__",
+]);
 const rootFor = (env) => path.resolve(env.CHEATCODES_PROJECT_ROOT ?? process.cwd());
 const text = (value, isError = false) => ({ content: [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }], details: value, ...(isError ? { isError: true } : {}) });
-async function loadCorpus(root, env) {
+export async function loadCorpus(root, env) {
     const global = await loadGlobalConfig(env);
     const file = knowledgeFilePath(root, global?.knowledgeFile);
     let entries = [];
@@ -27,8 +32,42 @@ async function loadCorpus(root, env) {
     return { entries, revision: corpusRevision(entries) };
 }
 const overlap = (haystack, terms) => terms.filter((term) => haystack.toLowerCase().includes(term));
-export function createWorkflowTools(env = process.env) {
-    const loadEvidenceEpisode = defineTool({
+// Depth-first with sorted names; the flat output is already lexicographic.
+// Symlinks are skipped outright so the walk cannot escape the root.
+async function walkTree(root, relative, depth, out, files) {
+    if (depth > TREE_LIMITS.depth || out.length >= TREE_LIMITS.entries)
+        return out.length >= TREE_LIMITS.entries;
+    let dirents;
+    try {
+        dirents = await readdir(relative ? path.join(root, relative) : root, { withFileTypes: true });
+    }
+    catch {
+        return false;
+    }
+    dirents.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    for (const dirent of dirents) {
+        if (out.length >= TREE_LIMITS.entries)
+            return true;
+        if (dirent.isSymbolicLink())
+            continue;
+        const rel = relative ? `${relative}/${dirent.name}` : dirent.name;
+        if (dirent.isDirectory()) {
+            if (SKIP_DIRS.has(dirent.name))
+                continue;
+            out.push({ path: `${rel}/` });
+            if (await walkTree(root, rel, depth + 1, out, files))
+                return true;
+        }
+        else if (dirent.isFile()) {
+            const info = await stat(path.join(root, rel)).catch(() => undefined);
+            out.push({ path: rel, bytes: info?.size ?? 0 });
+            files.count += 1;
+        }
+    }
+    return false;
+}
+export function loadEvidenceEpisodeTool(env = process.env) {
+    return defineTool({
         name: "load_evidence_episode",
         label: "Load evidence episode",
         description: "Load one harvested evidence episode from a workflow manifest. Accepts manifest and packet ids only; paths are rejected.",
@@ -56,7 +95,9 @@ export function createWorkflowTools(env = process.env) {
             });
         },
     });
-    const searchKnowledge = defineTool({
+}
+export function searchKnowledgeTool(env = process.env) {
+    return defineTool({
         name: "search_knowledge",
         label: "Search knowledge",
         description: "Search the project corpus lexically. Returns full bodies, digests, and match reasons under hard caps.",
@@ -92,7 +133,9 @@ export function createWorkflowTools(env = process.env) {
             });
         },
     });
-    const inspectProjectFact = defineTool({
+}
+export function inspectProjectFactTool(env = process.env) {
+    return defineTool({
         name: "inspect_project_fact",
         label: "Inspect project fact",
         description: "Read lines from a file inside the verified project root. Rejects paths outside the root and symlink escapes.",
@@ -125,10 +168,35 @@ export function createWorkflowTools(env = process.env) {
                 lines = lines.filter((item) => item.text.toLowerCase().includes(needle));
             }
             const truncated = lines.length > cap;
-            return text({ path: params.path, totalLines: total, matchedLines: lines.length, truncated, lines: lines.slice(0, cap) });
+            return text({ path: params.path, sha256: sha256(content), totalLines: total, matchedLines: lines.length, truncated, lines: lines.slice(0, cap) });
         },
     });
-    const verifyCommand = defineTool({
+}
+export function inspectProjectTreeTool(env = process.env) {
+    return defineTool({
+        name: "inspect_project_tree",
+        label: "Inspect project tree",
+        description: "Bounded inventory of the verified project root: relative paths with file sizes. Skips dependency, build, and metadata directories. Caps depth and entry count.",
+        parameters: Type.Object({}, { additionalProperties: false }),
+        execute: async () => {
+            const root = rootFor(env);
+            const rootReal = await realpath(root).catch(() => root);
+            const entries = [];
+            const files = { count: 0 };
+            const hitCap = await walkTree(rootReal, "", 0, entries, files);
+            const render = (list, truncated) => JSON.stringify({ root: path.basename(rootReal), totalFiles: files.count, truncated, entries: list });
+            let list = entries;
+            let truncated = hitCap;
+            while (render(list, truncated).length > TREE_LIMITS.bytes && list.length > 0) {
+                list = list.slice(0, Math.floor(list.length * 0.9));
+                truncated = true;
+            }
+            return text({ root: path.basename(rootReal), totalFiles: files.count, truncated, entries: list });
+        },
+    });
+}
+export function verifyCommandTool(env = process.env) {
+    return defineTool({
         name: "verify_command",
         label: "Verify command",
         description: "Run an allowlisted verification command by id. The host builds the argument vector; shell text is never accepted.",
@@ -169,7 +237,9 @@ export function createWorkflowTools(env = process.env) {
             });
         },
     });
-    const stageKnowledgeTransaction = defineTool({
+}
+export function stageKnowledgeTransactionTool(env = process.env) {
+    return defineTool({
         name: "stage_knowledge_transaction",
         label: "Stage knowledge transaction",
         description: "Revalidate a challenged transaction against the live corpus and stage it into host state. Never edits the corpus; the host applies staged work only after terminal workflow success.",
@@ -215,5 +285,7 @@ export function createWorkflowTools(env = process.env) {
             return text({ status: "staged", transactionId: transaction.transactionId, baseRevision: revision, digest: sha256(JSON.stringify(transaction.operations)) });
         },
     });
-    return [loadEvidenceEpisode, searchKnowledge, inspectProjectFact, verifyCommand, stageKnowledgeTransaction];
+}
+export function createWorkflowTools(env = process.env) {
+    return [loadEvidenceEpisodeTool(env), searchKnowledgeTool(env), inspectProjectFactTool(env), verifyCommandTool(env), stageKnowledgeTransactionTool(env)];
 }
