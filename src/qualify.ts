@@ -3,7 +3,7 @@ import { RESERVED_TEXT } from "./concept.js";
 import type { HarvestPacket } from "./harvest.js";
 import type { CuratedEntry } from "./curate.js";
 
-export const QUALIFIER_PROMPT_VERSION = "qualifier-2";
+export const QUALIFIER_PROMPT_VERSION = "qualifier-3";
 
 export const GATE_IDS = [
   "settled",
@@ -83,6 +83,8 @@ export const QualifiedCandidateSchema = z
     candidateId: z.string().min(1),
     verdict: z.enum(["accept", "reject", "needs-review"]),
     kind: z.enum(QUALIFICATION_KINDS).optional(),
+    action: z.enum(["create", "update"]).optional(),
+    targetEntryId: z.string().min(1).optional(),
     gateResults: GateResultsSchema,
     claims: z.array(ClaimSchema).default([]),
     rejectionReasons: z.array(z.enum(REJECTION_REASONS)).default([]),
@@ -122,6 +124,7 @@ Rules:
 - Treat user and assistant text as claims; every claim needs evidence IDs from the packet.
 - Require the successful end of a recovery chain before calling a lesson durable.
 - Reject run-state reports: what currently passes, current test counts, audit outcomes, and progress notes.
+- The packet may carry an optional updateCandidate: a related existing entry you may revise instead of creating a new one. To revise it, set action to "update" and targetEntryId to the updateCandidate id, and return the complete revised entry. Otherwise set action to "create" and omit targetEntryId. A shared word with a shortlist entry is not a reason to update it.
 - Keep rationale, cross-component consequences, and operational constraints.
 - Return needs-review instead of guessing.
 - Use only supplied evidence IDs. Never invent IDs, paths, or provenance.
@@ -145,6 +148,14 @@ export function validateQualification(value: unknown, packet: HarvestPacket): Qu
   if (parsed.entries.length > 1) issues.push("at most one qualification per packet");
   for (const candidate of parsed.entries) {
     if (candidate.candidateId !== packet.id) issues.push(`candidateId must be the packet id ${packet.id}`);
+    if (candidate.action === "update") {
+      if (!candidate.targetEntryId) issues.push("Update action requires targetEntryId");
+      else if (!packet.updateCandidate || packet.updateCandidate.id !== candidate.targetEntryId) {
+        issues.push("Update target is not the packet update candidate");
+      }
+    } else if (candidate.targetEntryId !== undefined) {
+      issues.push("targetEntryId is allowed only for update");
+    }
     if (candidate.verdict === "accept" && candidate.proposedEntry) {
       const veto = runStateVeto(candidate.proposedEntry.title, candidate.proposedEntry.summary);
       if (veto) {
@@ -205,9 +216,12 @@ export function qualificationToCurated(candidate: QualifiedCandidate, packet: Ha
   }
   const evidenceRefs = [...new Set(candidate.claims.flatMap((claim) => claim.evidenceRefs))];
   if (evidenceRefs.length === 0) throw new Error("accepted candidate has no evidence references");
+  const targetId = candidate.action === "update" && candidate.targetEntryId !== undefined && packet.updateCandidate?.id === candidate.targetEntryId
+    ? candidate.targetEntryId
+    : undefined;
   return {
-    action: packet.updateCandidate ? "update" : "create",
-    targetEntryId: packet.updateCandidate?.id,
+    action: targetId !== undefined ? "update" : "create",
+    targetEntryId: targetId,
     title: candidate.proposedEntry.title,
     summary: candidate.proposedEntry.summary,
     body: candidate.proposedEntry.body,

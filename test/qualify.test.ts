@@ -151,10 +151,23 @@ test("qualification schema and host invariants", () => {
     () => validateQualification({ entries: [acceptCandidate({ claims: [{ text: "x", evidenceRefs: ["ev-x"] }] })] }, packet),
     /Unknown evidence reference: ev-x/,
   );
-  assert.throws(
-    () => validateQualification({ entries: [acceptCandidate({ candidateId: "pkt-other" })] }, packet),
+  assert.throws(() => validateQualification({ entries: [acceptCandidate({ candidateId: "pkt-other" })] }, packet),
     /candidateId must be the packet id pkt-1/,
   );
+  assert.throws(
+    () => validateQualification({ entries: [acceptCandidate({ action: "update" })] }, packet),
+    /Update action requires targetEntryId/,
+  );
+  assert.throws(
+    () => validateQualification({ entries: [acceptCandidate({ action: "update", targetEntryId: "cc-1" })] }, packet),
+    /Update target is not the packet update candidate/,
+  );
+  assert.throws(
+    () => validateQualification({ entries: [acceptCandidate({ targetEntryId: "cc-1" })] }, packet),
+    /targetEntryId is allowed only for update/,
+  );
+  const withCandidate = makePacket({ updateCandidate: { id: "cc-1", title: "T", summary: "S", score: 2, body: "B" } });
+  assert.doesNotThrow(() => validateQualification({ entries: [acceptCandidate({ action: "update", targetEntryId: "cc-1" })] }, withCandidate));
   assert.throws(
     () => validateQualification({ entries: [acceptCandidate({ proposedEntry: { title: "t", summary: "s", body: "has <!-- cheatcodes-entry x --> inside", tags: [] } })] }, packet),
     /reserved text/,
@@ -169,14 +182,26 @@ test("qualification schema and host invariants", () => {
   );
 });
 
-test("compatibility adapter maps accepted candidates to curated actions", () => {
+test("adapter maps only an explicit, matching update decision to an update", () => {
   const candidate = acceptCandidate({ claims: [{ text: "a", evidenceRefs: ["ev-1"] }, { text: "b", evidenceRefs: ["ev-1", "ev-2"] }] });
   const packet = makePacket({ evidence: [{ id: "ev-1", kind: "message", excerpt: "1", recordIds: ["u1"] }, { id: "ev-2", kind: "tool", excerpt: "2", recordIds: ["t1"] }] });
   const created = qualificationToCurated(candidate, packet);
   assert.equal(created.action, "create");
   assert.equal(created.targetEntryId, undefined);
   assert.deepEqual(created.evidenceRefs, ["ev-1", "ev-2"]);
-  const updated = qualificationToCurated(candidate, makePacket({ updateCandidate: { id: "cc-1", title: "T", summary: "S", score: 2, body: "B" } }));
+  const candidatePacket = makePacket({ updateCandidate: { id: "cc-1", title: "T", summary: "S", score: 2, body: "B" } });
+  // Regression (defect-audit P0): a plain accept must create, never overwrite the shortlisted entry.
+  const forced = qualificationToCurated(candidate, candidatePacket);
+  assert.equal(forced.action, "create");
+  assert.equal(forced.targetEntryId, undefined);
+  const updated = qualificationToCurated(
+    acceptCandidate({
+      claims: [{ text: "a", evidenceRefs: ["ev-1"] }, { text: "b", evidenceRefs: ["ev-1", "ev-2"] }],
+      action: "update",
+      targetEntryId: "cc-1",
+    }),
+    candidatePacket,
+  );
   assert.equal(updated.action, "update");
   assert.equal(updated.targetEntryId, "cc-1");
   assert.throws(() => qualificationToCurated(acceptCandidate({ verdict: "reject" }), packet), /only accepted candidates/);
@@ -221,7 +246,7 @@ test("golden dataset validates and covers the semantic space", async () => {
       assert.equal(candidate.claims.length > 0, true, `${fixture.name}: accepted needs claims`);
       assert.equal(candidate.proposedEntry !== undefined, true, `${fixture.name}: accepted needs proposedEntry`);
       const curated = qualificationToCurated(candidate, packet);
-      assert.equal(curated.action, packet.updateCandidate ? "update" : "create", `${fixture.name}: adapter action`);
+      assert.equal(curated.action, candidate.action === "update" ? "update" : "create", `${fixture.name}: adapter action`);
     }
     if (candidate.verdict === "reject") assert.equal(candidate.rejectionReasons.length > 0, true, `${fixture.name}: rejects need reasons`);
     if (candidate.verdict === "needs-review") assert.equal(candidate.unresolvedQuestions.length > 0, true, `${fixture.name}: reviews need questions`);

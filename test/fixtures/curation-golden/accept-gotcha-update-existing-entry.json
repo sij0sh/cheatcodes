@@ -40,6 +40,8 @@
         "candidateId": "pkt-golden-06",
         "verdict": "accept",
         "kind": "gotcha",
+        "action": "update",
+        "targetEntryId": "cc-cache-adapter",
         "gateResults": {
           "settled": "pass",
           "projectSpecific": "pass",

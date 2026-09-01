@@ -160,6 +160,8 @@ const QUALIFICATION_PARAMS = Type.Object(
           kind: Type.Optional(
             Type.Union([Type.Literal("gotcha"), Type.Literal("decision"), Type.Literal("procedure"), Type.Literal("invariant")]),
           ),
+          action: Type.Optional(Type.Union([Type.Literal("create"), Type.Literal("update")])),
+          targetEntryId: Type.Optional(Type.String({ minLength: 1 })),
           gateResults: Type.Object(
             {
               settled: GATE_SCHEMA,
