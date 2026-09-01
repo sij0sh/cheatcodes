@@ -80,6 +80,8 @@ cheatcodes status
 
 When the package is linked or installed, Pi loads its extension and starts a detached `cheatcodes ensure` at session start in trusted projects. Set `"autorun": false` or `CHEATCODES_ENSURE=0` to disable this.
 
+The extension registers one bounded tool, `search_knowledge`, for corpus search, evidence loading, bounded file reads, project inventory, and transaction staging. Set `"tools": false` to hide it from Pi sessions. The curation worker and `cheatcodes map` keep their tools regardless.
+
 ## Automatic freshness
 
 `cheatcodes ensure` is the one unattended verb. It curates changed sessions, runs the pending-episode curation workflow, and checks map freshness, then prints one JSON status (`refreshed`, `up-to-date`, `timeout`, `locked`, or `error`). Every status except `error` exits 0, so freshness work never blocks an agent launch.
@@ -98,6 +100,7 @@ The map check is free: it re-verifies cited `repo:` digests and compares a bound
 | `knowledgeFile` | Project-relative output path | `.agents/CHEATCODES.md` |
 | `contextPointer` | Add the knowledge pointer to agent instructions | `true` |
 | `autorun` | Run `cheatcodes ensure` when a Pi session starts in a trusted project | `true` |
+| `tools` | Register `search_knowledge` in Pi sessions | `true` |
 | `autoMap` | Resynthesize a stale map during ensure | `false` |
 | `projectAliases` | Treat other paths as the same project | `{}` |
 
