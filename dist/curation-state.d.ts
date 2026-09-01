@@ -41,6 +41,10 @@ export interface MaintenanceCursor {
     lastTransactionId?: string;
     pendingTransaction?: KnowledgeTransaction;
 }
+export interface MapCursor {
+    inventoryDigest: string;
+    checkedAt: string;
+}
 export interface CurationState {
     version: 1;
     projectKey: string;
@@ -50,6 +54,7 @@ export interface CurationState {
     reviews: ReviewRecord[];
     transactions: TransactionReceipt[];
     maintenanceCursor?: MaintenanceCursor;
+    mapCursor?: MapCursor;
 }
 export declare const CURATION_STATE_LIMITS: {
     readonly receipts: 50;

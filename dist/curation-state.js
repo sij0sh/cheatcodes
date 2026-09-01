@@ -26,6 +26,8 @@ export function isCurationState(value, projectKey) {
         return false;
     if (value.maintenanceCursor !== undefined && !isRecord(value.maintenanceCursor))
         return false;
+    if (value.mapCursor !== undefined && !isRecord(value.mapCursor))
+        return false;
     return true;
 }
 export function curationStatePath(env, projectKey) {

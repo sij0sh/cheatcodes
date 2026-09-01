@@ -5,10 +5,12 @@ import { Type } from "typebox";
 import { z } from "zod";
 import { deriveEntryId, entryDigest } from "./concept.js";
 import { deriveProjectKey, globalConfigPath, loadGlobalConfig } from "./config.js";
+import { loadCurationState, saveCurationState } from "./curation-state.js";
 import { commitKnowledgeTransaction } from "./maintain.js";
 import { ensureModelsFile } from "./models.js";
 import { sha256 } from "./state.js";
 import { finalUsage } from "./curate.js";
+import { inventoryDigest } from "./inventory.js";
 import { KnowledgeOperationSchema, validateTransactionOperations } from "./transaction.js";
 import { inspectProjectFactTool, inspectProjectTreeTool, loadCorpus, searchKnowledgeTool } from "./workflow/tools.js";
 export const MAP_PROMPT_VERSION = "map-1";
@@ -112,35 +114,40 @@ function submitMapTransactionTool(context, capture) {
         },
     });
 }
-export async function verifyRepoSources(root, operations) {
+export async function verifyRepoSourceList(root, sources) {
     const issues = [];
     const rootReal = await realpath(root).catch(() => root);
+    for (const source of sources) {
+        const match = REPO_SOURCE_PATTERN.exec(source);
+        if (!match) {
+            issues.push({ source, reason: "malformed repo source" });
+            continue;
+        }
+        const absolute = path.resolve(root, match[1]);
+        const targetReal = await realpath(absolute).catch(() => absolute);
+        if (!targetReal.startsWith(rootReal + path.sep) && targetReal !== rootReal) {
+            issues.push({ source, reason: "path escapes the project root" });
+            continue;
+        }
+        let content;
+        try {
+            content = await readFile(targetReal, "utf8");
+        }
+        catch {
+            issues.push({ source, reason: "file is missing or unreadable" });
+            continue;
+        }
+        if (sha256(content) !== match[2])
+            issues.push({ source, reason: "digest mismatch" });
+    }
+    return issues;
+}
+export async function verifyRepoSources(root, operations) {
+    const issues = [];
     for (const op of operations) {
         if (op.op !== "create" && op.op !== "update")
             continue;
-        for (const source of op.entry.sources ?? []) {
-            const match = REPO_SOURCE_PATTERN.exec(source);
-            if (!match) {
-                issues.push({ source, reason: "malformed repo source" });
-                continue;
-            }
-            const absolute = path.resolve(root, match[1]);
-            const targetReal = await realpath(absolute).catch(() => absolute);
-            if (!targetReal.startsWith(rootReal + path.sep) && targetReal !== rootReal) {
-                issues.push({ source, reason: "path escapes the project root" });
-                continue;
-            }
-            let content;
-            try {
-                content = await readFile(targetReal, "utf8");
-            }
-            catch {
-                issues.push({ source, reason: "file is missing or unreadable" });
-                continue;
-            }
-            if (sha256(content) !== match[2])
-                issues.push({ source, reason: "digest mismatch" });
-        }
+        issues.push(...await verifyRepoSourceList(root, op.entry.sources ?? []));
     }
     return issues;
 }
@@ -287,5 +294,34 @@ export async function runMap(options = {}) {
         createdAt: new Date().toISOString(),
     };
     const committed = await commitKnowledgeTransaction(env, root, transaction);
+    const state = await loadCurationState(env, transaction.projectKey);
+    await saveCurationState(env, {
+        ...state,
+        mapCursor: { inventoryDigest: await inventoryDigest(root), checkedAt: new Date().toISOString() },
+    });
     return { status: "committed", committed, schemaRetries: outcome.schemaRetries };
+}
+// Free checks only: cited-source digests (Gap F) and the inventory digest
+// (Gap A). Never synthesizes; callers decide whether stale is worth a model run.
+export async function checkMapFreshness(root, env) {
+    const { entries } = await loadCorpus(root, env);
+    const mapEntries = entries.filter((entry) => MAP_TITLES.includes(entry.title));
+    if (mapEntries.length === 0)
+        return { state: "absent" };
+    for (const entry of mapEntries) {
+        const issues = await verifyRepoSourceList(root, entry.verificationSources ?? entry.sources ?? []);
+        if (issues.length > 0)
+            return { state: "stale", reason: "sources changed" };
+    }
+    const digest = await inventoryDigest(root);
+    const projectKey = await deriveProjectKey(root);
+    const state = await loadCurationState(env, projectKey);
+    if (!state.mapCursor) {
+        await saveCurationState(env, { ...state, mapCursor: { inventoryDigest: digest, checkedAt: new Date().toISOString() } });
+        return { state: "fresh", seeded: true };
+    }
+    if (state.mapCursor.inventoryDigest !== digest)
+        return { state: "stale", reason: "inventory changed" };
+    await saveCurationState(env, { ...state, mapCursor: { ...state.mapCursor, checkedAt: new Date().toISOString() } });
+    return { state: "fresh" };
 }

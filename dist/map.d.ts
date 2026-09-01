@@ -22,6 +22,7 @@ export interface RepoSourceIssue {
     source: string;
     reason: string;
 }
+export declare function verifyRepoSourceList(root: string, sources: readonly string[]): Promise<RepoSourceIssue[]>;
 export declare function verifyRepoSources(root: string, operations: readonly KnowledgeOperation[]): Promise<RepoSourceIssue[]>;
 export declare function stampRepoVerification(operations: readonly KnowledgeOperation[], now?: Date): KnowledgeOperation[];
 export declare function describeMapOperations(operations: readonly KnowledgeOperation[], projectKey: string): string[];
@@ -67,3 +68,13 @@ export interface MapRunResult {
     schemaRetries?: number;
 }
 export declare function runMap(options?: MapRunOptions): Promise<MapRunResult>;
+export type MapFreshness = {
+    state: "absent";
+} | {
+    state: "fresh";
+    seeded?: boolean;
+} | {
+    state: "stale";
+    reason: string;
+};
+export declare function checkMapFreshness(root: string, env: NodeJS.ProcessEnv): Promise<MapFreshness>;

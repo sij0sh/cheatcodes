@@ -50,6 +50,11 @@ export interface MaintenanceCursor {
   pendingTransaction?: KnowledgeTransaction;
 }
 
+export interface MapCursor {
+  inventoryDigest: string;
+  checkedAt: string;
+}
+
 export interface CurationState {
   version: 1;
   projectKey: string;
@@ -59,6 +64,7 @@ export interface CurationState {
   reviews: ReviewRecord[];
   transactions: TransactionReceipt[];
   maintenanceCursor?: MaintenanceCursor;
+  mapCursor?: MapCursor;
 }
 
 export const CURATION_STATE_LIMITS = {
@@ -83,6 +89,7 @@ export function isCurationState(value: unknown, projectKey?: string): value is C
   if (projectKey !== undefined && value.projectKey !== projectKey) return false;
   if (!isRecord(value.packetOutcomes) || !Array.isArray(value.tombstones) || !Array.isArray(value.reviews) || !Array.isArray(value.transactions)) return false;
   if (value.maintenanceCursor !== undefined && !isRecord(value.maintenanceCursor)) return false;
+  if (value.mapCursor !== undefined && !isRecord(value.mapCursor)) return false;
   return true;
 }
 
