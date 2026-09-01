@@ -180,6 +180,30 @@ test("failed validation leaves the corpus and curation state untouched", async (
   }
 });
 
+test("a transaction commit preserves text outside entry markers", async () => {
+  const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
+  try {
+    const { env } = await writeGlobalConfig({ inputs: [] });
+    const base = [entry({ id: "e1", title: "Queue adapter" }), entry({ id: "e2", title: "Retry policy" })];
+    const corpus = path.join(root, ".agents", "CHEATCODES.md");
+    const baseRendered = renderKnowledgeMarkdown(base);
+    const close = "<!-- /cheatcodes-entry -->";
+    const firstClose = baseRendered.indexOf(close) + close.length;
+    await writeFile(corpus, `${baseRendered.slice(0, firstClose)}\n## Onboarding notes\n\nNever commit secrets.\n${baseRendered.slice(firstClose)}Trailing note.\n`);
+    const projectKey = await deriveProjectKey(root);
+    const transaction = tx([{ op: "delete", target: { id: "e2", expectedDigest: entryDigest(base[1]!) }, reason: "duplicate", verification: { verifiedAt: "2026-01-01T00:00:00Z", sources: ["cmd: ls"] } }], corpusRevision(base), projectKey);
+    const committed = await commitKnowledgeTransaction(env, root, transaction);
+    assert.equal(committed.entryCountAfter, 1);
+    const after = await readFile(corpus, "utf8");
+    assert.equal(after.includes("Never commit secrets."), true);
+    assert.equal(after.includes("Trailing note."), true);
+    assert.deepEqual(parseKnowledgeMarkdown(after).map((item) => item.id), ["e1"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("merge and delete persist tombstones across reloads", async () => {
   const root = await temporary();
   await mkdir(path.join(root, ".agents"), { recursive: true });
@@ -265,6 +289,52 @@ test("curation state bounds history and round-trips through disk", async () => {
     assert.equal(loaded.transactions.length, 50);
     assert.equal(Object.keys(loaded.packetOutcomes).length, 500);
     assert.equal(boundedCurationState(state).transactions.length, 50);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("loadCurationState fails closed on every failure except a missing file", async () => {
+  const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
+  try {
+    const { env } = await writeGlobalConfig({ inputs: [] });
+    const projectKey = await deriveProjectKey(root);
+    const missing = await loadCurationState(env, projectKey);
+    assert.deepEqual(Object.keys(missing.tombstones), []);
+    const file = path.join(path.dirname(env.CHEATCODES_STATE!), "curation", `${projectKey.replace(/[^A-Za-z0-9._-]/g, "-")}.json`);
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, "{not json");
+    await assert.rejects(() => loadCurationState(env, projectKey), /unreadable/);
+    await writeFile(file, JSON.stringify({ version: 2, projectKey }));
+    await assert.rejects(() => loadCurationState(env, projectKey), /invalid/);
+    await writeFile(file, JSON.stringify({ version: 1, projectKey: "other", packetOutcomes: {}, tombstones: [], reviews: [], transactions: [] }));
+    await assert.rejects(() => loadCurationState(env, projectKey), /invalid/);
+    await rm(file, { recursive: true, force: true });
+    await mkdir(file, { recursive: true });
+    await assert.rejects(() => loadCurationState(env, projectKey), /unreadable/);
+    await rm(file, { recursive: true, force: true });
+    await assert.equal((await loadCurationState(env, projectKey)).transactions.length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a commit refuses to proceed when curation state cannot be loaded", async () => {
+  const root = await temporary();
+  await mkdir(path.join(root, ".agents"), { recursive: true });
+  try {
+    const { env } = await writeGlobalConfig({ inputs: [] });
+    const base = [entry({ id: "e1", title: "Queue adapter" })];
+    const corpus = path.join(root, ".agents", "CHEATCODES.md");
+    await writeFile(corpus, renderKnowledgeMarkdown(base));
+    const projectKey = await deriveProjectKey(root);
+    const stateFile = path.join(path.dirname(env.CHEATCODES_STATE!), "curation", `${projectKey.replace(/[^A-Za-z0-9._-]/g, "-")}.json`);
+    await mkdir(path.dirname(stateFile), { recursive: true });
+    await writeFile(stateFile, "{corrupt");
+    const transaction = tx([{ op: "delete", target: { id: "e1", expectedDigest: entryDigest(base[0]!) }, reason: "gone", verification: { verifiedAt: "2026-01-01T00:00:00Z", sources: ["cmd: ls"] } }], corpusRevision(base), projectKey);
+    await assert.rejects(() => commitKnowledgeTransaction(env, root, transaction), /unreadable/);
+    assert.equal(await readFile(corpus, "utf8"), renderKnowledgeMarkdown(base));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

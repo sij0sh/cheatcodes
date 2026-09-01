@@ -4,8 +4,9 @@ import path from "node:path";
 import {
   corpusRevision,
   entryDigest,
+  parseKnowledgeDocument,
   parseKnowledgeMarkdown,
-  renderKnowledgeMarkdown,
+  renderKnowledgeDocument,
   type KnowledgeEntry,
 } from "./concept.js";
 import { deriveProjectKey, globalConfigPath, knowledgeFilePath, loadGlobalConfig } from "./config.js";
@@ -72,11 +73,8 @@ async function withCoverageOps(
     else if (op.op === "create") continue; // new entries are reviewed at the next cycle
     else if (op.op === "delete" || op.op === "update" || op.op === "keep") targeted.add(op.target.id);
   }
-  let openReviewTargets: string[] = [];
-  try {
-    const state = await loadCurationState(env, projectKey);
-    openReviewTargets = state.reviews.filter((review) => review.status === "open").flatMap((review) => review.targets);
-  } catch { openReviewTargets = []; }
+  const state = await loadCurationState(env, projectKey);
+  const openReviewTargets = state.reviews.filter((review) => review.status === "open").flatMap((review) => review.targets);
   const reviewed = new Set([...verified, ...survivors, ...targeted, ...openReviewTargets]);
   const coverageOps: KnowledgeOperation[] = entries
     .filter((entry) => !reviewed.has(entry.id))
@@ -129,7 +127,8 @@ export async function commitKnowledgeTransaction(
     if (!global) throw new Error(`No global config at ${globalConfigPath(env)}`);
     const file = knowledgeFilePath(root, global.knowledgeFile);
     // Steps 2-3: read, parse, compute the current revision.
-    const entries: KnowledgeEntry[] = parseKnowledgeMarkdown(await readFile(file, "utf8"));
+    const document = parseKnowledgeDocument(await readFile(file, "utf8"));
+    const entries: KnowledgeEntry[] = document.entries;
     const revision = corpusRevision(entries);
     // Step 4: reject a stale base revision.
     if (transaction.baseRevision !== revision) {
@@ -138,7 +137,7 @@ export async function commitKnowledgeTransaction(
     // Steps 5-7: validate operations, apply in memory, validate resulting entries.
     const applied = applyKnowledgeTransaction(entries, transaction, transaction.projectKey);
     // Steps 8-9: render and re-parse; the round-trip must reproduce the entry set.
-    const rendered = renderKnowledgeMarkdown(applied.entries);
+    const rendered = renderKnowledgeDocument({ entries: applied.entries, regions: document.regions });
     const reparsed = parseKnowledgeMarkdown(rendered);
     if (reparsed.length !== applied.entries.length || reparsed.some((entry, index) => entryDigest(entry) !== entryDigest(applied.entries[index]!))) {
       throw new Error(`transaction ${transaction.transactionId}: rendered Markdown does not round-trip`);

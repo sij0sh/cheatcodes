@@ -107,14 +107,24 @@ export function boundedCurationState(state: CurationState): CurationState {
   return bounded;
 }
 
+/**
+ * Fails closed: only a missing file means a fresh project. Any other read or
+ * validation failure throws, because a silent empty state would let the next
+ * commit overwrite tombstones, reviews, and receipts.
+ */
 export async function loadCurationState(env: NodeJS.ProcessEnv, projectKey: string): Promise<CurationState> {
+  const file = curationStatePath(env, projectKey);
+  let raw: unknown;
   try {
-    const raw = JSON.parse(await readFile(curationStatePath(env, projectKey), "utf8"));
-    if (!isCurationState(raw, projectKey)) return emptyCurationState(projectKey);
-    return raw;
-  } catch {
-    return emptyCurationState(projectKey);
+    raw = JSON.parse(await readFile(file, "utf8"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyCurationState(projectKey);
+    throw new Error(`curation state ${file} is unreadable; restore or remove it before running: ${(error as Error).message}`);
   }
+  if (!isCurationState(raw, projectKey)) {
+    throw new Error(`curation state ${file} is invalid (wrong version, shape, or projectKey); restore or remove it before running`);
+  }
+  return raw;
 }
 
 export async function saveCurationState(env: NodeJS.ProcessEnv, state: CurationState): Promise<void> {

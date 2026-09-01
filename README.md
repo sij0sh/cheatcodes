@@ -86,6 +86,8 @@ Set `"contextPointer": false` to leave agent instruction files unchanged. Set `k
 
 Cheatcodes stores processing state in the user's XDG state directory, which defaults to `~/.local/state/cheatcodes`. The project keeps only the knowledge file and, unless disabled, the agent instruction pointer.
 
+Curation bookkeeping (transaction receipts, tombstones, reviews) lives beside that state. A missing state file starts a fresh project. An unreadable or invalid state file fails closed and names its path; restore or remove that file before running `cheatcodes maintain` or `cheatcodes workflow`. If you upgraded from a version that dropped verification metadata on curated updates, run `cheatcodes maintain` once so affected entries are re-nominated for verification.
+
 ## License
 
 [MIT](LICENSE). Copyright (c) 2026 Josh Simon.
