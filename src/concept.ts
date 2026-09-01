@@ -173,7 +173,6 @@ function renderBlock(entry: KnowledgeEntry): string {
     valid.body,
     "",
     CLOSE_MARKER,
-    "",
   ].join("\n");
 }
 
@@ -186,10 +185,37 @@ function entryOrder(entry: KnowledgeEntry): string {
 }
 
 export function renderKnowledgeMarkdown(entries: readonly KnowledgeEntry[]): string {
-  const valid = entries.map((entry) => validateEntry(entry));
+  return renderKnowledgeDocument({ entries });
+}
+
+/**
+ * The knowledge file is human-editable Markdown (README), so text outside entry
+ * markers must survive automated rewrites. Regions are captured and re-emitted
+ * byte-for-byte at their ordinal positions; adjacency is best-effort when the
+ * entry set changes. The newline after a close marker belongs to the gap, not
+ * the block.
+ */
+export interface KnowledgeRegions {
+  preamble: string;
+  gaps: string[];
+  trailing: string;
+}
+
+export interface KnowledgeDocument {
+  entries: KnowledgeEntry[];
+  regions: KnowledgeRegions;
+}
+
+export function renderKnowledgeDocument(document: { entries: readonly KnowledgeEntry[]; regions?: KnowledgeRegions }): string {
+  const valid = document.entries.map((entry) => validateEntry(entry));
   valid.sort((a, b) => (entryOrder(a) < entryOrder(b) ? -1 : entryOrder(a) > entryOrder(b) ? 1 : 0));
   const blocks = valid.map((entry) => renderBlock(entry));
-  return blocks.length > 0 ? `${DOCUMENT_HEADING}\n\n${blocks.join("")}` : `${DOCUMENT_HEADING}\n`;
+  const regions = document.regions;
+  const preamble = regions?.preamble ?? (blocks.length > 0 ? `${DOCUMENT_HEADING}\n\n` : `${DOCUMENT_HEADING}\n`);
+  const separated = blocks.map((block, index) => block + (index < blocks.length - 1 ? regions?.gaps[index] ?? "\n" : ""));
+  const leftoverGaps = regions ? regions.gaps.slice(Math.max(0, blocks.length - 1)) : [];
+  const trailing = regions?.trailing ?? (blocks.length > 0 ? "\n" : "");
+  return preamble + separated.join("") + leftoverGaps.join("") + trailing;
 }
 
 function renderedPrefix(entry: KnowledgeEntry): string {
@@ -197,13 +223,21 @@ function renderedPrefix(entry: KnowledgeEntry): string {
 }
 
 export function parseKnowledgeMarkdown(markdown: string): KnowledgeEntry[] {
+  return parseKnowledgeDocument(markdown).entries;
+}
+
+export function parseKnowledgeDocument(markdown: string): KnowledgeDocument {
   const normalized = markdown.replace(/\r\n?/g, "\n");
   const entries: KnowledgeEntry[] = [];
   const ids = new Set<string>();
   let cursor = 0;
+  let firstOpen = -1;
+  const gaps: string[] = [];
   for (;;) {
     const open = normalized.indexOf(OPEN_MARKER, cursor);
     if (open < 0) break;
+    if (firstOpen < 0) firstOpen = open;
+    else gaps.push(normalized.slice(cursor, open));
     const metadataStart = open + OPEN_MARKER.length;
     const metadataEnd = normalized.indexOf("-->", metadataStart);
     if (metadataEnd < 0) throw new KnowledgeValidationError(["entry metadata must be closed with -->"]);
@@ -230,7 +264,9 @@ export function parseKnowledgeMarkdown(markdown: string): KnowledgeEntry[] {
     entries.push(entry);
     cursor = blockEnd + CLOSE_MARKER.length;
   }
-  return entries;
+  const preamble = firstOpen < 0 ? normalized : normalized.slice(0, firstOpen);
+  const trailing = firstOpen < 0 ? "" : normalized.slice(cursor);
+  return { entries, regions: { preamble, gaps, trailing } };
 }
 
 const SESSION_SOURCE = /^session:([^#]+)#records=/;
@@ -283,6 +319,9 @@ export function applyCuratedEntry(
       date: input.date ?? existing.date,
       tags: mergedValues(existing.tags, input.tags),
       sources: mergedValues(existing.sources, input.sources),
+      kind: existing.kind,
+      verifiedAt: existing.verifiedAt,
+      verificationSources: existing.verificationSources,
     });
     const changed = !sameEntry(existing, next);
     if (!changed) return { entries: [...entries], changed, id: existing.id };
@@ -312,6 +351,9 @@ export function applyCuratedEntry(
       date: input.date ?? existing.date,
       tags: mergedValues(existing.tags, entry.tags),
       sources: mergedValues(existing.sources, entry.sources),
+      kind: existing.kind,
+      verifiedAt: existing.verifiedAt,
+      verificationSources: existing.verificationSources,
     });
     const changed = !sameEntry(existing, merged);
     if (!changed) return { entries: [...entries], changed, id };

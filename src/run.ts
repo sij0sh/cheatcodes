@@ -14,7 +14,7 @@ import {
   resolveProjectRoots,
   saveGlobalConfig,
 } from "./config.js";
-import { applyCuratedEntry, parseKnowledgeMarkdown, removeEntriesFromSessions, renderKnowledgeMarkdown, type KnowledgeEntry } from "./concept.js";
+import { applyCuratedEntry, parseKnowledgeDocument, parseKnowledgeMarkdown, removeEntriesFromSessions, renderKnowledgeDocument, type KnowledgeEntry, type KnowledgeRegions } from "./concept.js";
 import {
   normalizeCuratorOutcome,
   PiCurator,
@@ -185,7 +185,9 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
   try {
     if (lock.staleRecovered) warn("Recovered a stale project mutation lock");
     await ensureKnowledgeOutput(root, global.knowledgeFile, global.contextPointer !== false);
-    let entries: KnowledgeEntry[] = parseKnowledgeMarkdown(await readFile(knowledgeFile, "utf8"));
+    const document = parseKnowledgeDocument(await readFile(knowledgeFile, "utf8"));
+    let entries: KnowledgeEntry[] = document.entries;
+    const regions = document.regions;
     const globalState = await loadGlobalState(env);
     const projectState: ProjectState = globalState.projects[projectKey] ?? { files: {} };
     const inputs = [...resolveGlobalInputs(global, env), ...(options.extraInputs ?? []).map((value) => path.resolve(value))];
@@ -196,7 +198,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
     const isolated = removeEntriesFromSessions(entries, scan.foreignSessionIds);
     if (isolated.removed > 0) {
       entries = isolated.entries;
-      await renderAndStore(knowledgeFile, entries);
+      await renderAndStore(knowledgeFile, regions, entries);
       warn(`Removed ${isolated.removed} knowledge entr${isolated.removed === 1 ? "y" : "ies"} sourced from sessions outside configured project roots`);
     }
     const prunedFiles = new Set<string>();
@@ -257,7 +259,7 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
           entries = result.entries;
           if (result.changed) {
             entriesWritten++;
-            await renderAndStore(knowledgeFile, entries);
+            await renderAndStore(knowledgeFile, regions, entries);
           }
           return result.changed;
         };
@@ -348,8 +350,8 @@ export async function runProject(options: RunOptions = {}): Promise<RunResult> {
   } finally { await lock.release(); }
 }
 
-async function renderAndStore(knowledgeFile: string, entries: KnowledgeEntry[]): Promise<void> {
-  await atomicWrite(knowledgeFile, renderKnowledgeMarkdown(entries));
+async function renderAndStore(knowledgeFile: string, regions: KnowledgeRegions, entries: KnowledgeEntry[]): Promise<void> {
+  await atomicWrite(knowledgeFile, renderKnowledgeDocument({ entries, regions }));
 }
 
 export interface ProjectStatus {

@@ -4,8 +4,10 @@ import {
   applyCuratedEntry,
   deriveEntryId,
   KnowledgeValidationError,
+  parseKnowledgeDocument,
   parseKnowledgeMarkdown,
   removeEntriesFromSessions,
+  renderKnowledgeDocument,
   renderKnowledgeMarkdown,
   validateEntry,
   type KnowledgeEntry,
@@ -58,6 +60,37 @@ test("unchanged entries render identical bytes", () => {
   const rendered = renderKnowledgeMarkdown([entry()]);
   const reparsed = parseKnowledgeMarkdown(rendered);
   assert.equal(renderKnowledgeMarkdown(reparsed), rendered);
+});
+
+test("text outside entry markers survives a document round trip byte-for-byte", () => {
+  const base = renderKnowledgeMarkdown([entry(), entry({ id: "cc-bb", title: "Zebra entry" })]);
+  const close = "<!-- /cheatcodes-entry -->";
+  const firstClose = base.indexOf(close) + close.length;
+  const withNotes = `# CHEATCODES\n\n# Preamble notes\n\n${base.slice("# CHEATCODES\n\n".length, firstClose)}\n## Onboarding notes\n\nInter-block note.\n${base.slice(firstClose)}Trailing human notes.\n`;
+  const document = parseKnowledgeDocument(withNotes);
+  assert.equal(document.entries.length, 2);
+  assert.equal(renderKnowledgeDocument(document), withNotes);
+});
+
+test("inter-block and trailing notes survive entry-set changes", () => {
+  const base = renderKnowledgeMarkdown([entry(), entry({ id: "cc-bb", title: "Zebra entry" })]);
+  const close = "<!-- /cheatcodes-entry -->";
+  const firstClose = base.indexOf(close) + close.length;
+  const withNote = `${base.slice(0, firstClose)}\n## Onboarding notes\n\nNever commit secrets.\n${base.slice(firstClose)}`;
+  const document = parseKnowledgeDocument(withNote);
+  const updated = renderKnowledgeDocument({ entries: [...document.entries, entry({ id: "cc-cc", title: "Added entry" })], regions: document.regions });
+  assert.equal(updated.includes("Never commit secrets."), true);
+  assert.equal(parseKnowledgeDocument(updated).entries.length, 3);
+  const removed = renderKnowledgeDocument({ entries: document.entries.slice(0, 1), regions: document.regions });
+  assert.equal(removed.includes("Never commit secrets."), true);
+});
+
+test("notes containing marker-adjacent text are carried verbatim", () => {
+  const rendered = renderKnowledgeMarkdown([entry()]);
+  const withNote = `${rendered}Trailing note with --> and "--" inside.\n`;
+  const document = parseKnowledgeDocument(withNote);
+  assert.equal(document.entries.length, 1);
+  assert.equal(renderKnowledgeDocument(document), withNote);
 });
 
 test("empty document renders a heading only", () => {
@@ -181,6 +214,44 @@ test("create id collision with a different normalized title fails", () => {
     () => applyCuratedEntry([handEdited], { action: "create", title, summary: "S", body: "B" }, projectKey),
     (error: unknown) => error instanceof KnowledgeValidationError && /already belongs/.test(error.message),
   );
+});
+
+test("curated rebuilds preserve verification state", () => {
+  const projectKey = "git:abc";
+  const verified = entry({
+    id: "cc-verified",
+    title: "Deploy procedure",
+    summary: "How to deploy.",
+    body: "Deploy steps.",
+    kind: "procedure",
+    verifiedAt: "2026-03-04T05:06:07.000Z",
+    verificationSources: ["cmd: npm test"],
+  });
+  const updated = applyCuratedEntry([verified], {
+    action: "update",
+    targetEntryId: "cc-verified",
+    title: "Deploy procedure",
+    summary: "Updated summary.",
+    body: "Updated body.",
+  }, projectKey);
+  assert.deepEqual(
+    { kind: updated.entries[0]!.kind, verifiedAt: updated.entries[0]!.verifiedAt, verificationSources: updated.entries[0]!.verificationSources },
+    { kind: "procedure", verifiedAt: "2026-03-04T05:06:07.000Z", verificationSources: ["cmd: npm test"] },
+  );
+  const roundTripped = parseKnowledgeMarkdown(renderKnowledgeMarkdown(updated.entries))[0]!;
+  assert.equal(roundTripped.verifiedAt, "2026-03-04T05:06:07.000Z");
+  const merged = applyCuratedEntry([verified], {
+    action: "create",
+    title: "Deploy procedure",
+    summary: "Merged summary.",
+    body: "Merged body.",
+  }, projectKey);
+  assert.equal(merged.changed, true);
+  assert.equal(merged.entries[0]!.kind, "procedure");
+  assert.equal(merged.entries[0]!.verifiedAt, "2026-03-04T05:06:07.000Z");
+  const fresh = applyCuratedEntry([], { action: "create", title: "Brand new", summary: "S", body: "B" }, projectKey);
+  assert.equal(fresh.entries[0]!.kind, undefined);
+  assert.equal(fresh.entries[0]!.verifiedAt, undefined);
 });
 
 test("update replaces the complete entry and preserves the id", () => {
