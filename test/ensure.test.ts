@@ -6,7 +6,7 @@ import test from "node:test";
 import { deriveEntryId, entryDigest, renderKnowledgeMarkdown, validateEntry } from "../src/concept.js";
 import { deriveProjectKey } from "../src/config.js";
 import { writeGlobalConfig, temporary } from "./helpers.js";
-import { checkMapFreshness, MAP_TITLES } from "../src/map.js";
+import { checkMapFreshness, MAP_FAMILIES } from "../src/map.js";
 import { inventoryDigest } from "../src/inventory.js";
 import { runEnsure, resolveEnsureTimeoutSeconds, type CurateStage, type EnsureStages, type WorkflowStage } from "../src/ensure.js";
 import { loadCurationState, saveCurationState } from "../src/curation-state.js";
@@ -25,11 +25,12 @@ async function mapFixture(): Promise<{ root: string; env: NodeJS.ProcessEnv; cle
 
 async function seedMapCorpus(root: string, extraSources: string[] = []): Promise<void> {
   const sources = [SOURCE_A, ...extraSources];
-  const entries = MAP_TITLES.map((title) => validateEntry({
-    id: deriveEntryId("ignored", title),
-    title,
+  const entries = MAP_FAMILIES.map((tag, index) => validateEntry({
+    id: deriveEntryId("ignored", `Map point ${index}`),
+    title: `Map point ${index}`,
     summary: "s",
     body: "b",
+    tags: [tag],
     sources,
     verificationSources: sources,
   }));
@@ -93,7 +94,7 @@ test("a committed map stores the inventory digest and clears staleness", async (
     const projectKey = await deriveProjectKey(root);
     const { loadCorpus } = await import("../src/workflow/tools.js");
     const { entries, revision } = await loadCorpus(root, env);
-    const target = entries.find((entry) => entry.title === "Project brief")!;
+    const target = entries.find((entry) => entry.title === "Map point 0")!;
     // The same post-commit cursor write runMap performs.
     await commitKnowledgeTransaction(env, root, {
       transactionId: "tx-map-test",

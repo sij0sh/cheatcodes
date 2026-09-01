@@ -6,9 +6,11 @@ import path from "node:path";
 import test from "node:test";
 import { deriveEntryId, entryDigest, validateEntry, type KnowledgeEntry } from "../src/concept.js";
 import {
-  MAP_TITLES,
+  MAP_FAMILIES,
+  MAX_MAP_OPERATIONS,
   REPO_SOURCE_PATTERN,
   describeMapOperations,
+  planMapRetirements,
   stampRepoVerification,
   validateMapOperations,
   verifyRepoSources,
@@ -25,20 +27,20 @@ const DIGEST_B = createHash("sha256").update(SOURCE_B).digest("hex");
 const SOURCE_REF_A = `repo:src/a.ts#sha256=${DIGEST_A}`;
 const SOURCE_REF_B = `repo:src/b.ts#sha256=${DIGEST_B}`;
 
-function mapEntry(title: string, sources: string[] = [SOURCE_REF_A, SOURCE_REF_B]): KnowledgeEntry {
-  return validateEntry({ id: deriveEntryId(PROJECT, title), title, summary: "s", body: "b", sources });
+function mapEntry(title: string, tag = "map:capability", sources: string[] = [SOURCE_REF_A, SOURCE_REF_B]): KnowledgeEntry {
+  return validateEntry({ id: deriveEntryId(PROJECT, title), title, summary: "s", body: "b", tags: [tag], sources });
 }
 
 function createContext(entries: KnowledgeEntry[] = []): MapContext {
-  return { entries, projectKey: PROJECT, existing: entries.map((entry) => ({ id: entry.id, title: entry.title, summary: entry.summary, digest: entryDigest(entry) })) };
+  return { entries, projectKey: PROJECT, existing: entries.map((entry) => ({ id: entry.id, title: entry.title, summary: entry.summary, tags: entry.tags ?? [], digest: entryDigest(entry) })) };
 }
 
-function createOp(title: string, sources: string[] = [SOURCE_REF_A, SOURCE_REF_B]) {
-  return { op: "create", entry: { title, summary: "s", body: "b", sources } };
+function createOp(title: string, sources: string[] = [SOURCE_REF_A, SOURCE_REF_B], tag = "map:capability") {
+  return { op: "create", entry: { title, summary: "s", body: "b", tags: [tag], sources } };
 }
 
-function updateOp(title: string, digest: string, sources: string[] = [SOURCE_REF_A, SOURCE_REF_B]) {
-  return { op: "update", target: { id: deriveEntryId(PROJECT, title), expectedDigest: digest }, entry: { title, summary: "s", body: "b", sources } };
+function updateOp(title: string, digest: string, sources: string[] = [SOURCE_REF_A, SOURCE_REF_B], tag = "map:capability") {
+  return { op: "update", target: { id: deriveEntryId(PROJECT, title), expectedDigest: digest }, entry: { title, summary: "s", body: "b", tags: [tag], sources } };
 }
 
 async function mapFixture(options: { nested?: boolean } = {}) {
@@ -78,9 +80,9 @@ test("REPO_SOURCE_PATTERN accepts only well-formed repo sources with 64-hex dige
 });
 
 test("validateMapOperations accepts a valid set of create and update operations", () => {
-  const existing = mapEntry("System map");
+  const existing = mapEntry("System map", "map:system");
   const ops = validateMapOperations(
-    { operations: [createOp("Project brief"), updateOp("System map", entryDigest(existing))] },
+    { operations: [createOp("Brief point", [SOURCE_REF_A, SOURCE_REF_B], "map:project-brief"), updateOp("System map", entryDigest(existing), [SOURCE_REF_A, SOURCE_REF_B], "map:system")] },
     createContext([existing]),
   );
   assert.equal(ops.length, 2);
@@ -90,18 +92,27 @@ test("validateMapOperations accepts zero operations", () => {
   assert.deepEqual(validateMapOperations({ operations: [] }, createContext()), []);
 });
 
-test("validateMapOperations rejects more than three operations", () => {
+test("validateMapOperations rejects more than MAX_MAP_OPERATIONS operations", () => {
+  const operations = Array.from({ length: MAX_MAP_OPERATIONS + 1 }, (_, index) => createOp(`Point ${index}`));
+  assert.throws(() => validateMapOperations({ operations }, createContext()), /operations/);
+});
+
+test("validateMapOperations rejects duplicate titles", () => {
   assert.throws(
-    () => validateMapOperations({ operations: [createOp("Project brief"), createOp("System map"), createOp("Capability map"), createOp("Project brief")] }, createContext()),
-    /operations/,
+    () => validateMapOperations({ operations: [createOp("Same point"), createOp("Same point")] }, createContext()),
+    /duplicate title/,
   );
 });
 
-test("validateMapOperations rejects unknown and duplicate titles", () => {
-  assert.throws(() => validateMapOperations({ operations: [createOp("Architecture")] }, createContext()), /title must be one of/);
+test("validateMapOperations requires exactly one family tag", () => {
+  const missing = [{ op: "create", entry: { title: "Point", summary: "s", body: "b", sources: [SOURCE_REF_A, SOURCE_REF_B] } }];
+  assert.throws(() => validateMapOperations({ operations: missing }, createContext()), /tags must be exactly one of/);
+  const two = createOp("Point");
+  two.entry.tags = ["map:system", "map:capability"];
+  assert.throws(() => validateMapOperations({ operations: [two] }, createContext()), /tags must be exactly one of/);
   assert.throws(
-    () => validateMapOperations({ operations: [createOp("Project brief"), createOp("Project brief")] }, createContext()),
-    /duplicate title/,
+    () => validateMapOperations({ operations: [createOp("Point", [SOURCE_REF_A, SOURCE_REF_B], "capability")] }, createContext()),
+    /tags must be exactly one of/,
   );
 });
 
@@ -118,30 +129,30 @@ test("validateMapOperations enforces the provenance rules", () => {
   assert.throws(() => validateMapOperations({ operations: malformed }, createContext()), /malformed repo source/);
   const duplicate = [createOp("Project brief", [SOURCE_REF_A, SOURCE_REF_A])];
   assert.throws(() => validateMapOperations({ operations: duplicate }, createContext()), /sources must be distinct/);
-  const tagged = [{ op: "create", entry: { title: "Project brief", summary: "s", body: "b", sources: [SOURCE_REF_A, SOURCE_REF_B], tags: ["x"] } }];
-  assert.throws(() => validateMapOperations({ operations: tagged }, createContext()), /tags must be unset/);
+  const tagged = [createOp("Point", [SOURCE_REF_A, SOURCE_REF_B], "not-a-family")];
+  assert.throws(() => validateMapOperations({ operations: tagged }, createContext()), /tags must be exactly one of/);
   const kinded = [{ op: "create", entry: { title: "Project brief", summary: "s", body: "b", sources: [SOURCE_REF_A, SOURCE_REF_B], kind: "decision" } }];
   assert.throws(() => validateMapOperations({ operations: kinded }, createContext()), /kind must be unset/);
 });
 
 test("validateMapOperations forces update when a derived entry id already exists", () => {
-  const existing = mapEntry("Project brief");
+  const existing = mapEntry("Brief point", "map:project-brief");
   assert.throws(
-    () => validateMapOperations({ operations: [createOp("Project brief")] }, createContext([existing])),
+    () => validateMapOperations({ operations: [createOp("Brief point", [SOURCE_REF_A, SOURCE_REF_B], "map:project-brief")] }, createContext([existing])),
     /already exists; use update instead/,
   );
 });
 
-test("validateMapOperations rejects stale update digests and mismatched update targets", () => {
-  const existing = mapEntry("System map");
+test("validateMapOperations rejects stale update digests and renamed update targets", () => {
+  const existing = mapEntry("System map", "map:system");
   assert.throws(
-    () => validateMapOperations({ operations: [updateOp("System map", "deadbeef00")] }, createContext([existing])),
+    () => validateMapOperations({ operations: [updateOp("System map", "deadbeef00", [SOURCE_REF_A, SOURCE_REF_B], "map:system")] }, createContext([existing])),
     /digest mismatch/,
   );
-  const mismatched = { op: "update", target: { id: deriveEntryId(PROJECT, "Project brief"), expectedDigest: entryDigest(existing) }, entry: { title: "System map", summary: "s", body: "b", sources: [SOURCE_REF_A, SOURCE_REF_B] } };
+  const renamed = { op: "update", target: { id: existing.id, expectedDigest: entryDigest(existing) }, entry: { title: "System map renamed", summary: "s", body: "b", tags: ["map:system"], sources: [SOURCE_REF_A, SOURCE_REF_B] } };
   assert.throws(
-    () => validateMapOperations({ operations: [mismatched] }, createContext([existing])),
-    /does not match the id derived from the title/,
+    () => validateMapOperations({ operations: [renamed] }, createContext([existing])),
+    /must keep the title/,
   );
 });
 
@@ -186,11 +197,30 @@ test("stampRepoVerification sets verifiedAt and verificationSources on create an
   assert.equal(stamped[2], del);
 });
 
-test("describeMapOperations renders create and update plans", () => {
-  const seeded = mapEntry("System map");
-  const lines = describeMapOperations([createOp("Project brief"), updateOp("System map", entryDigest(seeded))], PROJECT);
-  assert.match(lines[0]!, /^create "Project brief" \(2 source\(s\)\) -> cc-/);
+test("describeMapOperations renders create, update, and delete plans", () => {
+  const seeded = mapEntry("System map", "map:system");
+  const retired = mapEntry("Old point");
+  const del = { op: "delete" as const, target: { id: retired.id, expectedDigest: entryDigest(retired) }, reason: "map point retired", verification: { verifiedAt: "2026-01-01T00:00:00Z", sources: [SOURCE_REF_A] } };
+  const lines = describeMapOperations(
+    [createOp("Brief point", [SOURCE_REF_A, SOURCE_REF_B], "map:project-brief"), updateOp("System map", entryDigest(seeded), [SOURCE_REF_A, SOURCE_REF_B], "map:system"), del],
+    PROJECT,
+  );
+  assert.match(lines[0]!, /^create "Brief point" \(2 source\(s\)\) -> cc-/);
   assert.match(lines[1]!, /^update cc-.* "System map" \(2 source\(s\)\)$/);
+  assert.match(lines[2]!, /^delete cc-.* \(map point retired\)$/);
+});
+
+test("planMapRetirements deletes tagged entries absent from the submitted set", () => {
+  const now = new Date("2026-02-03T04:05:06Z");
+  const keptEntry = mapEntry("Kept point");
+  const staleEntry = mapEntry("Stale point", "map:system");
+  const retired = planMapRetirements([keptEntry, staleEntry], [updateOp("Kept point", entryDigest(keptEntry))], now);
+  assert.equal(retired.length, 1);
+  assert.equal(retired[0]!.op, "delete");
+  assert.deepEqual(retired[0]!.target, { id: staleEntry.id, expectedDigest: entryDigest(staleEntry) });
+  assert.equal(retired[0]!.reason, "map point retired");
+  assert.equal(retired[0]!.verification.verifiedAt, "2026-02-03T04:05:06.000Z");
+  assert.deepEqual(retired[0]!.verification.sources, [SOURCE_REF_A, SOURCE_REF_B]);
 });
 
 test("inspect_project_fact reports the sha256 of the full file content", async () => {
@@ -232,6 +262,7 @@ test("inspect_project_tree marks truncation beyond the depth and entry caps", as
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("map titles are the three fixed entry titles", () => {
-  assert.deepEqual([...MAP_TITLES], ["Project brief", "System map", "Capability map"]);
+test("map families are the three fixed family tags", () => {
+  assert.deepEqual([...MAP_FAMILIES], ["map:project-brief", "map:system", "map:capability"]);
+  assert.equal(MAX_MAP_OPERATIONS, 16);
 });

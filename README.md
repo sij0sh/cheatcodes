@@ -112,9 +112,9 @@ cheatcodes map --dry-run
 cheatcodes map
 ```
 
-It maintains at most three entries in `.agents/CHEATCODES.md`, titled `Project brief`, `System map`, and `Capability map`. Each entry must synthesize at least two repository files. Provenance is stored per entry as `repo:<relative-path>#sha256=<digest>` sources, and every digest is re-verified immediately before the commit; a changed or missing file aborts the run.
+It maintains point entries in `.agents/CHEATCODES.md` under three family tags: `map:project-brief`, `map:system`, and `map:capability`. Each entry states one point and carries exactly its family tag, so every point gets its own title, summary, sources, and provenance. Each entry must synthesize at least two repository files. Provenance is stored per entry as `repo:<relative-path>#sha256=<digest>` sources, and every digest is re-verified immediately before the commit; a changed or missing file aborts the run.
 
-Synthesis runs only when you invoke the command. Re-running it updates the same entries. Existing entries that already restate a single canonical file (such as a README section) are rejected, so the map stays a compression of distributed truth rather than a documentation mirror.
+Synthesis runs only when you invoke the command. Re-running it replaces the full set: map entries left out of the new submission are retired automatically. Existing entries that already restate a single canonical file (such as a README section) are rejected, so the map stays a compression of distributed truth rather than a documentation mirror.
 
 ## Output
 
