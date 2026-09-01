@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -9,14 +9,11 @@ import { loadCurationState, saveCurationState } from "../curation-state.js";
 import { parseKnowledgeTransaction, validateTransactionOperations } from "../transaction.js";
 import { sha256 } from "../state.js";
 import { readManifest } from "./manifests.js";
+import { walkInventory, TREE_LIMITS } from "../inventory.js";
+export { TREE_LIMITS } from "../inventory.js";
 export const WORKFLOW_PROMPT_VERSION = "workflow-1";
 const RESULT_LIMIT = 400;
 const MAX_COMMAND_TIMEOUT_MS = 180_000;
-export const TREE_LIMITS = { depth: 4, entries: 400, bytes: 16_384 };
-const SKIP_DIRS = new Set([
-    ".git", "node_modules", "dist", "build", "out", "coverage", ".cache",
-    ".agents", ".cheatcodes", ".pi-files", "vendor", ".venv", "__pycache__",
-]);
 const rootFor = (env) => path.resolve(env.CHEATCODES_PROJECT_ROOT ?? process.cwd());
 const text = (value, isError = false) => ({ content: [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }], details: value, ...(isError ? { isError: true } : {}) });
 export async function loadCorpus(root, env) {
@@ -32,40 +29,6 @@ export async function loadCorpus(root, env) {
     return { entries, revision: corpusRevision(entries) };
 }
 const overlap = (haystack, terms) => terms.filter((term) => haystack.toLowerCase().includes(term));
-// Depth-first with sorted names; the flat output is already lexicographic.
-// Symlinks are skipped outright so the walk cannot escape the root.
-async function walkTree(root, relative, depth, out, files) {
-    if (depth > TREE_LIMITS.depth || out.length >= TREE_LIMITS.entries)
-        return out.length >= TREE_LIMITS.entries;
-    let dirents;
-    try {
-        dirents = await readdir(relative ? path.join(root, relative) : root, { withFileTypes: true });
-    }
-    catch {
-        return false;
-    }
-    dirents.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-    for (const dirent of dirents) {
-        if (out.length >= TREE_LIMITS.entries)
-            return true;
-        if (dirent.isSymbolicLink())
-            continue;
-        const rel = relative ? `${relative}/${dirent.name}` : dirent.name;
-        if (dirent.isDirectory()) {
-            if (SKIP_DIRS.has(dirent.name))
-                continue;
-            out.push({ path: `${rel}/` });
-            if (await walkTree(root, rel, depth + 1, out, files))
-                return true;
-        }
-        else if (dirent.isFile()) {
-            const info = await stat(path.join(root, rel)).catch(() => undefined);
-            out.push({ path: rel, bytes: info?.size ?? 0 });
-            files.count += 1;
-        }
-    }
-    return false;
-}
 export function loadEvidenceEpisodeTool(env = process.env) {
     return defineTool({
         name: "load_evidence_episode",
@@ -179,19 +142,16 @@ export function inspectProjectTreeTool(env = process.env) {
         description: "Bounded inventory of the verified project root: relative paths with file sizes. Skips dependency, build, and metadata directories. Caps depth and entry count.",
         parameters: Type.Object({}, { additionalProperties: false }),
         execute: async () => {
-            const root = rootFor(env);
-            const rootReal = await realpath(root).catch(() => root);
-            const entries = [];
-            const files = { count: 0 };
-            const hitCap = await walkTree(rootReal, "", 0, entries, files);
-            const render = (list, truncated) => JSON.stringify({ root: path.basename(rootReal), totalFiles: files.count, truncated, entries: list });
+            const inventory = await walkInventory(rootFor(env));
+            const entries = inventory.entries.map((entry) => (entry.bytes === undefined ? { path: entry.path } : { path: entry.path, bytes: entry.bytes }));
+            const render = (list, truncated) => JSON.stringify({ root: inventory.root, totalFiles: inventory.totalFiles, truncated, entries: list });
             let list = entries;
-            let truncated = hitCap;
+            let truncated = inventory.truncated;
             while (render(list, truncated).length > TREE_LIMITS.bytes && list.length > 0) {
                 list = list.slice(0, Math.floor(list.length * 0.9));
                 truncated = true;
             }
-            return text({ root: path.basename(rootReal), totalFiles: files.count, truncated, entries: list });
+            return text({ root: inventory.root, totalFiles: inventory.totalFiles, truncated, entries: list });
         },
     });
 }
