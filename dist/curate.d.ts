@@ -58,6 +58,10 @@ export declare class PiCurator implements Curator {
     curate(packet: HarvestPacket): Promise<CuratorOutcome>;
 }
 export declare function normalizeCuratorOutcome(value: CuratorOutcome | CuratorResponse, packet: HarvestPacket): CuratorOutcome;
+export declare function finalUsage(messages: readonly unknown[]): {
+    inputTokens: number;
+    outputTokens: number;
+} | undefined;
 export interface PiQualifierOptions {
     projectRoot: string;
     model: string;

@@ -195,7 +195,7 @@ function submitQualificationTool(packet, capture) {
         },
     });
 }
-function finalUsage(messages) {
+export function finalUsage(messages) {
     for (let index = messages.length - 1; index >= 0; index--) {
         const message = messages[index];
         if (message?.role === "assistant" && message.usage) {

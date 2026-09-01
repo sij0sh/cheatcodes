@@ -222,7 +222,7 @@ function submitQualificationTool(packet: HarvestPacket, capture: { value?: unkno
   });
 }
 
-function finalUsage(messages: readonly unknown[]): { inputTokens: number; outputTokens: number } | undefined {
+export function finalUsage(messages: readonly unknown[]): { inputTokens: number; outputTokens: number } | undefined {
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index] as { role?: string; usage?: { input?: number; output?: number } } | undefined;
     if (message?.role === "assistant" && message.usage) {
