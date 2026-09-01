@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "description": "Standalone coding-agent knowledge harvester and curator CLI.",
   "license": "MIT",
+  "keywords": [
+    "pi-package"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sij0sh/cheatcodes.git"
@@ -21,6 +24,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
+    "prepare": "npm run build",
     "test": "node --import tsx --test test/*.test.ts",
     "start": "tsx src/cli.ts",
     "test:live": "node --import tsx --test test/live/*.test.ts",
