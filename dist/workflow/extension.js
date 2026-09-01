@@ -1,5 +1,7 @@
 import { spawn as nodeSpawn } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { join } from "node:path";
 import { loadGlobalConfig } from "../config.js";
 import { createWorkflowTools } from "./tools.js";
 export function defaultResolveCli() {
@@ -26,6 +28,8 @@ export function launchAutorun(pi, deps) {
     });
 }
 async function runAutorun(event, ctx, deps) {
+    if (process.env.CHEATCODES_ENSURE === "0")
+        return;
     if (!(await autorunEnabled(deps.loadConfig)))
         return;
     let cliPath;
@@ -45,8 +49,9 @@ async function runAutorun(event, ctx, deps) {
         env.CHEATCODES_PI_MODEL = `${ctx.model.provider}/${ctx.model.id}`;
     if (ctx.thinkingLevel)
         env.CHEATCODES_PI_THINKING = ctx.thinkingLevel;
+    const timeout = env.CHEATCODES_ENSURE_TIMEOUT?.trim() || "120";
     try {
-        const child = deps.spawn(process.execPath, [cliPath, "run"], {
+        const child = deps.spawn(process.execPath, [cliPath, "ensure", "--timeout", timeout], {
             cwd: ctx.cwd,
             detached: true,
             shell: false,
@@ -54,7 +59,15 @@ async function runAutorun(event, ctx, deps) {
             env,
         });
         child.unref();
-        child.on("error", () => { });
+        child.on("error", (error) => {
+            // Diagnosable, never silent: missing binary, permissions, spawn errors.
+            try {
+                appendFileSync(join(ctx.cwd, ".cheatcodes-ensure.log"), `${new Date().toISOString()} cheatcodes ensure spawn failed: ${error.message}\n`);
+            }
+            catch {
+                // A failed log write must never break a session.
+            }
+        });
     }
     catch {
         // A missing or failing CLI never breaks a session.

@@ -76,9 +76,15 @@ cheatcodes status
 
 `cheatcodes run` scans matching sessions, curates supported lessons, and creates `.agents/CHEATCODES.md`. By default, it also adds a pointer to `AGENTS.md`, or to `AGENTS.override.md` when the override file already exists. A knowledge file left at the legacy root location moves to the new default on the next run.
 
-`cheatcodes status` reports discovered session files, skipped inputs, the entry count, and the last run.
+`cheatcodes status` reports discovered session files, skipped inputs, the entry count, map freshness, and the last run.
 
-When the package is linked or installed, Pi loads its extension and starts a detached `cheatcodes run` at session start in trusted projects. Set `"autorun": false` to disable this.
+When the package is linked or installed, Pi loads its extension and starts a detached `cheatcodes ensure` at session start in trusted projects. Set `"autorun": false` or `CHEATCODES_ENSURE=0` to disable this.
+
+## Automatic freshness
+
+`cheatcodes ensure` is the one unattended verb. It curates changed sessions, runs the pending-episode curation workflow, and checks map freshness, then prints one JSON status (`refreshed`, `up-to-date`, `timeout`, `locked`, or `error`). Every status except `error` exits 0, so freshness work never blocks an agent launch.
+
+The map check is free: it re-verifies cited `repo:` digests and compares a bounded inventory digest. A stale map is reported as `map: "stale (sources changed)"` or `map: "stale (inventory changed)"`. Synthesis is never automatic unless you pass `--map` or set `"autoMap": true`.
 
 ## Configuration reference
 
@@ -89,7 +95,8 @@ When the package is linked or installed, Pi loads its extension and starts a det
 | `workerTimeoutMinutes` | Maximum run time | `10` |
 | `knowledgeFile` | Project-relative output path | `.agents/CHEATCODES.md` |
 | `contextPointer` | Add the knowledge pointer to agent instructions | `true` |
-| `autorun` | Run `cheatcodes run` when a Pi session starts in a trusted project | `true` |
+| `autorun` | Run `cheatcodes ensure` when a Pi session starts in a trusted project | `true` |
+| `autoMap` | Resynthesize a stale map during ensure | `false` |
 | `projectAliases` | Treat other paths as the same project | `{}` |
 
 Set `"contextPointer": false` to leave agent instruction files unchanged. Set `knowledgeFile` to another project-relative path when `.agents/CHEATCODES.md` does not fit the repository layout.
@@ -113,7 +120,13 @@ Synthesis runs only when you invoke the command. Re-running it updates the same 
 
 Cheatcodes stores processing state in the user's XDG state directory, which defaults to `~/.local/state/cheatcodes`. The project keeps only the knowledge file and, unless disabled, the agent instruction pointer.
 
-Curation bookkeeping (transaction receipts, tombstones, reviews) lives beside that state. A missing state file starts a fresh project. An unreadable or invalid state file fails closed and names its path; restore or remove that file before running `cheatcodes maintain` or `cheatcodes workflow`. If you upgraded from a version that dropped verification metadata on curated updates, run `cheatcodes maintain` once so affected entries are re-nominated for verification.
+Curation bookkeeping (transaction receipts, tombstones, reviews) lives beside that state. A missing state file starts a fresh project. An unreadable or invalid state file fails closed and names its path; restore or remove that file before running `cheatcodes maintain` or `cheatcodes ensure`. If you upgraded from a version that dropped verification metadata on curated updates, run `cheatcodes maintain` once so affected entries are re-nominated for verification.
+
+## Environment variables
+
+- `CHEATCODES_ENSURE_TIMEOUT`: ensure budget in seconds. Defaults to `120`.
+- `CHEATCODES_ENSURE`: set to `0` to disable the session-start ensure trigger.
+- `CHEATCODES_CONFIG`, `CHEATCODES_STATE`, `CHEATCODES_PROJECT_ROOT`: override the config file, state directory, and project root for unattended runs.
 
 ## License
 

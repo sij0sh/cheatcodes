@@ -57,19 +57,45 @@ async function launch(captured: Captured, event: AnyCtx = { reason: "startup" },
 	await captured.spawn!(event, ctx ?? fakeCtx());
 }
 
-test("startup spawns the worker detached and unref'd", async () => {
+test("startup spawns ensure detached and unref'd", async () => {
 	const captured: Captured = { spawnCalls: [] };
 	await launch(captured);
 
 	assert.equal(captured.spawnCalls.length, 1);
 	const call = captured.spawnCalls[0]!;
 	assert.equal(call.cmd, process.execPath);
-	assert.deepEqual(call.args, ["/cli/dist/cli.js", "run"]);
+	assert.deepEqual(call.args, ["/cli/dist/cli.js", "ensure", "--timeout", "120"]);
 	assert.equal(call.opts.cwd, "/home/u/Projects/demo");
 	assert.equal(call.opts.detached, true);
 	assert.equal(call.opts.stdio, "ignore");
 	assert.equal(call.opts.shell, false);
 	assert.ok(captured.lastChild?.unrefCalled);
+});
+
+test("ensure timeout passes through from the environment", async () => {
+	const previous = process.env.CHEATCODES_ENSURE_TIMEOUT;
+	process.env.CHEATCODES_ENSURE_TIMEOUT = "45";
+	const captured: Captured = { spawnCalls: [] };
+	try {
+		await launch(captured);
+		assert.deepEqual(captured.spawnCalls[0]!.args, ["/cli/dist/cli.js", "ensure", "--timeout", "45"]);
+	} finally {
+		if (previous === undefined) delete process.env.CHEATCODES_ENSURE_TIMEOUT;
+		else process.env.CHEATCODES_ENSURE_TIMEOUT = previous;
+	}
+});
+
+test("CHEATCODES_ENSURE=0 disables the autorun", async () => {
+	const previous = process.env.CHEATCODES_ENSURE;
+	process.env.CHEATCODES_ENSURE = "0";
+	const captured: Captured = { spawnCalls: [] };
+	try {
+		await launch(captured);
+		assert.equal(captured.spawnCalls.length, 0);
+	} finally {
+		if (previous === undefined) delete process.env.CHEATCODES_ENSURE;
+		else process.env.CHEATCODES_ENSURE = previous;
+	}
 });
 
 test("copies launcher hints into child env", async () => {
