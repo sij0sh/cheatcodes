@@ -2,6 +2,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { maintenanceSchedule, maintainProject } from "./maintain.js";
+import { runMap } from "./map.js";
 import { projectStatus, runWorker } from "./run.js";
 import { runWorkflowCurator } from "./workflow/runner.js";
 const MAINTENANCE_FLAGS = new Set(["--dry-run", "--apply", "--resume"]);
@@ -10,6 +11,7 @@ function usage() {
         "Usage:",
         "  cheatcodes run",
         "  cheatcodes status",
+        "  cheatcodes map [--root <dir>] [--dry-run]",
         "  cheatcodes maintain [--root <dir>] [--dry-run|--apply|--resume]",
         "  cheatcodes workflow [--root <dir>]",
     ].join("\n");
@@ -143,6 +145,47 @@ export async function main(args = process.argv.slice(2)) {
         }
         catch (error) {
             console.error(`cheatcodes workflow: ${error.message}`);
+            process.exitCode = 1;
+        }
+        return;
+    }
+    if (command === "map") {
+        let root;
+        let dryRun = false;
+        for (let index = 0; index < rest.length; index++) {
+            const arg = rest[index];
+            if (arg === "--root") {
+                root = rest[++index];
+                if (!root) {
+                    console.error("cheatcodes map: --root requires a directory");
+                    process.exitCode = 2;
+                    return;
+                }
+                continue;
+            }
+            if (arg === "--dry-run") {
+                dryRun = true;
+                continue;
+            }
+            console.error(`cheatcodes map: unknown option ${arg}`);
+            console.error(usage());
+            process.exitCode = 2;
+            return;
+        }
+        try {
+            const result = await runMap({ root: root ? path.resolve(root) : undefined, dryRun });
+            if (result.warning)
+                console.warn(`warning: ${result.warning}`);
+            for (const line of result.planned ?? [])
+                console.log(`  - ${line}`);
+            if (result.committed) {
+                console.log(`Applied ${result.committed.transactionId}: ${result.committed.entryCountBefore} -> ${result.committed.entryCountAfter} entries, revision ${result.committed.resultRevision.slice(0, 12)}.`);
+            }
+            if (result.status === "failed")
+                process.exitCode = 1;
+        }
+        catch (error) {
+            console.error(`cheatcodes map: ${error.message}`);
             process.exitCode = 1;
         }
         return;

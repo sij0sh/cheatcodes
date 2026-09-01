@@ -94,6 +94,19 @@ When the package is linked or installed, Pi loads its extension and starts a det
 
 Set `"contextPointer": false` to leave agent instruction files unchanged. Set `knowledgeFile` to another project-relative path when `.agents/CHEATCODES.md` does not fit the repository layout.
 
+## Repository synthesis
+
+`cheatcodes map` reads the repository itself and caches cross-file understanding that is expensive to re-derive:
+
+```bash
+cheatcodes map --dry-run
+cheatcodes map
+```
+
+It maintains at most three entries in `.agents/CHEATCODES.md`, titled `Project brief`, `System map`, and `Capability map`. Each entry must synthesize at least two repository files. Provenance is stored per entry as `repo:<relative-path>#sha256=<digest>` sources, and every digest is re-verified immediately before the commit; a changed or missing file aborts the run.
+
+Synthesis runs only when you invoke the command. Re-running it updates the same entries. Existing entries that already restate a single canonical file (such as a README section) are rejected, so the map stays a compression of distributed truth rather than a documentation mirror.
+
 ## Output
 
 `.agents/CHEATCODES.md` does not require Cheatcodes to be running. You can commit it, review changes in Git, edit entries directly, or remove guidance that no longer applies.
