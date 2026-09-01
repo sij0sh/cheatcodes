@@ -17,6 +17,7 @@ export interface GlobalConfig {
   knowledgeFile?: string;
   contextPointer?: boolean;
   autorun?: boolean;
+  tools?: boolean;
   autoMap?: boolean;
   projectAliases: Record<string, string[]>;
 }
@@ -46,7 +47,7 @@ const VERSION_2_EXAMPLE = `{"version":2,"model":"<model>","inputs":[],"workerTim
 export function validateGlobalConfig(value: unknown, source = "config"): GlobalConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${source} must be an object`);
   const raw = value as Record<string, unknown>;
-  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "autorun", "autoMap", "projectAliases"]);
+  const allowed = new Set(["version", "model", "inputs", "workerTimeoutMinutes", "knowledgeFile", "contextPointer", "autorun", "tools", "autoMap", "projectAliases"]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) throw new Error(`${source}.${key} is not a recognized field`);
   }
@@ -76,6 +77,11 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     if (typeof raw.autorun !== "boolean") throw new Error(`${source}.autorun must be a boolean`);
     autorun = raw.autorun;
   }
+  let tools: boolean | undefined;
+  if (raw.tools !== undefined) {
+    if (typeof raw.tools !== "boolean") throw new Error(`${source}.tools must be a boolean`);
+    tools = raw.tools;
+  }
   let autoMap: boolean | undefined;
   if (raw.autoMap !== undefined) {
     if (typeof raw.autoMap !== "boolean") throw new Error(`${source}.autoMap must be a boolean`);
@@ -93,6 +99,7 @@ export function validateGlobalConfig(value: unknown, source = "config"): GlobalC
     knowledgeFile,
     contextPointer,
     autorun,
+    tools,
     autoMap,
     projectAliases,
   };

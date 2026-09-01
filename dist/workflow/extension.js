@@ -7,6 +7,17 @@ import { createWorkflowTools } from "./tools.js";
 export function defaultResolveCli() {
     return createRequire(import.meta.url).resolve("cheatcodes/cli");
 }
+/** Tool registration defaults to on; `tools: false` in the global config hides the tools. */
+export async function toolsEnabled(loadConfig = loadGlobalConfig) {
+    try {
+        const config = await loadConfig();
+        return config?.tools !== false;
+    }
+    catch {
+        // Config errors must never block session start; default to exposing the tools.
+        return true;
+    }
+}
 /** Autorun defaults to on; an explicit `autorun: false` in the global config disables it. */
 export async function autorunEnabled(loadConfig = loadGlobalConfig) {
     try {
@@ -74,9 +85,12 @@ async function runAutorun(event, ctx, deps) {
     }
 }
 /** Pi extension entry: bounded curation tools plus optional session-start autorun. */
-export default function cheatcodesExtension(pi, deps = {}) {
-    for (const tool of createWorkflowTools())
-        pi.registerTool(tool);
+export default async function cheatcodesExtension(pi, deps = {}) {
+    const showTools = deps.tools ?? (await toolsEnabled(deps.loadConfig));
+    if (showTools) {
+        for (const tool of createWorkflowTools())
+            pi.registerTool(tool);
+    }
     if (deps.autorun === false)
         return;
     launchAutorun(pi, {

@@ -12,10 +12,23 @@ export interface AutorunDeps {
 	loadConfig?: typeof loadGlobalConfig;
 	/** Set false for embedded hosts (the workflow worker already runs curation itself). */
 	autorun?: boolean;
+	/** Set true for embedded hosts (the workflow worker needs the tools even when user config hides them). */
+	tools?: boolean;
 }
 
 export function defaultResolveCli(): string {
 	return createRequire(import.meta.url).resolve("cheatcodes/cli");
+}
+
+/** Tool registration defaults to on; `tools: false` in the global config hides the tools. */
+export async function toolsEnabled(loadConfig: typeof loadGlobalConfig = loadGlobalConfig): Promise<boolean> {
+	try {
+		const config = await loadConfig();
+		return config?.tools !== false;
+	} catch {
+		// Config errors must never block session start; default to exposing the tools.
+		return true;
+	}
 }
 
 /** Autorun defaults to on; an explicit `autorun: false` in the global config disables it. */
@@ -83,8 +96,11 @@ async function runAutorun(
 }
 
 /** Pi extension entry: bounded curation tools plus optional session-start autorun. */
-export default function cheatcodesExtension(pi: ExtensionAPI, deps: AutorunDeps = {}): void {
-	for (const tool of createWorkflowTools() as ToolDefinition[]) pi.registerTool(tool);
+export default async function cheatcodesExtension(pi: ExtensionAPI, deps: AutorunDeps = {}): Promise<void> {
+	const showTools = deps.tools ?? (await toolsEnabled(deps.loadConfig));
+	if (showTools) {
+		for (const tool of createWorkflowTools() as ToolDefinition[]) pi.registerTool(tool);
+	}
 	if (deps.autorun === false) return;
 	launchAutorun(pi, {
 		spawn: deps.spawn ?? nodeSpawn,

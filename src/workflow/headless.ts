@@ -76,7 +76,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       // The bounded tools must exist even when project-package discovery is
       // unavailable, so the engine can grant them to each workflow position.
       resourceLoaderOptions: {
-        extensionFactories: [{ name: "cheatcodes-tools", factory: (pi) => cheatcodesWorkflow(pi, { autorun: false }) }],
+        extensionFactories: [{ name: "cheatcodes-tools", factory: (pi) => cheatcodesWorkflow(pi, { autorun: false, tools: true }) }],
         additionalExtensionPaths: [projectWorkflowsExtension],
       },
     });

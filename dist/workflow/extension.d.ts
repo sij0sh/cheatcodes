@@ -7,12 +7,16 @@ export interface AutorunDeps {
     loadConfig?: typeof loadGlobalConfig;
     /** Set false for embedded hosts (the workflow worker already runs curation itself). */
     autorun?: boolean;
+    /** Set true for embedded hosts (the workflow worker needs the tools even when user config hides them). */
+    tools?: boolean;
 }
 export declare function defaultResolveCli(): string;
+/** Tool registration defaults to on; `tools: false` in the global config hides the tools. */
+export declare function toolsEnabled(loadConfig?: typeof loadGlobalConfig): Promise<boolean>;
 /** Autorun defaults to on; an explicit `autorun: false` in the global config disables it. */
 export declare function autorunEnabled(loadConfig?: typeof loadGlobalConfig): Promise<boolean>;
 export declare function launchAutorun(pi: ExtensionAPI, deps: Required<Pick<AutorunDeps, "spawn" | "resolveCli">> & {
     loadConfig: typeof loadGlobalConfig;
 }): void;
 /** Pi extension entry: bounded curation tools plus optional session-start autorun. */
-export default function cheatcodesExtension(pi: ExtensionAPI, deps?: AutorunDeps): void;
+export default function cheatcodesExtension(pi: ExtensionAPI, deps?: AutorunDeps): Promise<void>;
