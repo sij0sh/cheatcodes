@@ -3,6 +3,12 @@ import { type EpisodeManifest } from "./manifests.js";
 export interface TerminalReport {
     status: "completed" | "parked" | "unknown";
     sessionFile?: string;
+    /** Checkpoint data of the terminal `challenge` position; the workflow is read-only, so the host stages it. */
+    challenged?: unknown;
+}
+export interface TerminalReport {
+    status: "completed" | "parked" | "unknown";
+    sessionFile?: string;
 }
 export interface WorkflowRunResult {
     started: boolean;
@@ -17,6 +23,21 @@ export type PiLauncher = (options: {
     target: string;
 }) => Promise<{
     exitCode: number;
+}>;
+/**
+ * The workflow agent is read-only, so the host performs the staging the old
+ * tool call performed. Digests are injected from the live corpus because a
+ * read-only agent cannot compute them; the baseRevision check keeps the
+ * optimistic-concurrency guard against corpus changes since the manifest.
+ */
+export declare function stageChallengedTransaction(options: {
+    env: NodeJS.ProcessEnv;
+    root: string;
+    manifest: EpisodeManifest;
+    challenged: unknown;
+}): Promise<{
+    staged: boolean;
+    warning?: string;
 }>;
 /**
  * The engine stamps every snapshot into its session JSONL. A run counts as

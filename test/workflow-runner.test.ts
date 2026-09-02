@@ -223,7 +223,7 @@ import { corpusRevision, parseKnowledgeMarkdown } from "../src/concept.js";
 import { loadCurationState } from "../src/curation-state.js";
 import { commitManifestCursors } from "../src/workflow/manifests.js";
 import { maintainProject } from "../src/maintain.js";
-import { createWorkflowTools } from "../src/workflow/tools.js";
+import { stageChallengedTransaction } from "../src/workflow/runner.js";
 import { buildManifest } from "../src/workflow/manifests.js";
 
 
@@ -265,19 +265,15 @@ test("cheatcodes-curate completes through the engine; the host applies only afte
     const evidenceId = packet.evidence[0]!.id;
 
     const ext = harness();
-    const toolEnv = { ...env, CHEATCODES_PROJECT_ROOT: root };
     ext.activeTools.clear();
-    for (const name of ["read", "bash", "search_knowledge"]) ext.activeTools.add(name);
+    for (const name of ["read", "bash"]) ext.activeTools.add(name);
     choreograph!(ext.pi, workflowsRoot);
-    // Bind the bounded tools to the fixture project root.
-    for (const tool of createWorkflowTools(toolEnv)) (ext.pi.registerTool as (t: unknown) => void)(tool);
     const ctx = ext.ctx();
     ext.handlers.get("session_start")!(undefined, ctx);
     // The runner invokes the slash command (prompt() handles extension commands headlessly).
     await ext.commands.get("cheatcodes-curate")!.handler(manifest.id, ctx);
 
     const transition = ext.tools.get("workflow_transition")!;
-    const stageTool = ext.tools.get("search_knowledge")!;
     const settleAndPrompt = async () => {
       await ext.handlers.get("agent_settled")!(undefined, ctx);
       return (ext.handlers.get("before_agent_start")!({ systemPrompt: "base" }) as { systemPrompt: string }).systemPrompt;
@@ -299,7 +295,8 @@ test("cheatcodes-curate completes through the engine; the host applies only afte
     }, undefined, () => {}, ctx);
 
     prompt = await settleAndPrompt();
-    assert.ok(prompt.includes("search_knowledge"), "reconcile instructions reached position three");
+    assert.ok(prompt.includes("knowledge file"), "reconcile instructions reached position three");
+    assert.ok(!prompt.includes("search_knowledge"), "workflow steps no longer name the staging tool");
     const corpusText = await readFileFs(knowledgeFilePath(root, loadGlobalConfig(env)!.knowledgeFile), "utf8").catch(() => "");
     const baseRevision = corpusRevision(parseKnowledgeMarkdown(corpusText));
     const operation = { op: "create", entry: { title: "Batch exports by fiscal quarter", summary: "Export jobs must batch rows by fiscal quarter before reconciliation.", body: "Batching prevents ledger reconciliation failures on large datasets.", date: "2026-01-01", tags: ["export"], sources: [packet.sessionId], kind: "procedure" } };
@@ -311,21 +308,16 @@ test("cheatcodes-curate completes through the engine; the host applies only afte
 
     prompt = await settleAndPrompt();
     assert.ok(prompt.includes("adversarial"), "challenge runs as a fresh adversarial position");
-    await transition.execute("id", {
+    const final = await transition.execute("id", {
       key: "root/challenge", status: "completed", met: ["mutation-decided"],
       checkpoint: { summary: "Approved.", data: { decision: "approved", rationale: "Claim is current, evidenced, and non-duplicate.", transaction } },
     }, undefined, () => {}, ctx);
-
-    prompt = await settleAndPrompt();
-    assert.ok(prompt.includes("Stage the challenged transaction"), "stage instructions reached the final position");
-    const receipt = await stageTool.execute("id", { transaction } as never, undefined, undefined, undefined as never) as { details: { status: string; transactionId: string; digest: string } };
-    assert.equal(receipt.details.status, "staged");
-    await transition.execute("id", {
-      key: "root/stage", status: "completed", met: ["staged"],
-      checkpoint: { summary: "Staged.", data: { status: "staged", transactionId: receipt.details.transactionId, digest: receipt.details.digest } },
-    }, undefined, () => {}, ctx);
+    assert.equal(final.terminate, true, "challenge is the terminal position");
+    assert.equal(ext.entries.at(-1)?.data?.status, "completed");
     await ext.handlers.get("agent_settled")!(undefined, ctx);
 
+    const staging = await stageChallengedTransaction({ env, root, manifest, challenged: { decision: "approved", rationale: "ok", transaction } });
+    assert.equal(staging.staged, true, staging.warning);
     const projectKey = await deriveProjectKey(root);
     const staged = await loadCurationState(env, projectKey);
     assert.ok(staged.maintenanceCursor?.pendingTransaction, "transaction is staged in host state");

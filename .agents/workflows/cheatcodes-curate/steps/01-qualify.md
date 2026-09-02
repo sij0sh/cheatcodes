@@ -1,8 +1,13 @@
 # Qualify episodes
 
-The workflow target is the manifest id. Call `search_knowledge` with just
-that manifest id to list its packets, then load each packet id it returned
-by adding `packetId` to the call. Evaluate every packet; do not skip any.
+The workflow target is the manifest id. Read the manifest at
+`.agents/cheatcode-runs/<manifest-id>.json` with `read`. It is pretty-printed
+JSON and can exceed one read; page through it with `offset` and `limit`.
+
+List the packets from the `packets` array (`id`, `signals`, `userIntent` for
+each), then read each packet's `evidence`, `shortlist`, `closure`, and
+`finalAssistantSummary` fields in the same file. Evaluate every packet; do not
+skip any.
 
 For each packet decide one verdict:
 

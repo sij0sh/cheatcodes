@@ -3,7 +3,10 @@
 You receive the qualified verdicts. For every accepted claim, establish whether
 it is true of the project right now:
 
-- `search_knowledge` with a `path` to read the referenced files, or with a `query` to search them.
+- `read` the project files the claim's evidence references, relative to the
+  project root; page with `offset` and `limit` for long files.
+- For claims about existing guidance, `read` the project knowledge file
+  (`.agents/CHEATCODES.md` by default).
 
 Record each claim as `current`, `stale` (code moved on), `contradicted`
 (project demonstrates the opposite), or `unverified` (no safe check exists).

@@ -151,39 +151,46 @@ async function inspectTree(root) {
     }
     return text({ root: inventory.root, totalFiles: inventory.totalFiles, truncated, entries: list });
 }
+/** Shared staging tail (tool and host runner): parse, revalidate against the live corpus, park in curation state. */
+export async function writePendingTransaction(env, projectKey, entries, baseRevision, packetIds, operations) {
+    let parsed;
+    try {
+        parsed = parseKnowledgeTransaction({
+            transactionId: `wf-${sha256(JSON.stringify([projectKey, baseRevision, operations])).slice(0, 24)}`,
+            projectKey,
+            baseRevision,
+            packetIds,
+            promptVersion: WORKFLOW_PROMPT_VERSION,
+            modelId: "workflow",
+            operations: operations,
+            createdAt: new Date().toISOString(),
+        });
+    }
+    catch (error) {
+        return { ok: false, reason: "schema", detail: String(error).slice(0, 600) };
+    }
+    const { issues } = validateTransactionOperations(entries, parsed.operations, projectKey);
+    if (issues.length > 0)
+        return { ok: false, reason: "validation", detail: issues.slice(0, 8).join("; ") };
+    const updated = await updateCurationState(env, projectKey, (current) => ({
+        ...current,
+        maintenanceCursor: { at: new Date().toISOString(), lastTransactionId: current.maintenanceCursor?.lastTransactionId, pendingTransaction: parsed },
+    }));
+    if (!updated) {
+        return { ok: false, reason: "project-busy", detail: "another cheatcodes run holds the project lock; retry staging later" };
+    }
+    return { ok: true, transaction: parsed };
+}
 async function stageTransaction(env, root, proposed) {
     const projectKey = await deriveProjectKey(root);
     const { entries, revision } = await loadCorpus(root, env);
     if (proposed.baseRevision !== revision) {
         return text({ status: "rejected", reason: "stale-revision", currentRevision: revision }, true);
     }
-    let parsed;
-    try {
-        parsed = parseKnowledgeTransaction({
-            transactionId: `wf-${sha256(JSON.stringify([projectKey, revision, proposed.operations])).slice(0, 24)}`,
-            projectKey,
-            baseRevision: proposed.baseRevision,
-            packetIds: proposed.packetIds ?? [],
-            promptVersion: WORKFLOW_PROMPT_VERSION,
-            modelId: "workflow",
-            operations: proposed.operations,
-            createdAt: new Date().toISOString(),
-        });
-    }
-    catch (error) {
-        return text({ status: "rejected", reason: "schema", detail: String(error).slice(0, 600) }, true);
-    }
-    const { issues } = validateTransactionOperations(entries, parsed.operations, projectKey);
-    if (issues.length > 0)
-        return text({ status: "rejected", reason: "validation", issues: issues.slice(0, 8) }, true);
-    const updated = await updateCurationState(env, projectKey, (current) => ({
-        ...current,
-        maintenanceCursor: { at: new Date().toISOString(), lastTransactionId: current.maintenanceCursor?.lastTransactionId, pendingTransaction: parsed },
-    }));
-    if (!updated) {
-        return text({ status: "rejected", reason: "project-busy", detail: "another cheatcodes run holds the project lock; retry staging later" }, true);
-    }
-    return text({ status: "staged", transactionId: parsed.transactionId, baseRevision: revision, digest: sha256(JSON.stringify(parsed.operations)) });
+    const staged = await writePendingTransaction(env, projectKey, entries, proposed.baseRevision, proposed.packetIds ?? [], proposed.operations);
+    if (!staged.ok)
+        return text({ status: "rejected", reason: staged.reason, ...(staged.detail ? { detail: staged.detail } : {}) }, true);
+    return text({ status: "staged", transactionId: staged.transaction.transactionId, baseRevision: revision, digest: sha256(JSON.stringify(staged.transaction.operations)) });
 }
 export function createWorkflowTools(env = process.env) {
     return [searchKnowledgeTool(env)];

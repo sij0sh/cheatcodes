@@ -1,9 +1,10 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { entryDigest } from "../concept.js";
 import { maintainProject } from "../maintain.js";
-import { loadCurationState } from "../curation-state.js";
 import { buildManifest, commitManifestCursors, readManifest } from "./manifests.js";
+import { loadCorpus, writePendingTransaction } from "./tools.js";
 const defaultLauncher = async ({ root, target }) => {
     const { spawn } = await import("node:child_process");
     // `pi -p` disposes the session when the triggering turn ends, so the engine
@@ -17,6 +18,52 @@ const defaultLauncher = async ({ root, target }) => {
 };
 function isRecord(value) {
     return typeof value === "object" && value !== null;
+}
+function injectLiveDigests(op, digests) {
+    if (!isRecord(op))
+        return op;
+    const next = { ...op };
+    if (isRecord(next.target) && typeof next.target.id === "string" && digests.has(next.target.id)) {
+        next.target = { ...next.target, expectedDigest: digests.get(next.target.id) };
+    }
+    if (Array.isArray(next.targets)) {
+        next.targets = next.targets.map((target) => {
+            if (!isRecord(target) || typeof target.id !== "string" || !digests.has(target.id))
+                return target;
+            return { ...target, expectedDigest: digests.get(target.id) };
+        });
+    }
+    return next;
+}
+/**
+ * The workflow agent is read-only, so the host performs the staging the old
+ * tool call performed. Digests are injected from the live corpus because a
+ * read-only agent cannot compute them; the baseRevision check keeps the
+ * optimistic-concurrency guard against corpus changes since the manifest.
+ */
+export async function stageChallengedTransaction(options) {
+    const data = options.challenged;
+    if (!isRecord(data))
+        return { staged: false, warning: "workflow completed without a challenge decision" };
+    if (data.decision === "rejected") {
+        const rationale = typeof data.rationale === "string" ? data.rationale : "no rationale";
+        return { staged: false, warning: `challenger rejected the transaction: ${rationale}` };
+    }
+    const proposed = isRecord(data.transaction) ? data.transaction : undefined;
+    if (!proposed || !Array.isArray(proposed.operations) || proposed.operations.length === 0) {
+        return { staged: false, warning: "challenge decision carries no transaction operations" };
+    }
+    const { entries, revision } = await loadCorpus(options.root, options.env);
+    if (proposed.baseRevision !== revision) {
+        return { staged: false, warning: `stale transaction base revision (${String(proposed.baseRevision)}); corpus is at ${revision}` };
+    }
+    const digests = new Map(entries.map((entry) => [entry.id, entryDigest(entry)]));
+    const operations = proposed.operations.map((op) => injectLiveDigests(op, digests));
+    const packetIds = Array.isArray(proposed.packetIds) ? proposed.packetIds.filter((id) => typeof id === "string") : [];
+    const staged = await writePendingTransaction(options.env, options.manifest.projectKey, entries, String(proposed.baseRevision), packetIds, operations);
+    if (!staged.ok)
+        return { staged: false, warning: `transaction not staged (${staged.reason}${staged.detail ? `: ${staged.detail}` : ""})` };
+    return { staged: true };
 }
 /**
  * The engine stamps every snapshot into its session JSONL. A run counts as
@@ -53,6 +100,7 @@ export async function findTerminalReport(env, root, sinceMs, manifestId) {
         const content = await readFile(candidate.file, "utf8").catch(() => "");
         let cwdMatches = false;
         let status = "unknown";
+        let challenged;
         for (const line of content.split("\n")) {
             if (!line.trim())
                 continue;
@@ -68,21 +116,26 @@ export async function findTerminalReport(env, root, sinceMs, manifestId) {
             if (!cwdMatches && parsed.type === "session" && typeof parsed.cwd === "string" && path.resolve(parsed.cwd) === root)
                 cwdMatches = true;
             if (parsed.type === "custom" && parsed.customType === "choreograph" && isRecord(parsed.data) && typeof parsed.data.status === "string") {
+                const execution = isRecord(parsed.data.execution) ? parsed.data.execution : undefined;
                 // A concurrent workflow in the same project must never satisfy this run's terminal check.
                 if (manifestId !== undefined) {
-                    const execution = isRecord(parsed.data.execution) ? parsed.data.execution : undefined;
                     if (parsed.data.workflow !== "cheatcodes-curate" || execution?.target !== manifestId)
                         continue;
                 }
                 if (parsed.data.status === "parked")
                     status = "parked";
-                else if (parsed.data.status === "completed")
+                else if (parsed.data.status === "completed") {
                     status = "completed";
+                    const results = execution && isRecord(execution.results) ? execution.results : undefined;
+                    const challenge = results && isRecord(results.challenge) ? results.challenge : undefined;
+                    if (challenge && "data" in challenge)
+                        challenged = challenge.data;
+                }
                 // In-progress snapshots (active, rollover-pending) never satisfy the check.
             }
         }
         if (cwdMatches)
-            return { status, sessionFile: candidate.file };
+            return { status, sessionFile: candidate.file, challenged };
     }
     return { status: "unknown" };
 }
@@ -104,9 +157,9 @@ export async function runWorkflowCurator(options = {}) {
     if (terminal.status !== "completed") {
         return { started: true, manifestId: manifest.id, terminal, warning: `workflow did not complete (${terminal.status}); staged work is left pending and cursors are not committed`, warnings };
     }
-    const state = await loadCurationState(env, manifest.projectKey);
-    if (!state.maintenanceCursor?.pendingTransaction) {
-        return { started: true, manifestId: manifest.id, terminal, warning: "workflow completed without staging a transaction", warnings };
+    const staging = await stageChallengedTransaction({ env, root, manifest, challenged: terminal.challenged });
+    if (!staging.staged) {
+        return { started: true, manifestId: manifest.id, terminal, warning: staging.warning ?? "workflow completed without staging a transaction", warnings };
     }
     const outcome = await maintainProject({ env, root, mode: "resume" });
     if (outcome.warning)
