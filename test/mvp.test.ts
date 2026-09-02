@@ -50,7 +50,7 @@ test("first run uses the working directory as the project root and creates one k
     assert.match(knowledge, /^# CHEATCODES\n/);
     assert.match(knowledge, /## Use the repository adapter\n/);
     const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    assert.match(agents, /## Project knowledge/);
+    assert.match(agents, /Before working on anything non-obvious/);
     assert.match(agents, /`\.agents\/CHEATCODES\.md`/);
     const entries = await readdir(root);
     assert.equal(entries.includes(".cheatcodes"), false);
@@ -165,7 +165,23 @@ test("the knowledge pointer is appended once and replaces the legacy pointer", a
     await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
     const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
     assert.equal(agents.includes(".cheatcodes/knowledge"), false);
-    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
+    assert.equal(agents.match(/Before working on anything non-obvious/g)?.length, 1);
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    assert.equal((await readFile(path.join(root, "AGENTS.md"), "utf8")), agents);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("the previous default pointer is replaced in place", async () => {
+  const root = await temporary();
+  try {
+    const sessions = await sessionsWithFixture(root);
+    const previous = "## Project knowledge\n\nStart with `.agents/CHEATCODES.md`.";
+    await writeFile(path.join(root, "AGENTS.md"), `# Agents\n\n${previous}\n`);
+    const { env } = await writeGlobalConfig({ inputs: [sessions] });
+    await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    assert.equal(agents.includes("## Project knowledge"), false);
+    assert.equal(agents.match(/Before working on anything non-obvious/g)?.length, 1);
     await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
     assert.equal((await readFile(path.join(root, "AGENTS.md"), "utf8")), agents);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -179,7 +195,7 @@ test("an existing AGENTS.md keeps its content and gains the pointer exactly once
     await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
     const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
     assert.equal(agents.startsWith("# My project\n\nBe nice to the code.\n"), true);
-    assert.equal(agents.match(/## Project knowledge/g)?.length, 1);
+    assert.equal(agents.match(/Before working on anything non-obvious/g)?.length, 1);
     await runProject({ root, env, curator: fakeCurator({ count: 0 }) });
     assert.equal(await readFile(path.join(root, "AGENTS.md"), "utf8"), agents);
   } finally { await rm(root, { recursive: true, force: true }); }

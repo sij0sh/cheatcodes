@@ -171,6 +171,10 @@ export function knowledgeFilePath(root: string, knowledgeFile = DEFAULT_KNOWLEDG
 }
 
 function knowledgePointer(knowledgeFile: string): string {
+  return `Before working on anything non-obvious, check \`${knowledgeFile}\` or call \`search_knowledge\`; past sessions left decisions, constraints, and failure modes there.`;
+}
+
+function legacyKnowledgePointer(knowledgeFile: string): string {
   return `## Project knowledge\n\nStart with \`${knowledgeFile}\`.`;
 }
 
@@ -186,8 +190,9 @@ async function updateContextPointer(root: string, knowledgeFile: string): Promis
   const pointer = knowledgePointer(knowledgeFile);
   if (existing.includes(pointer)) return target;
   let next: string;
-  const legacyPointer = [LEGACY_KNOWLEDGE_POINTER, knowledgePointer(LEGACY_DEFAULT_KNOWLEDGE_FILE)]
-    .find((candidate) => existing.includes(candidate));
+  const legacyPointer = [LEGACY_KNOWLEDGE_POINTER, legacyKnowledgePointer(DEFAULT_KNOWLEDGE_FILE), legacyKnowledgePointer(LEGACY_DEFAULT_KNOWLEDGE_FILE)]
+    .find((candidate) => existing.includes(candidate))
+    ?? existing.match(/^## Project knowledge\n\nStart with `[^\n`]+`\.$/m)?.[0];
   if (legacyPointer) {
     next = existing.replace(legacyPointer, pointer);
   } else {

@@ -162,6 +162,9 @@ export function knowledgeFilePath(root, knowledgeFile = DEFAULT_KNOWLEDGE_FILE) 
     return resolved;
 }
 function knowledgePointer(knowledgeFile) {
+    return `Before working on anything non-obvious, check \`${knowledgeFile}\` or call \`search_knowledge\`; past sessions left decisions, constraints, and failure modes there.`;
+}
+function legacyKnowledgePointer(knowledgeFile) {
     return `## Project knowledge\n\nStart with \`${knowledgeFile}\`.`;
 }
 const LEGACY_KNOWLEDGE_POINTER = "## Project knowledge\n\nStart with `.cheatcodes/knowledge/index.md`. Check concept status before relying on a draft.";
@@ -189,8 +192,9 @@ async function updateContextPointer(root, knowledgeFile) {
     if (existing.includes(pointer))
         return target;
     let next;
-    const legacyPointer = [LEGACY_KNOWLEDGE_POINTER, knowledgePointer(LEGACY_DEFAULT_KNOWLEDGE_FILE)]
-        .find((candidate) => existing.includes(candidate));
+    const legacyPointer = [LEGACY_KNOWLEDGE_POINTER, legacyKnowledgePointer(DEFAULT_KNOWLEDGE_FILE), legacyKnowledgePointer(LEGACY_DEFAULT_KNOWLEDGE_FILE)]
+        .find((candidate) => existing.includes(candidate))
+        ?? existing.match(/^## Project knowledge\n\nStart with `[^\n`]+`\.$/m)?.[0];
     if (legacyPointer) {
         next = existing.replace(legacyPointer, pointer);
     }

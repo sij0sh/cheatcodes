@@ -132,12 +132,10 @@ Cheatcodes keeps the knowledge file at:
 .agents/CHEATCODES.md
 ```
 
-and, by default, adds a small pointer from the project's agent instructions:
+and, by default, adds a pointer from the project's agent instructions:
 
 ```text id="iqj51h"
-## Project knowledge
-
-Start with `.agents/CHEATCODES.md`.
+Before working on anything non-obvious, check `.agents/CHEATCODES.md` or call `search_knowledge`; past sessions left decisions, constraints, and failure modes there.
 ```
 
 It also provides bounded knowledge search when the agent needs to recall something specific.
@@ -245,27 +243,21 @@ Both stay local. Cheatcodes writes Markdown beside the code, and Snoop keeps its
 
 > **Cheatcodes writes the lesson. Snoop finds it again.**
 
-## Without Snoop
+## Using Snoop?
 
-Snoop indexes the knowledge file along with everything else.
+The pointer assumes the knowledge file is the only place lessons live.
 
-Without it, the agent has to know the file exists and think to look.
+Snoop already indexes that file with everything else, so its lessons surface through a `context` query.
 
-Cheatcodes already adds a minimal pointer to `AGENTS.md`:
+With Snoop in place, turn the pointer off:
 
-```text id="k8sm4q"
-## Project knowledge
-
-Start with `.agents/CHEATCODES.md`.
+```json id="q3vn8s"
+{ "contextPointer": false }
 ```
 
-That says where the knowledge lives. It does not say when to consult it or why it matters.
+The knowledge file stays as the curated record.
 
-One stronger line can:
-
-```text id="m4qt7x"
-Before working on anything non-obvious, check `.agents/CHEATCODES.md` or call `search_knowledge`; past sessions left decisions, constraints, and failure modes there.
-```
+Snoop handles recall.
 
 ## Install
 

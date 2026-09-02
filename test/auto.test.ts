@@ -184,7 +184,7 @@ test("knowledgeFile config moves the knowledge file and the AGENTS pointer", asy
     await stat(path.join(root, ".pi-files", "CHEATCODES.md"));
     await assert.rejects(stat(path.join(root, "CHEATCODES.md")), /ENOENT/);
     const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    assert.match(agents, /Start with `\.pi-files\/CHEATCODES\.md`\./);
+    assert.match(agents, /check `\.pi-files\/CHEATCODES\.md` or call/);
     const status = await projectStatus(root, env);
     assert.equal(status.entries, 1);
     assert.match(status.knowledgeFile, /\.pi-files\/CHEATCODES\.md$/);
@@ -200,7 +200,7 @@ test("a legacy root knowledge file moves to the .agents default", async () => {
     await stat(path.join(root, ".agents", "CHEATCODES.md"));
     await assert.rejects(stat(path.join(root, "CHEATCODES.md")), /ENOENT/);
     const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    assert.match(agents, /Start with `\.agents\/CHEATCODES\.md`\./);
+    assert.match(agents, /check `\.agents\/CHEATCODES\.md` or call/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
