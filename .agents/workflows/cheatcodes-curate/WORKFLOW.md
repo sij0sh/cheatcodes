@@ -1,6 +1,5 @@
 ---
 description: Qualify harvested episodes, verify claims against current project truth, reconcile with the corpus, challenge mutations, and stage one transaction.
-legalTools: [search_knowledge]
 contracts:
   qualified: contracts/qualified.schema.json
   verified: contracts/verified.schema.json
