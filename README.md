@@ -1,54 +1,242 @@
 # Cheatcodes
 
-> Curate lessons from coding agent sessions into project guidance.
+> **Make the project remember what its sessions learn.**
+>
+> Cheatcodes turns hard-won lessons from coding-agent sessions into durable project knowledge.
 
-Cheatcodes is a Node.js CLI that turns Pi sessions into a project-local knowledge file, `.agents/CHEATCODES.md` by default.
+Coding sessions produce useful knowledge all the time.
 
-## What it does
+A failed approach reveals a hidden constraint.
 
-Coding agents lose project-specific context between sessions. Cheatcodes scans session logs for resolved failures, user corrections, explicit decisions, and validated procedures. A configured model decides whether the evidence supports durable guidance, then creates or updates an entry.
+A user correction clarifies something the repository never says outright.
 
-The curator receives only bounded evidence from each session. Later runs process only new or changed session data. Related guidance is updated instead of stored as chronological notes.
+A difficult bug exposes a recovery procedure.
 
-The result is plain Markdown beside the code. People and agents can read, edit, review, or delete it without a server, database, or retrieval service. Cheatcodes adds a short pointer from `AGENTS.md` by default.
+A design discussion settles why one option is preferred over another.
 
-Common secret formats are redacted before evidence reaches the curator model. Sessions outside the configured project roots are skipped. Entries sourced from skipped sessions are removed from the knowledge file on the next run. Runtime cursors and locks stay in the user's state directory rather than the project.
+Then the session ends.
 
-## Prerequisites
+Without somewhere for those lessons to go, the next agent gets to learn them again.
 
-- Node.js 22.19 or newer
-- Pi session logs
-- A curator model available through a Pi-compatible model registry
+## Don't pay twice for the same lesson
+
+Agent context is temporary.
+
+That is usually a good thing. Most of a coding session is working state: searches, intermediate reasoning, failed commands, partial ideas, and details that mattered only while solving one problem.
+
+Keeping all of it would create more noise than memory.
+
+But buried inside that temporary context are sometimes lessons the project should keep.
+
+Cheatcodes looks for those moments and asks a stricter question:
+
+> **Will knowing this save a future agent from having to rediscover something important?**
+
+If the answer is yes, the lesson can become project knowledge.
+
+If the repository already makes it obvious, it stays out.
+
+If the evidence is incomplete, it stays out.
+
+If it is just a test count, progress update, or implementation detail, it stays out.
+
+An empty knowledge file is better than a large one full of things the agent could have figured out anyway.
+
+## Keep the lesson, not the transcript
+
+Cheatcodes does not turn sessions into summaries.
+
+It turns evidence into **current guidance**.
+
+```text id="gft5nw"
+session
+
+  failed approach
+       |
+  user correction
+       |
+  successful fix
+       |
+  validation
+       v
+
+ bounded evidence
+       |
+       v
+    curate
+       |
+       v
+
+"Batch exports by fiscal quarter
+ before reconciliation."
+```
+
+The raw back-and-forth is useful while solving the problem.
+
+The durable lesson is what matters next time.
+
+That distinction keeps the knowledge base small enough to remain useful.
+
+## What is worth remembering?
+
+Cheatcodes is deliberately conservative.
+
+Good project knowledge tends to be things like:
+
+* non-obvious project constraints
+* decisions and the reasons behind them
+* failure modes with a verified recovery
+* project-specific gotchas
+* procedures that were actually validated
+* invariants that are easy to violate but hard to infer
+
+A lesson needs more than confident language.
+
+A correction can nominate something for review, but does not make it true by itself.
+
+A failed approach is not a lesson until the recovery actually succeeds.
+
+And if the answer is already sitting plainly in the code or documentation, there is little value in copying it into another file.
+
+The corpus is for the things that are expensive to reconstruct.
+
+## Project knowledge should describe now
+
+Session logs are chronological.
+
+Project guidance should not be.
+
+If a later session improves an existing lesson, Cheatcodes updates the guidance instead of appending another historical note underneath it.
+
+The result should read like:
+
+> Use the repository adapter for persistence because direct database access bypasses the transaction boundary.
+
+not:
+
+> On Tuesday the agent tried direct database access, then the user corrected it, then...
+
+History produced the lesson.
+
+Future agents need the lesson.
+
+## Knowledge has to be found to be useful
+
+Writing down project knowledge does not guarantee an agent will use it.
+
+A useful lesson can sit untouched in a file simply because the next session does not know it exists or does not think to look there.
+
+Cheatcodes keeps the corpus at:
+
+```text id="5gtuh2"
+.agents/CHEATCODES.md
+```
+
+and, by default, adds a small pointer from the project's agent instructions:
+
+```text id="iqj51h"
+## Project knowledge
+
+Start with `.agents/CHEATCODES.md`.
+```
+
+It also provides bounded knowledge search when the agent needs to recall something specific.
+
+The goal is not merely to store lessons.
+
+It is to make those lessons available to the next session at the point where they can change what the agent does.
+
+## Plain Markdown on purpose
+
+The durable memory is just Markdown beside the code.
+
+```text id="w9xb1h"
+project/
+├── src/
+├── ...
+├── AGENTS.md
+└── .agents/
+    └── CHEATCODES.md
+```
+
+There is no server or database required to read it.
+
+You can:
+
+* commit it
+* review changes in Git
+* edit an entry
+* delete bad guidance
+* read it yourself
+* let another tool consume it
+
+The curation machinery can be sophisticated without making the memory format proprietary.
+
+If Cheatcodes disappears tomorrow, the knowledge stays.
+
+## It learns as the project works
+
+Once configured, Cheatcodes runs automatically when Pi sessions start in trusted projects.
+
+It processes new or changed session material rather than repeatedly curating the entire history.
+
+That means project knowledge can improve as normal work happens:
+
+```text id="pza0ra"
+work
+  |
+learn something expensive
+  |
+session settles
+  |
+Cheatcodes reviews the lesson
+  |
+.agents/CHEATCODES.md improves
+  |
+future session starts smarter
+```
+
+You do not need to remember to summarize each session yourself.
+
+## A second kind of memory: the project map
+
+Some useful knowledge does not come from a session at all.
+
+It comes from understanding how several parts of the repository fit together.
+
+That understanding can also be expensive to rebuild repeatedly.
+
+Cheatcodes can optionally synthesize a project map:
+
+```bash id="2xjs5m"
+cheatcodes map
+```
+
+The map is not meant to restate the README or catalog files.
+
+It keeps cross-file understanding that is genuinely useful to a new engineer: what the project does, how major pieces fit together, and capabilities that change the mental model of the system.
+
+A point is only worth caching when it synthesizes information spread across multiple files.
+
+If one file already explains it well, that file remains the source of truth.
 
 ## Install
 
-Install as a Pi package:
+Install Cheatcodes as a Pi package:
 
-```bash
+```bash id="hn9p97"
 pi install git:github.com/sij0sh/cheatcodes
 ```
 
-Pi clones the package, and the committed build makes the CLI and extension work immediately. Keep it current with `pi update --extensions`.
+Then create:
 
-Uninstall:
-
-```bash
-pi remove git:github.com/sij0sh/cheatcodes
+```text id="cqxn3n"
+~/.config/cheatcodes/config.json
 ```
 
-To use only the standalone CLI without Pi:
+with the model you want to use for curation:
 
-```bash
-npm install -g github:sij0sh/cheatcodes
-```
-
-To develop from a checkout, run `npm install && npm run build`.
-
-## Configure
-
-Create `~/.config/cheatcodes/config.json`:
-
-```json
+```json id="fnlkmg"
 {
   "version": 2,
   "model": "provider/model",
@@ -58,81 +246,91 @@ Create `~/.config/cheatcodes/config.json`:
 }
 ```
 
-Replace `provider/model` with a model from your registry. When Cheatcodes needs `~/.config/cheatcodes/models.json` for the first time, it copies Pi's registry if available. Otherwise, it creates an example registry for you to replace. It never overwrites an existing registry.
+An empty `inputs` list uses the normal Pi session directory when available.
 
-An empty `inputs` list automatically discovers `~/.pi/agent/sessions` when it exists. Set `PI_CODING_AGENT_DIR` to point at a different Pi agent directory.
+After that, work in Pi normally.
 
-Add other session files or directories to `inputs` as needed. Set `CHEATCODES_CONFIG` to use a different configuration file.
+Cheatcodes starts its freshness pass automatically when a session begins in a trusted project.
 
-## First run
+The first useful lesson creates the project knowledge corpus and its agent-instruction pointer.
 
-Run Cheatcodes from the project whose sessions you want to curate:
+## The curator model
 
-```bash
-cd /path/to/project
-cheatcodes run
-cheatcodes status
+Cheatcodes needs a model to judge whether session evidence deserves to become durable knowledge.
+
+Set:
+
+```json id="lrr38i"
+"model": "provider/model"
 ```
 
-`cheatcodes run` scans matching sessions, curates supported lessons, and creates `.agents/CHEATCODES.md`. By default, it also adds a pointer to `AGENTS.md`, or to `AGENTS.override.md` when the override file already exists. A knowledge file left at the legacy root location moves to the new default on the next run.
+to a model available through a Pi-compatible model registry.
 
-`cheatcodes status` reports discovered session files, skipped inputs, the entry count, map freshness, and the last run.
+When Cheatcodes needs its model registry for the first time, it can copy Pi's existing registry if available.
 
-When the package is linked or installed, Pi loads its extension and starts a detached `cheatcodes ensure` at session start in trusted projects. Set `"autorun": false` or `CHEATCODES_ENSURE=0` to disable this.
+The curator sees bounded evidence rather than entire session histories.
 
-The extension registers one bounded tool, `search_knowledge`, for corpus search, evidence loading, bounded file reads, project inventory, and transaction staging. Set `"tools": false` to hide it from Pi sessions. The curation worker and `cheatcodes map` keep their tools regardless.
+Common secret formats are redacted before that evidence reaches the model.
 
-## Automatic freshness
+## Optional project map
 
-`cheatcodes ensure` is the one unattended verb. It curates changed sessions, runs the pending-episode curation workflow, and checks map freshness, then prints one JSON status (`refreshed`, `up-to-date`, `timeout`, `locked`, or `error`). Every status except `error` exits 0, so freshness work never blocks an agent launch.
+Repository synthesis is intentionally separate from normal session curation because it spends model effort inspecting the repository itself.
 
-Episode curation runs on the [choreograph](https://github.com/sij0sh/choreograph) workflow engine, installed as a GitHub-pinned dependency and driven inside a Pi SDK session by `cheatcodes ensure` and `cheatcodes run`.
+Run it when you want to cache that broader mental model:
 
-The map check is free: it re-verifies cited `repo:` digests and compares a bounded inventory digest. A stale map is reported as `map: "stale (sources changed)"` or `map: "stale (inventory changed)"`. Synthesis is never automatic unless you pass `--map` or set `"autoMap": true`.
-
-## Configuration reference
-
-| Field | Purpose | Default |
-| --- | --- | --- |
-| `model` | Model used to curate evidence | Required |
-| `inputs` | Session files or directories to scan | Discovered Pi sessions directory |
-| `workerTimeoutMinutes` | Maximum run time | `10` |
-| `knowledgeFile` | Project-relative output path | `.agents/CHEATCODES.md` |
-| `contextPointer` | Add the knowledge pointer to agent instructions | `true` |
-| `autorun` | Run `cheatcodes ensure` when a Pi session starts in a trusted project | `true` |
-| `tools` | Register `search_knowledge` in Pi sessions | `true` |
-| `autoMap` | Resynthesize a stale map during ensure | `false` |
-| `projectAliases` | Treat other paths as the same project | `{}` |
-
-Set `"contextPointer": false` to leave agent instruction files unchanged. Set `knowledgeFile` to another project-relative path when `.agents/CHEATCODES.md` does not fit the repository layout.
-
-## Repository synthesis
-
-`cheatcodes map` reads the repository itself and caches cross-file understanding that is expensive to re-derive:
-
-```bash
-cheatcodes map --dry-run
+```bash id="ll669n"
 cheatcodes map
 ```
 
-It maintains point entries in `.agents/CHEATCODES.md` under three family tags: `map:project-brief`, `map:system`, and `map:capability`. Each entry states one point and carries exactly its family tag, so every point gets its own title, summary, sources, and provenance. Each entry must synthesize at least two repository files. Provenance is stored per entry as `repo:<relative-path>#sha256=<digest>` sources, and every digest is re-verified immediately before the commit; a changed or missing file aborts the run.
+The resulting entries live in the same `.agents/CHEATCODES.md` corpus.
 
-Synthesis runs only when you invoke the command. Re-running it replaces the full set: map entries left out of the new submission are retired automatically. Existing entries that already restate a single canonical file (such as a README section) are rejected, so the map stays a compression of distributed truth rather than a documentation mirror.
+Cheatcodes can cheaply detect when map sources have changed. Regenerating the map remains opt-in unless `autoMap` is enabled.
 
-## Output
+## Configuration
 
-`.agents/CHEATCODES.md` does not require Cheatcodes to be running. You can commit it, review changes in Git, edit entries directly, or remove guidance that no longer applies.
+Most projects only need to choose a curator model.
 
-Cheatcodes stores processing state in the user's XDG state directory, which defaults to `~/.local/state/cheatcodes`. The project keeps only the knowledge file and, unless disabled, the agent instruction pointer.
+Additional controls are available when needed:
 
-Curation bookkeeping (transaction receipts, tombstones, reviews) lives beside that state. A missing state file starts a fresh project. An unreadable or invalid state file fails closed and names its path; restore or remove that file before running `cheatcodes maintain` or `cheatcodes ensure`. If you upgraded from a version that dropped verification metadata on curated updates, run `cheatcodes maintain` once so affected entries are re-nominated for verification.
+| Field                  | Purpose                                        | Default                 |
+| ---------------------- | ---------------------------------------------- | ----------------------- |
+| `model`                | Model used for curation                        | required                |
+| `inputs`               | Additional session locations                   | Pi sessions             |
+| `workerTimeoutMinutes` | Maximum curation run time                      | `10`                    |
+| `knowledgeFile`        | Project knowledge path                         | `.agents/CHEATCODES.md` |
+| `contextPointer`       | Point agent instructions at the corpus         | `true`                  |
+| `autorun`              | Curate automatically on Pi session start       | `true`                  |
+| `tools`                | Expose project knowledge search in Pi          | `true`                  |
+| `autoMap`              | Resynthesize a stale project map automatically | `false`                 |
+| `projectAliases`       | Treat other paths as the same project          | `{}`                    |
 
-## Environment variables
+## Standalone CLI
 
-- `CHEATCODES_ENSURE_TIMEOUT`: ensure budget in seconds. Defaults to `120`.
-- `CHEATCODES_ENSURE`: set to `0` to disable the session-start ensure trigger.
-- `CHEATCODES_CONFIG`, `CHEATCODES_STATE`, `CHEATCODES_PROJECT_ROOT`: override the config file, state directory, and project root for unattended runs.
+Cheatcodes can also be installed without Pi:
 
-## License
+```bash id="qklcdt"
+npm install -g github:sij0sh/cheatcodes
+```
 
-[MIT](LICENSE). Copyright (c) 2026 Josh Simon.
+Useful administrative commands include:
+
+```bash id="th8li0"
+cheatcodes status
+cheatcodes run
+cheatcodes map
+cheatcodes maintain
+```
+
+Normal Pi use does not require running them after every session.
+
+## Why Cheatcodes?
+
+Longer context windows do not solve institutional memory.
+
+Neither does saving every transcript.
+
+The useful middle ground is to let temporary reasoning disappear while preserving the few lessons that should change future behavior.
+
+> **Sessions are disposable. Lessons do not have to be.**
+
+Cheatcodes gives those lessons somewhere simple to live, and gives the next agent a way to find them before it learns the same thing the hard way.
