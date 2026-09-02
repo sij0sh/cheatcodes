@@ -46,7 +46,7 @@ An empty knowledge file is better than a large one full of things the agent coul
 
 Cheatcodes does not turn sessions into summaries.
 
-It turns evidence into **current guidance**.
+It turns evidence into current guidance.
 
 ```text id="gft5nw"
 session
@@ -75,7 +75,7 @@ The raw back-and-forth is useful while solving the problem.
 
 The durable lesson is what matters next time.
 
-That distinction keeps the knowledge base small enough to remain useful.
+That distinction keeps the knowledge file small enough to remain useful.
 
 ## What is worth remembering?
 
@@ -98,7 +98,7 @@ A failed approach is not a lesson until the recovery actually succeeds.
 
 And if the answer is already sitting plainly in the code or documentation, there is little value in copying it into another file.
 
-The corpus is for the things that are expensive to reconstruct.
+The knowledge file is for the things that are expensive to reconstruct.
 
 ## Project knowledge should describe now
 
@@ -124,9 +124,9 @@ Future agents need the lesson.
 
 Writing down project knowledge does not guarantee an agent will use it.
 
-A useful lesson can sit untouched in a file simply because the next session does not know it exists or does not think to look there.
+A useful lesson can sit untouched in a file because the next session does not know it exists or does not think to look there.
 
-Cheatcodes keeps the corpus at:
+Cheatcodes keeps the knowledge file at:
 
 ```text id="5gtuh2"
 .agents/CHEATCODES.md
@@ -142,9 +142,7 @@ Start with `.agents/CHEATCODES.md`.
 
 It also provides bounded knowledge search when the agent needs to recall something specific.
 
-The goal is not merely to store lessons.
-
-It is to make those lessons available to the next session at the point where they can change what the agent does.
+The goal is to make lessons available to the next session at the point where they can change what the agent does.
 
 ## Plain Markdown on purpose
 
@@ -196,9 +194,9 @@ Cheatcodes reviews the lesson
 future session starts smarter
 ```
 
-You do not need to remember to summarize each session yourself.
+You do not need to summarize each session yourself.
 
-## A second kind of memory: the project map
+## The project map
 
 Some useful knowledge does not come from a session at all.
 
@@ -214,7 +212,7 @@ cheatcodes map
 
 The map is not meant to restate the README or catalog files.
 
-It keeps cross-file understanding that is genuinely useful to a new engineer: what the project does, how major pieces fit together, and capabilities that change the mental model of the system.
+It records cross-file understanding that a new engineer actually needs: what the project does, how major pieces fit together, and capabilities that change the mental model of the system.
 
 A point is only worth caching when it synthesizes information spread across multiple files.
 
@@ -252,7 +250,7 @@ After that, work in Pi normally.
 
 Cheatcodes starts its freshness pass automatically when a session begins in a trusted project.
 
-The first useful lesson creates the project knowledge corpus and its agent-instruction pointer.
+The first useful lesson creates the knowledge file and its pointer in the agent instructions.
 
 ## The curator model
 
@@ -266,13 +264,13 @@ Set:
 
 to a model available through a Pi-compatible model registry.
 
-When Cheatcodes needs its model registry for the first time, it can copy Pi's existing registry if available.
+When Cheatcodes first needs its model registry, it can copy Pi's existing registry if available.
 
 The curator sees bounded evidence rather than entire session histories.
 
 Common secret formats are redacted before that evidence reaches the model.
 
-## Optional project map
+## Running the map
 
 Repository synthesis is intentionally separate from normal session curation because it spends model effort inspecting the repository itself.
 
@@ -282,7 +280,7 @@ Run it when you want to cache that broader mental model:
 cheatcodes map
 ```
 
-The resulting entries live in the same `.agents/CHEATCODES.md` corpus.
+The resulting entries live in the same knowledge file.
 
 Cheatcodes can cheaply detect when map sources have changed. Regenerating the map remains opt-in unless `autoMap` is enabled.
 
@@ -298,7 +296,7 @@ Additional controls are available when needed:
 | `inputs`               | Additional session locations                   | Pi sessions             |
 | `workerTimeoutMinutes` | Maximum curation run time                      | `10`                    |
 | `knowledgeFile`        | Project knowledge path                         | `.agents/CHEATCODES.md` |
-| `contextPointer`       | Point agent instructions at the corpus         | `true`                  |
+| `contextPointer`       | Point agent instructions at the knowledge file | `true`                  |
 | `autorun`              | Curate automatically on Pi session start       | `true`                  |
 | `tools`                | Expose project knowledge search in Pi          | `true`                  |
 | `autoMap`              | Resynthesize a stale project map automatically | `false`                 |
@@ -312,7 +310,7 @@ Cheatcodes can also be installed without Pi:
 npm install -g github:sij0sh/cheatcodes
 ```
 
-Useful administrative commands include:
+Administrative commands include:
 
 ```bash id="th8li0"
 cheatcodes status
