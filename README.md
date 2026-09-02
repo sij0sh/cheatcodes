@@ -220,13 +220,13 @@ If one file already explains it well, that file remains the source of truth.
 
 ## Working with Snoop
 
-Cheatcodes and Snoop each handle one half of project memory.
+Cheatcodes was designed as a complementary to Snoop.
 
 Cheatcodes decides what future sessions should know and writes it down.
 
 Snoop makes what the repository already contains findable again.
 
-Snoop indexes current code, Markdown, Git history, and prior Pi sessions. When an agent needs to know why the code looks the way it does, Snoop can recall the commit, the design note, or the earlier session that explains it.
+Snoop indexes current code, Markdown, Git history, and prior Pi sessions. It also has custom chunking strategy for CHEATCODES.md file. When an agent needs to know why the code looks the way it does, Snoop can recall the commit, the design note, the earlier session that explains it, along with any relevent curated cheatcode entries.
 
 The knowledge file is part of that index. Because it is plain Markdown, Snoop treats it like any other document, so a curated lesson can surface right next to the evidence that produced it.
 
@@ -244,6 +244,28 @@ Cheatcodes is selective. The knowledge file stays small, which is what keeps ret
 Both stay local. Cheatcodes writes Markdown beside the code, and Snoop keeps its index in SQLite.
 
 > **Cheatcodes writes the lesson. Snoop finds it again.**
+
+## Without Snoop
+
+Snoop indexes the knowledge file along with everything else.
+
+Without it, the agent has to know the file exists and think to look.
+
+Cheatcodes already adds a minimal pointer to `AGENTS.md`:
+
+```text id="k8sm4q"
+## Project knowledge
+
+Start with `.agents/CHEATCODES.md`.
+```
+
+That says where the knowledge lives. It does not say when to consult it or why it matters.
+
+One stronger line can:
+
+```text id="m4qt7x"
+Before working on anything non-obvious, check `.agents/CHEATCODES.md` or call `search_knowledge`; past sessions left decisions, constraints, and failure modes there.
+```
 
 ## Install
 
